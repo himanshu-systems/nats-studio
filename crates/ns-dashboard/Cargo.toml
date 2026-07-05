@@ -1,0 +1,14 @@
+[package]
+name = "ns-dashboard"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+ns-types = { workspace = true }
+ns-core = { workspace = true }
+ns-event = { workspace = true }
+ns-connection = { workspace = true }
+ns-monitor = { workspace = true }
+ns-jetstream = { workspace = true }
