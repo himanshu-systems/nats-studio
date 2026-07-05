@@ -20,7 +20,7 @@ bin = "cargo-tauri"
 args = ["--version"]
 
 [tools.typeshare]
-version = "1"
+version = "1.13.4"
 bin = "typeshare"
 args = ["--version"]
 
