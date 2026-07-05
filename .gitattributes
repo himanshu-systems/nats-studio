@@ -1,0 +1,28 @@
+# Normalize line endings to LF in the repo across all platforms (tri-OS CI).
+* text=auto eol=lf
+
+# Explicit text files
+*.rs        text eol=lf
+*.toml      text eol=lf
+*.ts        text eol=lf
+*.tsx       text eol=lf
+*.js        text eol=lf
+*.json      text eol=lf
+*.css       text eol=lf
+*.html      text eol=lf
+*.md        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+Cargo.lock  text eol=lf
+
+# Binary assets (never normalize)
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.icns  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.wasm  binary
