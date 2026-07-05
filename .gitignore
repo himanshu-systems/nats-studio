@@ -1,0 +1,25 @@
+# Rust
+/target
+**/target
+Cargo.lock.bak
+
+# Node / frontend
+**/node_modules
+/apps/desktop/dist
+/apps/desktop/.vite
+
+# Tauri
+/apps/desktop/src-tauri/target
+/apps/desktop/src-tauri/gen
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Local env
+.env
+.env.local

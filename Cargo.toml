@@ -1,0 +1,42 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+authors = ["NATS Studio contributors"]
+
+[workspace.dependencies]
+# External (pinned once here; referenced by crates as implementations land)
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+typeshare = "1"
+thiserror = "2"
+anyhow = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+time = { version = "0.3", features = ["serde", "formatting", "parsing"] }
+
+# Intra-workspace crates
+ns-types = { path = "crates/ns-types" }
+ns-core = { path = "crates/ns-core" }
+ns-event = { path = "crates/ns-event" }
+ns-nats = { path = "crates/ns-nats" }
+ns-security = { path = "crates/ns-security" }
+ns-storage = { path = "crates/ns-storage" }
+ns-telemetry = { path = "crates/ns-telemetry" }
+ns-inspector = { path = "crates/ns-inspector" }
+ns-connection = { path = "crates/ns-connection" }
+ns-pubsub = { path = "crates/ns-pubsub" }
+ns-jetstream = { path = "crates/ns-jetstream" }
+ns-monitor = { path = "crates/ns-monitor" }
+ns-subject = { path = "crates/ns-subject" }
+ns-terminal = { path = "crates/ns-terminal" }
+ns-plugin = { path = "crates/ns-plugin" }
+ns-dashboard = { path = "crates/ns-dashboard" }
+ns-ipc = { path = "crates/ns-ipc" }
+ns-testkit = { path = "crates/ns-testkit" }
