@@ -1,0 +1,23 @@
+[package]
+name = "nats-studio"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+description = "NATS Studio — the definitive desktop GUI for NATS."
+
+[[bin]]
+name = "nats-studio"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+ns-types = { workspace = true }
+ns-core = { workspace = true }
