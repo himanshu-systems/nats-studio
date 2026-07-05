@@ -3,16 +3,21 @@
 [advisories]
 version = 2
 yanked = "deny"
-# ignore = []  # add reviewed RUSTSEC ids here with a justification comment
+# Tauri pulls a number of unmaintained crates deep in its tree (GTK3 bindings,
+# rust-unic, proc-macro-error, ...) with no available fix. Only flag unmaintained
+# crates that WE depend on directly; still fail hard on any actual vulnerability.
+unmaintained = "workspace"
+# ignore = []  # add specific RUSTSEC ids here (with justification) if ever needed
 
 [bans]
 multiple-versions = "warn"
 wildcards = "warn"
 # ADR-0004: rustls only — no OpenSSL system dependency anywhere in the tree.
+# (native-tls is intentionally NOT banned: it is a feature-gated escape hatch and
+# uses SChannel/SecureTransport, not OpenSSL, on Windows/macOS.)
 deny = [
     { name = "openssl-sys" },
     { name = "openssl" },
-    { name = "native-tls" },  # allowed only behind an explicit feature; revisit if enabled
 ]
 
 [licenses]

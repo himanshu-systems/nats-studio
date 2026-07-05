@@ -6,6 +6,7 @@ members = ["crates/*", "tools/xtask", "apps/desktop/src-tauri"]
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.89"
+license = "MIT"
 authors = ["NATS Studio contributors"]
 
 [workspace.dependencies]
