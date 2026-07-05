@@ -1,0 +1,30 @@
+# Pinned external tool versions. CI installs exactly these; `cargo xtask verify-tools`
+# checks the local environment against them. Bump deliberately (with a changelog note).
+
+[tools.rust]
+version = "1.96.1"   # also pinned in rust-toolchain.toml (ADR-0016)
+
+[tools.nats-server]
+version = "2.10.25"
+bin = "nats-server"
+args = ["--version"]
+
+[tools.nats]
+version = "0.4.0"
+bin = "nats"
+args = ["--version"]
+
+[tools.cargo-tauri]
+version = "2"
+bin = "cargo-tauri"
+args = ["--version"]
+
+[tools.typeshare]
+version = "1"
+bin = "typeshare"
+args = ["--version"]
+
+[tools.nsc]
+version = "2.12.2"
+bin = "nsc"
+args = ["--version"]

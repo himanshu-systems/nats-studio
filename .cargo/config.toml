@@ -1,0 +1,3 @@
+# Repo-local cargo configuration.
+[alias]
+xtask = "run --quiet --package xtask --"
