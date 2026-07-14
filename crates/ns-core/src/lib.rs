@@ -1,44 +1,32 @@
-//! ns-core — the kernel: port traits, the `DomainError` contract, strongly-typed
-//! IDs, cancellation, and the settings model. Depends only on `ns-types`.
+//! ns-core — the kernel: strongly-typed IDs, the `DomainError` contract + neutral
+//! `CoreError`, secret redaction, a `Clock`, cancellation/task registries, the
+//! internal event envelope + `EventPublisher` port, and the infrastructure **port
+//! traits** (SecretStore, repositories, NATS client) that adapters implement and
+//! the binary wires up. Depends only on `ns-types`.
 //!
-//! See docs/architecture/00-conventions-and-workspace.md (sections 7 & 10).
+//! See docs/architecture/00-conventions-and-workspace.md (sections 7 & 10) and
+//! docs/architecture/dependency-graph.md (the port-injection pattern).
 #![forbid(unsafe_code)]
 
-use std::fmt;
+mod clock;
+mod config;
+mod error;
+mod event;
+mod ids;
+mod ports;
+mod redact;
+mod runtime;
+
+pub use clock::{Clock, SystemClock};
+pub use config::default_settings;
+pub use error::{CoreError, DomainError};
+pub use event::{Event, EventPublisher, Topic};
+pub use ids::{ConnectionId, SessionId, SubscriptionId, TaskId};
+pub use ports::{
+    ConnectSpec, ConnectionProfileRepo, NatsClient, NatsClientFactory, ResolvedAuth, ResolvedTls,
+    SecretStore, SettingsRepo,
+};
+pub use redact::{Redacted, SecretString};
+pub use runtime::{CancellationRegistry, TaskRegistry};
 
 pub use ns_types::ErrorCode;
-
-/// Implemented by every crate public error enum so the IPC boundary can map any
-/// failure to a stable `ErrorCode` + a secret-safe user message (spine section 7.2).
-pub trait DomainError: std::error::Error {
-    fn code(&self) -> ErrorCode;
-    fn retriable(&self) -> bool {
-        false
-    }
-    fn user_message(&self) -> String {
-        self.to_string()
-    }
-}
-
-/// Strongly-typed connection identifier (spine section 6.2). Serialized as a string.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ConnectionId(pub uuid::Uuid);
-
-impl ConnectionId {
-    #[must_use]
-    pub fn new() -> Self {
-        Self(uuid::Uuid::new_v4())
-    }
-}
-
-impl Default for ConnectionId {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl fmt::Display for ConnectionId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
