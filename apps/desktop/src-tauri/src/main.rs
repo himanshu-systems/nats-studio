@@ -13,8 +13,9 @@ use tracing_subscriber::EnvFilter;
 fn app_info() -> Result<AppInfo, IpcError> {
     Ok(AppInfo {
         version: env!("CARGO_PKG_VERSION").to_string(),
-        app_schema_version: 1,
+        app_schema_version: ns_types::APP_SCHEMA_VERSION,
         plugin_api_version: "0.1.0".to_string(),
+        storage_schema_version: 0, // no migrations applied yet (ns-storage lands next)
         os: std::env::consts::OS.to_string(),
         arch: std::env::consts::ARCH.to_string(),
         build_channel: if cfg!(debug_assertions) {

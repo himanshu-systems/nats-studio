@@ -310,6 +310,8 @@ fn gen_types() -> Result<()> {
         .arg(root.join("crates/ns-types"))
         .arg("--lang")
         .arg("typescript")
+        .arg("--config-file")
+        .arg(root.join("typeshare.toml"))
         .arg("--output-file")
         .arg(&out)
         .status()

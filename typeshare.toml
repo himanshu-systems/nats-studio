@@ -1,0 +1,9 @@
+# typeshare configuration for Rust -> TypeScript generation.
+#
+# typeshare rejects bare `u64`/`i64` (they can exceed JS's 2^53 safe integer
+# range). We model 64-bit wire fields with the `ns_types::U64` alias and map it
+# to the TS `number` type here — our u64 fields are counts, byte totals, ms
+# durations, and monotonic sequences that stay well within 2^53 in practice.
+# A genuinely-huge value must instead be a string DTO field.
+[typescript.type_mappings]
+U64 = "number"
