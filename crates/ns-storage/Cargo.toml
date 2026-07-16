@@ -9,3 +9,12 @@ publish = false
 [dependencies]
 ns-types = { workspace = true }
 ns-core = { workspace = true }
+async-trait = { workspace = true }
+rusqlite = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+time = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
