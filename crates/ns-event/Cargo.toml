@@ -9,3 +9,9 @@ publish = false
 [dependencies]
 ns-types = { workspace = true }
 ns-core = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+time = { workspace = true }
