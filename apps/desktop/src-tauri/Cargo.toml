@@ -11,6 +11,13 @@ description = "NATS Studio — the definitive desktop GUI for NATS."
 name = "nats-studio"
 path = "src/main.rs"
 
+[features]
+# Serve the embedded frontend via Tauri's custom protocol (no dev server).
+# REQUIRED for standalone / release builds — without it the webview loads
+# `build.devUrl` and shows "can't reach this page". `tauri dev` deliberately
+# leaves this off so it can use the Vite dev server instead.
+custom-protocol = ["tauri/custom-protocol"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
