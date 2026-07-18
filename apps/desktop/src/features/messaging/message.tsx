@@ -46,7 +46,7 @@ export function MessageMeta({ view }: { view: MessageView }): JSX.Element {
 // --- payload decoding --------------------------------------------------------
 
 const MAX_RENDER = 64 * 1024;
-type Mode = "json" | "text" | "hex" | "proto" | "base64";
+type Mode = "json" | "text" | "hex" | "proto" | "msgpack" | "base64";
 
 function b64ToBytes(b64: string): Uint8Array {
   try {
@@ -144,13 +144,92 @@ function decodeProto(bytes: Uint8Array): string | null {
   return out.length ? out.join("\n") : null;
 }
 
-/** Payload viewer: format tabs (JSON / Text / Hex / Protobuf / Base64) + copy. */
+/** Minimal MessagePack decoder (common subset). Returns the decoded value, or
+ *  throws if the bytes aren't valid / fully-consumed MessagePack. */
+function decodeMsgpack(bytes: Uint8Array): unknown {
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let pos = 0;
+  const big = (v: bigint): number | string =>
+    v >= BigInt(Number.MIN_SAFE_INTEGER) && v <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(v) : v.toString();
+  const str = (len: number): string => {
+    const s = utf8(bytes.subarray(pos, pos + len));
+    pos += len;
+    return s;
+  };
+  const bin = (len: number): string => {
+    const s = bytes.subarray(pos, pos + len);
+    pos += len;
+    return `<bin ${len}B 0x${toHex(s.subarray(0, 16))}${len > 16 ? "…" : ""}>`;
+  };
+  const arr = (n: number): unknown[] => {
+    const a: unknown[] = [];
+    for (let i = 0; i < n; i++) a.push(read());
+    return a;
+  };
+  const map = (n: number): Record<string, unknown> => {
+    const o: Record<string, unknown> = {};
+    for (let i = 0; i < n; i++) {
+      const k = read();
+      o[String(k)] = read();
+    }
+    return o;
+  };
+  function read(): unknown {
+    const b = dv.getUint8(pos++);
+    if (b <= 0x7f) return b;
+    if (b >= 0xe0) return b - 256;
+    if (b <= 0x8f) return map(b & 0x0f);
+    if (b <= 0x9f) return arr(b & 0x0f);
+    if (b <= 0xbf) return str(b & 0x1f);
+    switch (b) {
+      case 0xc0: return null;
+      case 0xc2: return false;
+      case 0xc3: return true;
+      case 0xcc: return dv.getUint8(pos++);
+      case 0xcd: { const v = dv.getUint16(pos); pos += 2; return v; }
+      case 0xce: { const v = dv.getUint32(pos); pos += 4; return v; }
+      case 0xcf: { const v = dv.getBigUint64(pos); pos += 8; return big(v); }
+      case 0xd0: return dv.getInt8(pos++);
+      case 0xd1: { const v = dv.getInt16(pos); pos += 2; return v; }
+      case 0xd2: { const v = dv.getInt32(pos); pos += 4; return v; }
+      case 0xd3: { const v = dv.getBigInt64(pos); pos += 8; return big(v); }
+      case 0xca: { const v = dv.getFloat32(pos); pos += 4; return v; }
+      case 0xcb: { const v = dv.getFloat64(pos); pos += 8; return v; }
+      case 0xd9: { const l = dv.getUint8(pos++); return str(l); }
+      case 0xda: { const l = dv.getUint16(pos); pos += 2; return str(l); }
+      case 0xdb: { const l = dv.getUint32(pos); pos += 4; return str(l); }
+      case 0xc4: { const l = dv.getUint8(pos++); return bin(l); }
+      case 0xc5: { const l = dv.getUint16(pos); pos += 2; return bin(l); }
+      case 0xc6: { const l = dv.getUint32(pos); pos += 4; return bin(l); }
+      case 0xdc: { const l = dv.getUint16(pos); pos += 2; return arr(l); }
+      case 0xdd: { const l = dv.getUint32(pos); pos += 4; return arr(l); }
+      case 0xde: { const l = dv.getUint16(pos); pos += 2; return map(l); }
+      case 0xdf: { const l = dv.getUint32(pos); pos += 4; return map(l); }
+      default: throw new Error(`unsupported msgpack byte 0x${b.toString(16)}`);
+    }
+  }
+  const result = read();
+  if (pos !== bytes.length) throw new Error("trailing bytes"); // guards against false positives
+  return result;
+}
+
+/** Payload viewer: format tabs (JSON / Text / Hex / Protobuf / MessagePack / Base64) + copy. */
 export function PayloadView({ view, className }: { view: MessageView; className?: string }): JSX.Element {
   const bytes = useMemo(() => b64ToBytes(view.payloadBase64), [view.payloadBase64]);
   const compressed = view.compression !== "none";
   const [copied, setCopied] = useState(false);
 
-  const defaultMode: Mode = view.format === "json" ? "json" : view.format === "binary" ? "hex" : "text";
+  const looksMsgpack = (b: Uint8Array): boolean => {
+    if (b.length === 0) return false;
+    try {
+      decodeMsgpack(b);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const defaultMode: Mode =
+    view.format === "json" ? "json" : view.format === "binary" ? (looksMsgpack(bytes) ? "msgpack" : "hex") : "text";
   const [mode, setMode] = useState<Mode>(defaultMode);
 
   const rendered = useMemo((): string => {
@@ -166,6 +245,12 @@ export function PayloadView({ view, className }: { view: MessageView; className?
         return hexdump(bytes);
       case "proto":
         return decodeProto(bytes) ?? "(not a valid protobuf wire-format message)";
+      case "msgpack":
+        try {
+          return JSON.stringify(decodeMsgpack(bytes), null, 2);
+        } catch {
+          return "(not a valid MessagePack message)";
+        }
       case "base64":
         return view.payloadBase64;
     }
@@ -178,7 +263,9 @@ export function PayloadView({ view, className }: { view: MessageView; className?
     });
   };
 
-  const modes: Mode[] = ["json", "text", "hex", "proto", "base64"];
+  const modes: Mode[] = ["json", "text", "hex", "proto", "msgpack", "base64"];
+  const label = (m: Mode): string =>
+    m === "proto" ? "Protobuf" : m === "msgpack" ? "MessagePack" : m === "base64" ? "Base64" : m === "json" ? "JSON" : m;
 
   return (
     <div className={cx("space-y-2", className)}>
@@ -193,19 +280,19 @@ export function PayloadView({ view, className }: { view: MessageView; className?
         </dl>
       )}
 
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex gap-1">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="inline-flex flex-wrap rounded-lg border border-border bg-surface-2 p-0.5">
           {modes.map((m) => (
             <button
               key={m}
               type="button"
               onClick={() => setMode(m)}
               className={cx(
-                "rounded-md px-2 py-1 text-[11px] font-medium capitalize transition-colors",
-                mode === m ? "bg-accent/15 text-accent" : "text-muted hover:bg-surface-2 hover:text-content",
+                "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
+                mode === m ? "bg-accent text-accent-content shadow-sm" : "text-muted hover:text-content",
               )}
             >
-              {m === "proto" ? "Protobuf" : m === "base64" ? "Base64" : m}
+              {label(m)}
             </button>
           ))}
         </div>

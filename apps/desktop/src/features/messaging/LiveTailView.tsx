@@ -31,6 +31,12 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
   const subsRef = useRef<ActiveSub[]>([]);
   subsRef.current = subs;
 
+  // Auto-select the newest message when nothing is selected, so the formatted
+  // payload + format tabs are visible immediately (no click needed).
+  useEffect(() => {
+    setSelected((cur) => cur ?? messages[0] ?? null);
+  }, [messages]);
+
   // Tear down every subscription when leaving the view / switching connection.
   useEffect(
     () => () => {
