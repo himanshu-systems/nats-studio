@@ -1,7 +1,5 @@
 /**
  * The application's information architecture. Each item maps to a feature view.
- * `live` items have a working backend today; the rest render an honest
- * "coming in Phase N" scaffold (see `ComingSoon.tsx`) so the map is complete.
  */
 export interface NavItem {
   id: string;
@@ -34,7 +32,7 @@ export const NAV: NavSection[] = [
         icon: "dashboard",
         live: true,
         requiresConnection: true,
-        blurb: "Server identity, JetStream, round-trip latency and connection health at a glance.",
+        blurb: "Server, health, latency, streams↔subjects and connected clients at a glance.",
       },
       {
         id: "connections",
@@ -42,14 +40,6 @@ export const NAV: NavSection[] = [
         icon: "link",
         live: true,
         blurb: "Create connection profiles and connect / disconnect from NATS servers.",
-      },
-      {
-        id: "topology",
-        label: "Topology",
-        icon: "network",
-        live: true,
-        requiresConnection: true,
-        blurb: "Streams and the subjects they capture, the server in use, and per-client subscriber counts.",
       },
     ],
   },
@@ -63,7 +53,7 @@ export const NAV: NavSection[] = [
         icon: "database",
         live: true,
         requiresConnection: true,
-        blurb: "App / KV / Object / System streams — create, edit, delete and purge (all, by-subject, keep-N, up-to-seq).",
+        blurb: "Create, edit, delete and purge streams (all, by-subject, keep-N, up-to-seq).",
       },
       {
         id: "consumers",
@@ -79,7 +69,7 @@ export const NAV: NavSection[] = [
         icon: "key",
         live: true,
         requiresConnection: true,
-        blurb: "Full KV bucket & key manager — get / put / history / watch.",
+        blurb: "KV bucket & key manager — get / put / delete.",
       },
       {
         id: "objectstore",
@@ -87,22 +77,7 @@ export const NAV: NavSection[] = [
         icon: "cube",
         live: true,
         requiresConnection: true,
-        blurb: "Object store browser — buckets, objects, upload and download.",
-      },
-      {
-        id: "accounts",
-        label: "Accounts",
-        icon: "users",
-        live: true,
-        blurb: "Live connections (connz) from the server monitoring endpoint.",
-      },
-      {
-        id: "backup",
-        label: "Backup & Restore",
-        icon: "archive",
-        live: true,
-        requiresConnection: true,
-        blurb: "Logical backup / restore of streams via message re-publish.",
+        blurb: "Object store browser — buckets, objects and download.",
       },
     ],
   },
@@ -143,14 +118,6 @@ export const NAV: NavSection[] = [
         blurb: "Browse stored JetStream messages, paginated, with per-message delete.",
       },
       {
-        id: "replay",
-        label: "Replay Studio",
-        icon: "replay",
-        live: true,
-        requiresConnection: true,
-        blurb: "Re-publish stored messages with rate and subject-mapping control.",
-      },
-      {
         id: "consumerlab",
         label: "Consumer Lab",
         icon: "beaker",
@@ -185,23 +152,7 @@ export const NAV: NavSection[] = [
         icon: "grid",
         live: true,
         requiresConnection: true,
-        blurb: "NATS micro-services explorer with ping, stats and schema discovery.",
-      },
-      {
-        id: "health",
-        label: "Health & Alerts",
-        icon: "activity",
-        live: true,
-        requiresConnection: true,
-        blurb: "Client-computed health from streams, consumers and topology, with alerting.",
-      },
-      {
-        id: "latency",
-        label: "Latency (RTT)",
-        icon: "clock",
-        live: true,
-        requiresConnection: true,
-        blurb: "Continuous server round-trip-time measurement and history.",
+        blurb: "NATS micro-services explorer — discover running services via $SRV.PING.",
       },
     ],
   },

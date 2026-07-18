@@ -1,11 +1,26 @@
-import type { ReactNode } from "react";
-import { ConnectionStatus } from "@bindings";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { ConnectionStatus, ipc } from "@bindings";
 import { useActiveConnection } from "../../lib/activeConnection";
 import { useUiStore } from "../../lib/uiStore";
-import { Badge, Button, EmptyState, Panel, StatusDot, statusMeta } from "../../components/ui";
+import { Badge, Button, EmptyState, Panel, SearchInput, SectionLabel, StatusDot, statusMeta } from "../../components/ui";
 import { Icon } from "../../components/Icon";
+import { LineChart } from "../../components/Chart";
+import { RequireConnection } from "../../components/RequireConnection";
 
-/** Live at-a-glance dashboard for the active connection. */
+const DEFAULT_URL = "http://127.0.0.1:8222";
+const fmtNum = (n: number): string => n.toLocaleString();
+
+function fmtRtt(micros: number | undefined): string {
+  if (micros == null) return "—";
+  return micros < 1000 ? `${Math.round(micros)} µs` : `${(micros / 1000).toFixed(2)} ms`;
+}
+
+/**
+ * Unified dashboard: server identity + health + latency + streams↔subjects +
+ * clients/subscribers for the active connection. (Merges the former Overview,
+ * Topology, Health, Latency and Accounts views.)
+ */
 export function OverviewView(): JSX.Element {
   const { active } = useActiveConnection();
   const setView = useUiStore((s) => s.setView);
@@ -21,120 +36,262 @@ export function OverviewView(): JSX.Element {
           </Button>
         }
       >
-        Connect to a NATS server and it will appear here with its server identity, JetStream status
-        and latency.
+        Connect to a NATS server and its identity, health, latency and topology appear here.
       </EmptyState>
     );
   }
+  return <RequireConnection>{(connId) => <Dashboard connId={connId} />}</RequireConnection>;
+}
 
-  const meta = statusMeta(active.status);
-  const info = active.serverInfo;
-  const connected = active.status === ConnectionStatus.Connected;
+function Dashboard({ connId }: { connId: string }): JSX.Element {
+  const { active } = useActiveConnection();
+  const setView = useUiStore((s) => s.setView);
+  const info = active?.serverInfo;
+  const connected = active?.status === ConnectionStatus.Connected;
+  const meta = statusMeta(active?.status ?? ConnectionStatus.Disconnected);
+
+  const [url, setUrl] = useState(DEFAULT_URL);
+  const [q, setQ] = useState("");
+  const [rtt, setRtt] = useState<number[]>([]);
+
+  const streams = useQuery({
+    queryKey: ["streams", connId],
+    queryFn: () => ipc.jetstream.listStreams({ connectionId: connId }),
+  });
+  const varz = useQuery({
+    queryKey: ["monitor", "varz", url],
+    queryFn: () => ipc.monitor.varz({ baseUrl: url }),
+    refetchInterval: 3000,
+  });
+  const connz = useQuery({
+    queryKey: ["monitor", "connz", url],
+    queryFn: () => ipc.monitor.connz({ baseUrl: url }),
+    refetchInterval: 3000,
+  });
+
+  // Live RTT sample (microseconds).
+  useEffect(() => {
+    setRtt([]);
+    let alive = true;
+    const tick = async (): Promise<void> => {
+      try {
+        const us = await ipc.connection.ping(connId);
+        if (alive) setRtt((s) => [...s, us].slice(-40));
+      } catch {
+        /* transient */
+      }
+    };
+    void tick();
+    const id = setInterval(() => void tick(), 1000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [connId]);
+
+  const items = streams.data?.streams ?? [];
+  const needle = q.trim().toLowerCase();
+  const filtered =
+    needle === ""
+      ? items
+      : items.filter(
+          (s) =>
+            s.config.name.toLowerCase().includes(needle) ||
+            s.config.subjects.some((subj) => subj.toLowerCase().includes(needle)),
+        );
+  const conns = connz.data?.connections ?? [];
+  const v = varz.data;
+
+  const checks: { label: string; tone: "positive" | "warning" | "danger"; icon: string }[] = [
+    connected
+      ? { label: "Connected", tone: "positive", icon: "check" }
+      : { label: meta.label, tone: "danger", icon: "x" },
+    info?.jetstream
+      ? { label: "JetStream", tone: "positive", icon: "check" }
+      : { label: "No JetStream", tone: "warning", icon: "alert" },
+    varz.isError
+      ? { label: "Monitoring off", tone: "warning", icon: "alert" }
+      : { label: "Monitoring", tone: "positive", icon: "check" },
+    v && v.slowConsumers > 0
+      ? { label: `${v.slowConsumers} slow`, tone: "warning", icon: "alert" }
+      : { label: "No slow consumers", tone: "positive", icon: "check" },
+  ];
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4 overflow-auto p-4">
+    <div className="mx-auto max-w-6xl space-y-4 overflow-auto p-4">
+      {/* Server + health */}
       <Panel className="p-5">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-surface-2 text-accent">
               <Icon name="server" size={22} />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-content">{active.name}</h2>
-              <div className="mt-0.5 flex items-center gap-1.5">
-                <StatusDot status={active.status} />
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-semibold text-content">{active?.name}</h2>
+                <StatusDot status={active?.status ?? ConnectionStatus.Disconnected} />
                 <Badge tone={meta.tone}>{meta.label}</Badge>
-                {connected && active.rttMs != null && (
-                  <span className="text-xs text-muted">· {active.rttMs} ms RTT</span>
-                )}
+              </div>
+              <div className="mt-0.5 font-mono text-xs text-muted">
+                {info ? `${info.serverName} · ${info.host}:${info.port} · v${info.version}` : "connecting…"}
               </div>
             </div>
           </div>
-          {connected ? (
-            <Button variant="outline" icon="signal" onClick={() => setView("livetail")}>
-              Live Tail
-            </Button>
-          ) : (
-            <Button icon="link" onClick={() => setView("connections")}>
-              Manage
-            </Button>
-          )}
+          <div className="flex flex-wrap gap-1.5">
+            {checks.map((c) => (
+              <Badge key={c.label} tone={c.tone}>
+                <Icon name={c.icon} size={12} /> {c.label}
+              </Badge>
+            ))}
+          </div>
         </div>
-        {active.lastError && (
-          <p className="mt-3 rounded-lg border border-danger/25 bg-danger/10 px-3 py-2 text-xs text-danger">
-            {active.lastError}
-          </p>
+        {active?.lastError && (
+          <p className="mt-3 rounded-lg border border-danger/25 bg-danger/10 px-3 py-2 text-xs text-danger">{active.lastError}</p>
         )}
       </Panel>
 
-      {info ? (
-        <>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <Stat label="Round-trip" value={active.rttMs != null ? `${active.rttMs} ms` : "—"} icon="clock" />
-            <Stat label="Max payload" value={`${Math.round(info.maxPayload / 1024)} KiB`} icon="inbox" />
-            <Stat
-              label="JetStream"
-              value={info.jetstream ? "Enabled" : "Disabled"}
-              icon="database"
-              tone={info.jetstream ? "positive" : "neutral"}
-            />
-            <Stat label="Protocol" value={`v${info.proto}`} icon="bolt" />
+      {/* Stats + latency */}
+      <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1fr_1.4fr]">
+        <Stat label="Subscribers" value={v ? fmtNum(v.subscriptions) : "—"} icon="signal" />
+        <Stat label="Connections" value={v ? fmtNum(v.connections) : "—"} icon="users" />
+        <Stat label="Streams" value={fmtNum(items.length)} icon="database" />
+        <Panel className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-muted">
+              <Icon name="clock" size={15} />
+              <span className="text-[11px] font-semibold uppercase tracking-wider">Round-trip</span>
+            </div>
+            <span className="text-sm font-semibold tabular-nums text-content">{fmtRtt(rtt.at(-1))}</span>
           </div>
-
-          <Panel className="p-5">
-            <h3 className="mb-3 text-sm font-semibold text-content">Server</h3>
-            <dl className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
-              <Detail label="Server name" value={info.serverName} mono />
-              <Detail label="Server ID" value={info.serverId} mono />
-              <Detail label="Version" value={info.version} />
-              <Detail label="Host" value={`${info.host}:${info.port}`} mono />
-              <Detail label="Cluster" value={info.cluster ?? "—"} />
-              <Detail label="Client ID" value={info.clientId != null ? String(info.clientId) : "—"} mono />
-              <Detail label="Auth required" value={info.authRequired ? "Yes" : "No"} />
-              <Detail label="TLS required" value={info.tlsRequired ? "Yes" : "No"} />
-            </dl>
-          </Panel>
-        </>
-      ) : (
-        <Panel className="p-6">
-          <p className="text-sm text-muted">
-            Server details appear once the connection is established.
-          </p>
+          <div className="mt-2 h-12">
+            {rtt.length > 1 ? (
+              <LineChart series={[{ label: "rtt", values: rtt }]} height={48} />
+            ) : (
+              <div className="flex h-full items-center text-[11px] text-faint">sampling…</div>
+            )}
+          </div>
         </Panel>
-      )}
+      </div>
+
+      {/* Streams ↔ subjects */}
+      <div>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <SectionLabel>
+            Streams & subjects ({filtered.length}
+            {needle && ` / ${items.length}`})
+          </SectionLabel>
+          <Button size="sm" variant="outline" icon="replay" onClick={() => void streams.refetch()} disabled={streams.isFetching}>
+            {streams.isFetching ? "…" : "Refresh"}
+          </Button>
+        </div>
+        {items.length > 0 && (
+          <div className="mb-2">
+            <SearchInput value={q} onChange={setQ} placeholder="Search stream or subject…" />
+          </div>
+        )}
+        {items.length === 0 ? (
+          <Panel className="p-6 text-center text-xs text-muted">No JetStream streams on this server yet.</Panel>
+        ) : filtered.length === 0 ? (
+          <p className="px-1 py-6 text-center text-xs text-muted">No matches for “{q}”.</p>
+        ) : (
+          <div className="space-y-2">
+            {filtered.map((s) => (
+              <Panel key={s.config.name} className="p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setView("browser")}
+                    className="truncate text-sm font-medium text-content hover:text-accent"
+                    title="Open in Message Browser"
+                  >
+                    {s.config.name}
+                  </button>
+                  <div className="flex shrink-0 items-center gap-3 text-xs text-muted">
+                    <span className="tabular-nums">{fmtNum(s.state.messages)} msgs</span>
+                    <span className="tabular-nums">{fmtNum(s.state.consumerCount)} consumers</span>
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {s.config.subjects.length === 0 ? (
+                    <span className="text-xs text-faint">(no subjects)</span>
+                  ) : (
+                    s.config.subjects.map((subj) => (
+                      <span key={subj} className="rounded-md border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-content">
+                        {subj}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </Panel>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Clients / subscribers */}
+      <div>
+        <SectionLabel>Clients on this server ({conns.length})</SectionLabel>
+        <Panel className="mt-2 overflow-hidden p-0">
+          {conns.length === 0 ? (
+            <p className="p-4 text-xs text-muted">
+              {varz.isError ? "Monitoring endpoint unreachable — start the server with -m 8222." : "No client connections reported."}
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="border-b border-border text-muted">
+                  <tr>
+                    <Th>CID</Th>
+                    <Th>Name</Th>
+                    <Th>Address</Th>
+                    <Th right>Subs</Th>
+                    <Th right>In</Th>
+                    <Th right>Out</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {conns.map((c) => (
+                    <tr key={c.cid} className="border-b border-border/50 last:border-0">
+                      <Td mono>{c.cid}</Td>
+                      <Td>{c.name || <span className="text-faint">—</span>}</Td>
+                      <Td mono>
+                        {c.ip}:{c.port} {c.lang ? <Badge tone="neutral">{c.lang}</Badge> : null}
+                      </Td>
+                      <Td right mono>{fmtNum(c.subscriptions)}</Td>
+                      <Td right mono>{fmtNum(c.inMsgs)}</Td>
+                      <Td right mono>{fmtNum(c.outMsgs)}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Panel>
+      </div>
+
+      <div className="flex items-center gap-2 pb-2">
+        <span className="text-[11px] text-faint">Monitoring</span>
+        <input className="field h-8 max-w-xs font-mono text-xs" value={url} onChange={(e) => setUrl(e.target.value)} spellCheck={false} />
+      </div>
     </div>
   );
 }
 
-function Stat({
-  label,
-  value,
-  icon,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  icon: string;
-  tone?: "neutral" | "positive";
-}): JSX.Element {
+function Stat({ label, value, icon }: { label: string; value: string; icon: string }): JSX.Element {
   return (
     <Panel className="p-4">
       <div className="flex items-center gap-2 text-muted">
-        <Icon name={icon} size={16} />
-        <span className="text-xs font-medium">{label}</span>
+        <Icon name={icon} size={15} />
+        <span className="text-[11px] font-semibold uppercase tracking-wider">{label}</span>
       </div>
-      <div className={`mt-1.5 text-xl font-semibold tabular-nums ${tone === "positive" ? "text-positive" : "text-content"}`}>
-        {value}
-      </div>
+      <div className="mt-1 text-2xl font-semibold tabular-nums text-content">{value}</div>
     </Panel>
   );
 }
 
-function Detail({ label, value, mono }: { label: string; value: ReactNode; mono?: boolean }): JSX.Element {
-  return (
-    <div className="flex items-center justify-between gap-4 border-b border-border/60 pb-2">
-      <dt className="text-sm text-muted">{label}</dt>
-      <dd className={`truncate text-sm font-medium text-content ${mono ? "font-mono" : ""}`}>{value}</dd>
-    </div>
-  );
+function Th({ children, right }: { children: React.ReactNode; right?: boolean }): JSX.Element {
+  return <th className={`px-3 py-2 font-medium ${right ? "text-right" : ""}`}>{children}</th>;
+}
+function Td({ children, right, mono }: { children: React.ReactNode; right?: boolean; mono?: boolean }): JSX.Element {
+  return <td className={`px-3 py-1.5 text-content ${right ? "text-right" : ""} ${mono ? "font-mono tabular-nums" : ""}`}>{children}</td>;
 }

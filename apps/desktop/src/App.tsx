@@ -10,19 +10,13 @@ import { ConnectionsView } from "@/features/connections/ConnectionsView";
 import { PublisherView } from "@/features/messaging/PublisherView";
 import { RequestReplyView } from "@/features/messaging/RequestReplyView";
 import { LiveTailView } from "@/features/messaging/LiveTailView";
-import { ReplayView } from "@/features/messaging/ReplayView";
 import { StreamsView } from "@/features/jetstream/StreamsView";
 import { ConsumersView } from "@/features/jetstream/ConsumersView";
 import { KvView } from "@/features/jetstream/KvView";
 import { ObjectStoreView } from "@/features/jetstream/ObjectStoreView";
 import { MessageBrowserView } from "@/features/jetstream/MessageBrowserView";
-import { BackupView } from "@/features/jetstream/BackupView";
 import { ConsumerLabView } from "@/features/jetstream/ConsumerLabView";
 import { MetricsView } from "@/features/monitoring/MetricsView";
-import { AccountsView } from "@/features/monitoring/AccountsView";
-import { LatencyView } from "@/features/monitoring/LatencyView";
-import { TopologyView } from "@/features/monitoring/TopologyView";
-import { HealthView } from "@/features/health/HealthView";
 import { ServicesView } from "@/features/services/ServicesView";
 import { DlqView } from "@/features/admin/DlqView";
 
@@ -33,14 +27,6 @@ function renderView(view: string): JSX.Element {
       return <OverviewView />;
     case "connections":
       return <ConnectionsView />;
-    case "topology":
-      return <TopologyView />;
-    case "publisher":
-      return <PublisherView />;
-    case "requestreply":
-      return <RequestReplyView />;
-    case "livetail":
-      return <LiveTailView />;
     case "streams":
       return <StreamsView />;
     case "consumers":
@@ -49,26 +35,22 @@ function renderView(view: string): JSX.Element {
       return <KvView />;
     case "objectstore":
       return <ObjectStoreView />;
+    case "livetail":
+      return <LiveTailView />;
+    case "publisher":
+      return <PublisherView />;
+    case "requestreply":
+      return <RequestReplyView />;
     case "browser":
       return <MessageBrowserView />;
-    case "backup":
-      return <BackupView />;
-    case "replay":
-      return <ReplayView />;
     case "consumerlab":
       return <ConsumerLabView />;
-    case "metrics":
-      return <MetricsView />;
-    case "accounts":
-      return <AccountsView />;
-    case "latency":
-      return <LatencyView />;
-    case "health":
-      return <HealthView />;
-    case "services":
-      return <ServicesView />;
     case "dlq":
       return <DlqView />;
+    case "metrics":
+      return <MetricsView />;
+    case "services":
+      return <ServicesView />;
     default: {
       const item = findNavItem(view);
       return item ? <ComingSoon item={item} /> : <OverviewView />;
