@@ -43,6 +43,14 @@ export const NAV: NavSection[] = [
         live: true,
         blurb: "Create connection profiles and connect / disconnect from NATS servers.",
       },
+      {
+        id: "topology",
+        label: "Topology",
+        icon: "network",
+        live: true,
+        requiresConnection: true,
+        blurb: "Streams and the subjects they capture, the server in use, and per-client subscriber counts.",
+      },
     ],
   },
   {

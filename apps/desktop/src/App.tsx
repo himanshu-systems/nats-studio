@@ -21,6 +21,7 @@ import { ConsumerLabView } from "@/features/jetstream/ConsumerLabView";
 import { MetricsView } from "@/features/monitoring/MetricsView";
 import { AccountsView } from "@/features/monitoring/AccountsView";
 import { LatencyView } from "@/features/monitoring/LatencyView";
+import { TopologyView } from "@/features/monitoring/TopologyView";
 import { HealthView } from "@/features/health/HealthView";
 import { ServicesView } from "@/features/services/ServicesView";
 import { DlqView } from "@/features/admin/DlqView";
@@ -32,6 +33,8 @@ function renderView(view: string): JSX.Element {
       return <OverviewView />;
     case "connections":
       return <ConnectionsView />;
+    case "topology":
+      return <TopologyView />;
     case "publisher":
       return <PublisherView />;
     case "requestreply":

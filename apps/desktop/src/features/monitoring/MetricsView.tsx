@@ -158,6 +158,7 @@ export function MetricsView(): JSX.Element {
               { label: "in", values: history.map((h) => h.inMsgs), color: ACCENT },
               { label: "out", values: history.map((h) => h.outMsgs), color: TEAL },
             ]}
+            formatY={(v) => fmtNum(Math.round(v))}
             empty={history.length < 2}
           />
           <ChartPanel
@@ -170,6 +171,7 @@ export function MetricsView(): JSX.Element {
               { label: "in", values: history.map((h) => h.inBytes), color: ACCENT },
               { label: "out", values: history.map((h) => h.outBytes), color: TEAL },
             ]}
+            formatY={(v) => `${fmtBytes(v)}/s`}
             empty={history.length < 2}
           />
         </div>
@@ -182,11 +184,13 @@ function ChartPanel({
   title,
   legend,
   series,
+  formatY,
   empty,
 }: {
   title: string;
   legend: { label: string; color: string; value: string }[];
   series: { label: string; values: number[]; color: string }[];
+  formatY?: (v: number) => string;
   empty: boolean;
 }): JSX.Element {
   return (
@@ -208,7 +212,7 @@ function ChartPanel({
           Collecting samples…
         </div>
       ) : (
-        <LineChart series={series} height={130} />
+        <LineChart series={series} height={130} zeroBased formatY={formatY} />
       )}
     </Panel>
   );

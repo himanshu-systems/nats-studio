@@ -175,6 +175,14 @@ const ICONS: Record<string, ReactNode> = {
   "chevron-down": <path d="M6 9 L12 15 L18 9" />,
   "chevron-right": <path d="M9 6 L15 12 L9 18" />,
   dot: <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />,
+  network: (
+    <>
+      <circle cx="5" cy="6" r="2.2" />
+      <circle cx="19" cy="6" r="2.2" />
+      <circle cx="12" cy="18" r="2.2" />
+      <path d="M7 6 h10 M6.7 7.6 L10.5 16.2 M17.3 7.6 L13.5 16.2" />
+    </>
+  ),
 };
 
 export type IconName = keyof typeof ICONS;

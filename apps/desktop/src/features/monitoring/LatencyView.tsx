@@ -75,7 +75,7 @@ function LatencyMeter({ connectionId }: { connectionId: string }): JSX.Element {
           <span className="text-5xl font-semibold tabular-nums text-content">{fmtRtt(current)}</span>
         </div>
         <div className="mt-4">
-          <LineChart series={[{ label: "rtt", values: samples }]} height={130} />
+          <LineChart series={[{ label: "rtt", values: samples }]} height={130} formatY={fmtRtt} />
         </div>
         <div className="mt-1 text-right text-[11px] text-faint">last {samples.length} samples · 1s interval</div>
       </Panel>
