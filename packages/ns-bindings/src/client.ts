@@ -8,6 +8,8 @@ import type {
   ConnectionStatusDto,
   ConnectionSummary,
   ConnzDto,
+  ConsumerInfoDto,
+  CreateConsumerRequest,
   CreateStreamRequest,
   DeleteConsumerRequest,
   DeleteMessageRequest,
@@ -160,6 +162,8 @@ export const ipc = {
       call<PurgeStreamResponse>("js_purge_stream", req),
     listConsumers: (req: ListConsumersRequest) =>
       call<ListConsumersResponse>("js_list_consumers", req),
+    createConsumer: (req: CreateConsumerRequest) =>
+      call<ConsumerInfoDto>("js_create_consumer", req),
     deleteConsumer: (req: DeleteConsumerRequest) => call<void>("js_delete_consumer", req),
     fetchMessages: (req: FetchMessagesRequest) =>
       call<FetchMessagesResponse>("js_fetch_messages", req),

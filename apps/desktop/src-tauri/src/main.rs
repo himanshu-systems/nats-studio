@@ -56,6 +56,7 @@ fn main() {
             commands::js_delete_stream,
             commands::js_purge_stream,
             commands::js_list_consumers,
+            commands::js_create_consumer,
             commands::js_delete_consumer,
             commands::js_fetch_messages,
             commands::js_list_buckets,

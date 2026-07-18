@@ -6,7 +6,7 @@ import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../components/ui";
 import { Icon } from "../../components/Icon";
 import { Select } from "../../components/Select";
-import { errorMessage } from "../messaging/message";
+import { errorMessage, fmtBytes } from "../messaging/message";
 
 const PAGE = 50;
 
@@ -159,7 +159,7 @@ function Browser({ connId }: { connId: string }): JSX.Element {
                       <span className="min-w-0 flex-1 truncate font-mono text-content">
                         {m.subject}
                       </span>
-                      <span className="shrink-0 tabular-nums text-faint">{m.size} B</span>
+                      <span className="shrink-0 tabular-nums text-faint">{fmtBytes(m.size)}</span>
                       <span className="hidden shrink-0 text-faint sm:inline">
                         {new Date(m.timeRfc3339).toLocaleTimeString()}
                       </span>
@@ -248,7 +248,7 @@ function MessageDetail({
       </div>
 
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted">
-        <span className="tabular-nums">{msg.size} B</span>
+        <span className="tabular-nums">{fmtBytes(msg.size)}</span>
         <span>{new Date(msg.timeRfc3339).toLocaleString()}</span>
       </div>
 

@@ -5,18 +5,18 @@ use ns_core::{SettingsRepo, SubscriptionId};
 use ns_ipc::map_ipc;
 use ns_types::{
     AppInfo, ConnectRequest, ConnectionProfile, ConnectionRef, ConnectionStatusDto,
-    ConnectionSummary, ConnzDto, CreateProfileRequest, CreateStreamRequest, DeleteConsumerRequest,
-    DeleteMessageRequest, DeleteObjectRequest, DeleteProfileRequest, DeleteStreamRequest,
-    FetchMessagesRequest, FetchMessagesResponse, GetMessagesRequest, GetMessagesResponse,
-    GetObjectRequest, GetObjectResponse, GetStreamRequest, HealthStatus, IpcError, KvDeleteRequest,
-    KvGetRequest, KvGetResponse, KvPutRequest, KvPutResponse, ListBucketsRequest,
-    ListBucketsResponse, ListConnectionsResponse, ListConsumersRequest, ListConsumersResponse,
-    ListKeysRequest, ListKeysResponse, ListObjectBucketsRequest, ListObjectBucketsResponse,
-    ListObjectsRequest, ListObjectsResponse, ListProfilesResponse, ListStreamsRequest,
-    ListStreamsResponse, LogRecordDto, MessageView, MonitorRequest, PublishRequest,
-    PurgeStreamRequest, PurgeStreamResponse, RequestRequest, Settings, StreamInfoDto,
-    SubStreamEvent, SubscribeRequest, SubscriptionHandle, UnsubscribeRequest, UpdateProfileRequest,
-    UpdateSettingsRequest, VarzDto,
+    ConnectionSummary, ConnzDto, ConsumerInfoDto, CreateConsumerRequest, CreateProfileRequest,
+    CreateStreamRequest, DeleteConsumerRequest, DeleteMessageRequest, DeleteObjectRequest,
+    DeleteProfileRequest, DeleteStreamRequest, FetchMessagesRequest, FetchMessagesResponse,
+    GetMessagesRequest, GetMessagesResponse, GetObjectRequest, GetObjectResponse, GetStreamRequest,
+    HealthStatus, IpcError, KvDeleteRequest, KvGetRequest, KvGetResponse, KvPutRequest,
+    KvPutResponse, ListBucketsRequest, ListBucketsResponse, ListConnectionsResponse,
+    ListConsumersRequest, ListConsumersResponse, ListKeysRequest, ListKeysResponse,
+    ListObjectBucketsRequest, ListObjectBucketsResponse, ListObjectsRequest, ListObjectsResponse,
+    ListProfilesResponse, ListStreamsRequest, ListStreamsResponse, LogRecordDto, MessageView,
+    MonitorRequest, PublishRequest, PurgeStreamRequest, PurgeStreamResponse, RequestRequest,
+    Settings, StreamInfoDto, SubStreamEvent, SubscribeRequest, SubscriptionHandle,
+    UnsubscribeRequest, UpdateProfileRequest, UpdateSettingsRequest, VarzDto,
 };
 use tauri::ipc::Channel;
 use tauri::State;
@@ -264,6 +264,14 @@ pub async fn js_list_consumers(
     state: State<'_, AppState>,
 ) -> Result<ListConsumersResponse, IpcError> {
     map_ipc(state.jetstream.list_consumers(req).await)
+}
+
+#[tauri::command]
+pub async fn js_create_consumer(
+    req: CreateConsumerRequest,
+    state: State<'_, AppState>,
+) -> Result<ConsumerInfoDto, IpcError> {
+    map_ipc(state.jetstream.create_consumer(req).await)
 }
 
 #[tauri::command]

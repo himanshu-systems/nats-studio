@@ -9,14 +9,14 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
 use ns_core::{NatsClientProvider, PurgeSpec};
 use ns_types::{
-    CreateStreamRequest, DeleteConsumerRequest, DeleteMessageRequest, DeleteObjectRequest,
-    DeleteStreamRequest, FetchMessagesRequest, FetchMessagesResponse, GetMessagesRequest,
-    GetMessagesResponse, GetObjectRequest, GetObjectResponse, GetStreamRequest, KvDeleteRequest,
-    KvGetRequest, KvGetResponse, KvPutRequest, KvPutResponse, ListBucketsRequest,
-    ListBucketsResponse, ListConsumersRequest, ListConsumersResponse, ListKeysRequest,
-    ListKeysResponse, ListObjectBucketsRequest, ListObjectBucketsResponse, ListObjectsRequest,
-    ListObjectsResponse, ListStreamsRequest, ListStreamsResponse, PurgeStreamRequest,
-    PurgeStreamResponse, StreamInfoDto,
+    ConsumerInfoDto, CreateConsumerRequest, CreateStreamRequest, DeleteConsumerRequest,
+    DeleteMessageRequest, DeleteObjectRequest, DeleteStreamRequest, FetchMessagesRequest,
+    FetchMessagesResponse, GetMessagesRequest, GetMessagesResponse, GetObjectRequest,
+    GetObjectResponse, GetStreamRequest, KvDeleteRequest, KvGetRequest, KvGetResponse,
+    KvPutRequest, KvPutResponse, ListBucketsRequest, ListBucketsResponse, ListConsumersRequest,
+    ListConsumersResponse, ListKeysRequest, ListKeysResponse, ListObjectBucketsRequest,
+    ListObjectBucketsResponse, ListObjectsRequest, ListObjectsResponse, ListStreamsRequest,
+    ListStreamsResponse, PurgeStreamRequest, PurgeStreamResponse, StreamInfoDto,
 };
 
 use crate::error::JetStreamError;
@@ -127,6 +127,26 @@ impl JetStreamService {
             .await?;
         let consumers = js.list_consumers(stream).await?;
         Ok(ListConsumersResponse { consumers })
+    }
+
+    /// Create a durable pull consumer on a stream.
+    pub async fn create_consumer(
+        &self,
+        req: CreateConsumerRequest,
+    ) -> Result<ConsumerInfoDto, JetStreamError> {
+        let stream = require_name(&req.stream_name)?;
+        if req.config.durable_name.trim().is_empty() {
+            return Err(JetStreamError::InvalidName(
+                "consumer durable name is empty".to_owned(),
+            ));
+        }
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        Ok(js.create_consumer(stream, req.config).await?)
     }
 
     /// Delete a consumer from a stream by name.
@@ -370,10 +390,11 @@ mod tests {
         OutgoingMessage, PurgeSpec, Subscription,
     };
     use ns_types::{
-        ConsumerInfoDto, ErrorCode, FetchMessagesResponse, FetchedMessageDto, GetMessagesResponse,
-        GetObjectResponse, KvBucketDto, KvEntryDto, ObjectBucketDto, ObjectInfoDto, ServerInfoDto,
-        StoredMessageDto, StreamConfigDto, StreamDiscard, StreamInfoDto, StreamRetention,
-        StreamStateDto, StreamStorage,
+        ConsumerConfigDto, ConsumerInfoDto, CreateConsumerRequest, ErrorCode,
+        FetchMessagesResponse, FetchedMessageDto, GetMessagesResponse, GetObjectResponse,
+        KvBucketDto, KvEntryDto, ObjectBucketDto, ObjectInfoDto, ServerInfoDto, StoredMessageDto,
+        StreamConfigDto, StreamDiscard, StreamInfoDto, StreamRetention, StreamStateDto,
+        StreamStorage,
     };
 
     use super::*;
@@ -425,6 +446,17 @@ mod tests {
         }
     }
 
+    fn sample_consumer_config(durable: &str) -> ConsumerConfigDto {
+        ConsumerConfigDto {
+            durable_name: durable.to_owned(),
+            filter_subject: None,
+            ack_policy: "explicit".to_owned(),
+            deliver_policy: "all".to_owned(),
+            max_deliver: None,
+            ack_wait_seconds: None,
+        }
+    }
+
     fn sample_bucket(name: &str) -> KvBucketDto {
         KvBucketDto {
             bucket: name.to_owned(),
@@ -458,6 +490,7 @@ mod tests {
         created: Mutex<Vec<StreamConfigDto>>,
         purged: Mutex<Vec<(String, PurgeSpec)>>,
         deleted: Mutex<Vec<String>>,
+        created_consumers: Mutex<Vec<(String, ConsumerConfigDto)>>,
         deleted_consumers: Mutex<Vec<(String, String)>>,
         deleted_messages: Mutex<Vec<(String, u64)>>,
         kv_puts: Mutex<Vec<(String, String, Vec<u8>)>>,
@@ -497,6 +530,18 @@ mod tests {
                 sample_consumer(stream, "worker"),
                 sample_consumer(stream, "audit"),
             ])
+        }
+        async fn create_consumer(
+            &self,
+            stream: &str,
+            config: ConsumerConfigDto,
+        ) -> Result<ConsumerInfoDto, CoreError> {
+            let info = sample_consumer(stream, &config.durable_name);
+            self.created_consumers
+                .lock()
+                .unwrap()
+                .push((stream.to_owned(), config));
+            Ok(info)
         }
         async fn delete_consumer(&self, stream: &str, name: &str) -> Result<(), CoreError> {
             self.deleted_consumers
@@ -811,6 +856,40 @@ mod tests {
         .unwrap();
         let deleted = js.deleted_consumers.lock().unwrap();
         assert_eq!(deleted.as_slice(), &[("orders".into(), "worker".into())]);
+    }
+
+    #[tokio::test]
+    async fn create_consumer_requires_durable_name_then_delegates() {
+        let (svc, js) = service();
+
+        // Blank durable name -> InvalidName, never reaches the port.
+        let err = svc
+            .create_consumer(CreateConsumerRequest {
+                connection_id: "c1".into(),
+                stream_name: "orders".into(),
+                config: sample_consumer_config("  "),
+            })
+            .await
+            .unwrap_err();
+        assert!(matches!(err, JetStreamError::InvalidName(_)));
+        assert!(js.created_consumers.lock().unwrap().is_empty());
+
+        // Valid -> delegates to the port and returns the created consumer.
+        let info = svc
+            .create_consumer(CreateConsumerRequest {
+                connection_id: "c1".into(),
+                stream_name: "orders".into(),
+                config: sample_consumer_config("worker"),
+            })
+            .await
+            .unwrap();
+        assert_eq!(info.name, "worker");
+        assert_eq!(info.stream_name, "orders");
+
+        let created = js.created_consumers.lock().unwrap();
+        assert_eq!(created.len(), 1);
+        assert_eq!(created[0].0, "orders");
+        assert_eq!(created[0].1.durable_name, "worker");
     }
 
     #[tokio::test]

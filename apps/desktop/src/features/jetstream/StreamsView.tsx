@@ -244,8 +244,12 @@ function CreateStreamForm({ connId }: { connId: string }): JSX.Element {
           placeholder="ORDERS"
         />
       </label>
-      <label className="block space-y-1.5">
+      <label className="block space-y-1">
         <span className="text-[11px] text-muted">Subjects (comma or newline separated)</span>
+        <span className="block text-[11px] leading-tight text-faint">
+          Which subjects this stream captures. Wildcards: <code className="font-mono">*</code> = one
+          token, <code className="font-mono">&gt;</code> = the rest (e.g. <code className="font-mono">orders.&gt;</code>).
+        </span>
         <textarea
           className="field-mono min-h-[64px]"
           value={subjectsRaw}
@@ -279,6 +283,17 @@ function CreateStreamForm({ connId }: { connId: string }): JSX.Element {
           />
         </label>
       </div>
+      <ul className="space-y-1 rounded-lg border border-border bg-surface-2 p-2.5 text-[11px] leading-tight text-muted">
+        <li>
+          <span className="font-medium text-content">Storage</span> — File: durable on disk · Memory:
+          fast, cleared on server restart.
+        </li>
+        <li>
+          <span className="font-medium text-content">Retention</span> — Limits: keep until a max
+          below is hit · Interest: keep only while a consumer is subscribed · Work Queue: each message
+          goes to exactly one consumer, then is removed.
+        </li>
+      </ul>
       <div className="grid grid-cols-3 gap-3">
         <label className="block space-y-1.5">
           <span className="text-[11px] text-muted">Max msgs</span>

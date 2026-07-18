@@ -20,10 +20,10 @@ use base64::Engine as _;
 use futures::{StreamExt as _, TryStreamExt};
 use ns_core::{CoreError, JetStreamManager, PurgeSpec};
 use ns_types::{
-    ConsumerInfoDto, ErrorCode, FetchMessagesResponse, FetchedMessageDto, GetMessagesResponse,
-    GetObjectResponse, KvBucketDto, KvEntryDto, MessageHeader, ObjectBucketDto, ObjectInfoDto,
-    StoredMessageDto, StreamConfigDto, StreamDiscard, StreamInfoDto, StreamRetention,
-    StreamStateDto, StreamStorage,
+    ConsumerConfigDto, ConsumerInfoDto, ErrorCode, FetchMessagesResponse, FetchedMessageDto,
+    GetMessagesResponse, GetObjectResponse, KvBucketDto, KvEntryDto, MessageHeader,
+    ObjectBucketDto, ObjectInfoDto, StoredMessageDto, StreamConfigDto, StreamDiscard,
+    StreamInfoDto, StreamRetention, StreamStateDto, StreamStorage,
 };
 use time::format_description::well_known::Rfc3339;
 use tokio::io::AsyncReadExt as _;
@@ -146,6 +146,24 @@ impl JetStreamManager for AsyncJetStream {
             out.push(consumer_to_dto(&info));
         }
         Ok(out)
+    }
+
+    async fn create_consumer(
+        &self,
+        stream: &str,
+        config: ConsumerConfigDto,
+    ) -> Result<ConsumerInfoDto, CoreError> {
+        let stream_h = self
+            .ctx
+            .get_stream(stream)
+            .await
+            .map_err(|e| js_err("get stream", &e, ErrorCode::StreamNotFound))?;
+        let consumer = stream_h
+            .create_consumer(dto_to_consumer_config(config))
+            .await
+            .map_err(|e| js_err("create consumer", &e, ErrorCode::Internal))?;
+        // `create_consumer` returns the server's info already cached on the handle.
+        Ok(consumer_to_dto(consumer.cached_info()))
     }
 
     async fn delete_consumer(&self, stream: &str, name: &str) -> Result<(), CoreError> {
@@ -508,6 +526,34 @@ fn consumer_to_dto(info: &consumer::Info) -> ConsumerInfoDto {
         num_waiting: info.num_waiting as u64,
         ack_floor_stream_seq: info.ack_floor.stream_sequence,
         delivered_stream_seq: info.delivered.stream_sequence,
+    }
+}
+
+/// Build a durable pull consumer config from the DTO. Unknown policy tags fall
+/// back to the safe defaults (`explicit` ack, `all` deliver); `maxDeliver` None
+/// -> `-1` (unlimited) matching the stream limits convention.
+fn dto_to_consumer_config(dto: ConsumerConfigDto) -> consumer::pull::Config {
+    consumer::pull::Config {
+        durable_name: Some(dto.durable_name),
+        filter_subject: dto.filter_subject.unwrap_or_default(),
+        ack_policy: match dto.ack_policy.as_str() {
+            "none" => AckPolicy::None,
+            "all" => AckPolicy::All,
+            _ => AckPolicy::Explicit,
+        },
+        deliver_policy: match dto.deliver_policy.as_str() {
+            "last" => DeliverPolicy::Last,
+            "new" => DeliverPolicy::New,
+            "lastPerSubject" => DeliverPolicy::LastPerSubject,
+            _ => DeliverPolicy::All,
+        },
+        max_deliver: dto.max_deliver.map_or(-1, |v| v as i64),
+        ack_wait: dto
+            .ack_wait_seconds
+            .filter(|s| *s > 0)
+            .map(Duration::from_secs)
+            .unwrap_or_default(),
+        ..Default::default()
     }
 }
 

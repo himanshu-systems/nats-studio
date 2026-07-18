@@ -9,6 +9,19 @@ export function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
+/** Format a byte count with binary units (B / KiB / MiB / …). */
+export function fmtBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  const u = ["KiB", "MiB", "GiB", "TiB"];
+  let v = n / 1024;
+  let i = 0;
+  while (v >= 1024 && i < u.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  return `${v.toFixed(1)} ${u[i]}`;
+}
+
 /** Parse a `Key: Value` per-line textarea into wire headers, skipping blanks. */
 export function parseHeaders(raw: string): MessageHeader[] {
   return raw
@@ -35,7 +48,7 @@ export function MessageMeta({ view }: { view: MessageView }): JSX.Element {
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
       <span className="font-medium text-content">{view.subject}</span>
       <Badge tone={FORMAT_TONE[view.format] ?? "neutral"}>{view.format}</Badge>
-      <span className="tabular-nums">{view.size} B</span>
+      <span className="tabular-nums">{fmtBytes(view.size)}</span>
       {view.compression !== "none" && <Badge tone="warning">{view.compression}</Badge>}
       {view.reply && <span className="truncate">reply → {view.reply}</span>}
       <span className="text-faint">{new Date(view.ts).toLocaleTimeString()}</span>

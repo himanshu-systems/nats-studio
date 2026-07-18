@@ -3,7 +3,7 @@ import { ipc, type MessageView, type SubStreamEvent } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Button, Badge, SectionLabel, cx } from "../../components/ui";
 import { Icon } from "../../components/Icon";
-import { errorMessage, MessageMeta, PayloadView } from "./message";
+import { errorMessage, fmtBytes, MessageMeta, PayloadView } from "./message";
 
 const MAX_MESSAGES = 1000;
 
@@ -160,7 +160,10 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate text-sm font-medium text-content">{m.subject}</span>
-                  <span className="shrink-0 text-[10px] uppercase text-faint">{m.format}</span>
+                  <span className="flex shrink-0 items-center gap-2 text-[10px] text-faint">
+                    <span className="tabular-nums">{fmtBytes(m.size)}</span>
+                    <span className="uppercase">{m.format}</span>
+                  </span>
                 </div>
                 <div className="truncate font-mono text-xs text-muted">{m.preview.slice(0, 100)}</div>
               </button>

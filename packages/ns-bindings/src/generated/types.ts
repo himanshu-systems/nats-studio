@@ -170,6 +170,25 @@ export interface ConnzDto {
 }
 
 /**
+ * The editable configuration for creating a durable pull consumer. `ackPolicy`
+ * / `deliverPolicy` are lowercase string tags mapped to the async-nats enums by
+ * the adapter (unknown -> `explicit` / `all`).
+ */
+export interface ConsumerConfigDto {
+	durableName: string;
+	/** Single subject filter; `None` = all subjects on the stream. */
+	filterSubject?: string;
+	/** One of `none` | `all` | `explicit`. */
+	ackPolicy: string;
+	/** One of `all` | `last` | `new` | `lastPerSubject`. */
+	deliverPolicy: string;
+	/** Max delivery attempts before giving up. `None` = unlimited (`-1` on the wire). */
+	maxDeliver?: number;
+	/** Redelivery wait, in seconds. `None` / `0` = server default. */
+	ackWaitSeconds?: number;
+}
+
+/**
  * A JetStream consumer's config summary plus its live delivery/ack counters.
  * `deliverPolicy`/`ackPolicy` are lowercase string tags of the async-nats enums.
  */
@@ -188,6 +207,12 @@ export interface ConsumerInfoDto {
 	numWaiting: number;
 	ackFloorStreamSeq: number;
 	deliveredStreamSeq: number;
+}
+
+export interface CreateConsumerRequest {
+	connectionId: string;
+	streamName: string;
+	config: ConsumerConfigDto;
 }
 
 export interface CreateProfileRequest {

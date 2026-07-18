@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ipc } from "@bindings";
-import type { ConsumerInfoDto } from "@bindings";
+import type { ConsumerConfigDto, ConsumerInfoDto } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SearchInput, SectionLabel } from "../../components/ui";
 import { Select } from "../../components/Select";
@@ -54,66 +54,198 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
         );
 
   return (
-    <div className="mx-auto max-w-4xl space-y-3 overflow-auto p-4">
-      <div className="flex items-center justify-between gap-3">
-        <SectionLabel>
-          Consumers{stream ? ` — ${stream} (${filtered.length}${needle ? ` / ${items.length}` : ""})` : ""}
-        </SectionLabel>
-        <div className="flex items-center gap-2">
-          <Select
-            className="max-w-[220px]"
-            value={stream ?? ""}
-            onChange={(v) => setPicked(v)}
-            options={streamNames.map((n) => ({ value: n, label: n }))}
-            disabled={streamNames.length === 0}
-            placeholder="No streams"
-          />
-          <Button
-            size="sm"
-            variant="outline"
-            icon="replay"
-            onClick={() => void consumers.refetch()}
-            disabled={stream === null || consumers.isFetching}
-          >
-            {consumers.isFetching ? "Refreshing…" : "Refresh"}
-          </Button>
+    <div className="mx-auto grid h-full max-w-6xl grid-rows-[1fr] gap-4 overflow-auto p-4 lg:grid-cols-[1fr_320px]">
+      <div className="min-w-0 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <SectionLabel>
+            Consumers{stream ? ` — ${stream} (${filtered.length}${needle ? ` / ${items.length}` : ""})` : ""}
+          </SectionLabel>
+          <div className="flex items-center gap-2">
+            <Select
+              className="max-w-[220px]"
+              value={stream ?? ""}
+              onChange={(v) => setPicked(v)}
+              options={streamNames.map((n) => ({ value: n, label: n }))}
+              disabled={streamNames.length === 0}
+              placeholder="No streams"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              icon="replay"
+              onClick={() => void consumers.refetch()}
+              disabled={stream === null || consumers.isFetching}
+            >
+              {consumers.isFetching ? "Refreshing…" : "Refresh"}
+            </Button>
+          </div>
         </div>
+
+        {stream !== null && items.length > 0 && (
+          <SearchInput value={q} onChange={setQ} placeholder="Search consumer or subject…" />
+        )}
+
+        {streams.isError && <p className="text-xs text-danger">{errorMessage(streams.error)}</p>}
+        {consumers.isError && <p className="text-xs text-danger">{errorMessage(consumers.error)}</p>}
+        {remove.isError && <p className="text-xs text-danger">{errorMessage(remove.error)}</p>}
+
+        {stream === null && !streams.isLoading ? (
+          <EmptyState icon="database" title="No streams">
+            Create a JetStream stream first — consumers are inspected per stream.
+          </EmptyState>
+        ) : items.length === 0 && !consumers.isLoading && stream !== null ? (
+          <EmptyState icon="users" title="No consumers">
+            Stream “{stream}” has no consumers.
+          </EmptyState>
+        ) : filtered.length === 0 ? (
+          <p className="px-1 py-6 text-center text-xs text-muted">No consumers match “{q}”.</p>
+        ) : (
+          <ul className="space-y-2.5">
+            {filtered.map((c) => (
+              <ConsumerCard
+                key={c.name}
+                info={c}
+                onDelete={() => {
+                  if (window.confirm(`Delete consumer "${c.name}" on "${stream}"? This cannot be undone.`)) {
+                    remove.mutate(c.name);
+                  }
+                }}
+              />
+            ))}
+          </ul>
+        )}
       </div>
 
-      {stream !== null && items.length > 0 && (
-        <SearchInput value={q} onChange={setQ} placeholder="Search consumer or subject…" />
-      )}
-
-      {streams.isError && <p className="text-xs text-danger">{errorMessage(streams.error)}</p>}
-      {consumers.isError && <p className="text-xs text-danger">{errorMessage(consumers.error)}</p>}
-      {remove.isError && <p className="text-xs text-danger">{errorMessage(remove.error)}</p>}
-
-      {stream === null && !streams.isLoading ? (
-        <EmptyState icon="database" title="No streams">
-          Create a JetStream stream first — consumers are inspected per stream.
-        </EmptyState>
-      ) : items.length === 0 && !consumers.isLoading && stream !== null ? (
-        <EmptyState icon="users" title="No consumers">
-          Stream “{stream}” has no consumers.
-        </EmptyState>
-      ) : filtered.length === 0 ? (
-        <p className="px-1 py-6 text-center text-xs text-muted">No consumers match “{q}”.</p>
-      ) : (
-        <ul className="space-y-2.5">
-          {filtered.map((c) => (
-            <ConsumerCard
-              key={c.name}
-              info={c}
-              onDelete={() => {
-                if (window.confirm(`Delete consumer "${c.name}" on "${stream}"? This cannot be undone.`)) {
-                  remove.mutate(c.name);
-                }
-              }}
-            />
-          ))}
-        </ul>
-      )}
+      <CreateConsumerForm connId={connId} stream={stream} />
     </div>
+  );
+}
+
+/** Parse an optional positive integer field; blank / non-positive -> undefined. */
+function parseOptInt(raw: string): number | undefined {
+  const t = raw.trim();
+  if (t === "") return undefined;
+  const n = Number(t);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined;
+}
+
+function CreateConsumerForm({
+  connId,
+  stream,
+}: {
+  connId: string;
+  stream: string | null;
+}): JSX.Element {
+  const qc = useQueryClient();
+  const [durableName, setDurableName] = useState("");
+  const [filterSubject, setFilterSubject] = useState("");
+  const [ackPolicy, setAckPolicy] = useState("explicit");
+  const [deliverPolicy, setDeliverPolicy] = useState("all");
+  const [maxDeliver, setMaxDeliver] = useState("");
+  const [ackWaitSec, setAckWaitSec] = useState("");
+
+  const create = useMutation({
+    mutationFn: (config: ConsumerConfigDto) =>
+      ipc.jetstream.createConsumer({ connectionId: connId, streamName: stream ?? "", config }),
+    onSuccess: () => {
+      setDurableName("");
+      setFilterSubject("");
+      setMaxDeliver("");
+      setAckWaitSec("");
+      void qc.invalidateQueries({ queryKey: consumersKey(connId, stream ?? "") });
+    },
+  });
+
+  const submit = (): void => {
+    const filter = filterSubject.trim();
+    const config: ConsumerConfigDto = {
+      durableName: durableName.trim(),
+      filterSubject: filter === "" ? undefined : filter,
+      ackPolicy,
+      deliverPolicy,
+      maxDeliver: parseOptInt(maxDeliver),
+      ackWaitSeconds: parseOptInt(ackWaitSec),
+    };
+    create.mutate(config);
+  };
+
+  const canSubmit = stream !== null && durableName.trim() !== "" && !create.isPending;
+
+  return (
+    <Panel className="h-fit space-y-3 p-4">
+      <SectionLabel>Create consumer{stream ? ` — ${stream}` : ""}</SectionLabel>
+      <label className="block space-y-1.5">
+        <span className="text-[11px] text-muted">Durable name</span>
+        <input
+          className="field"
+          value={durableName}
+          onChange={(e) => setDurableName(e.target.value)}
+          placeholder="worker"
+        />
+      </label>
+      <label className="block space-y-1.5">
+        <span className="text-[11px] text-muted">Filter subject (optional)</span>
+        <input
+          className="field font-mono"
+          value={filterSubject}
+          onChange={(e) => setFilterSubject(e.target.value)}
+          placeholder="orders.>"
+        />
+      </label>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block space-y-1.5">
+          <span className="text-[11px] text-muted">Ack policy</span>
+          <Select
+            value={ackPolicy}
+            onChange={setAckPolicy}
+            options={[
+              { value: "explicit", label: "Explicit" },
+              { value: "all", label: "All" },
+              { value: "none", label: "None" },
+            ]}
+          />
+        </label>
+        <label className="block space-y-1.5">
+          <span className="text-[11px] text-muted">Deliver policy</span>
+          <Select
+            value={deliverPolicy}
+            onChange={setDeliverPolicy}
+            options={[
+              { value: "all", label: "All" },
+              { value: "last", label: "Last" },
+              { value: "new", label: "New" },
+              { value: "lastPerSubject", label: "Last per subject" },
+            ]}
+          />
+        </label>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block space-y-1.5">
+          <span className="text-[11px] text-muted">Max deliver</span>
+          <input
+            className="field tabular-nums"
+            value={maxDeliver}
+            onChange={(e) => setMaxDeliver(e.target.value)}
+            placeholder="∞"
+            inputMode="numeric"
+          />
+        </label>
+        <label className="block space-y-1.5">
+          <span className="text-[11px] text-muted">Ack wait (s)</span>
+          <input
+            className="field tabular-nums"
+            value={ackWaitSec}
+            onChange={(e) => setAckWaitSec(e.target.value)}
+            placeholder="default"
+            inputMode="numeric"
+          />
+        </label>
+      </div>
+      <Button icon="plus" className="w-full" onClick={submit} disabled={!canSubmit}>
+        {create.isPending ? "Creating…" : "Create consumer"}
+      </Button>
+      {create.isError && <p className="text-xs text-danger">{errorMessage(create.error)}</p>}
+    </Panel>
   );
 }
 

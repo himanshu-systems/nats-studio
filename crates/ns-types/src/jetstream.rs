@@ -194,6 +194,35 @@ pub struct DeleteConsumerRequest {
     pub name: String,
 }
 
+/// The editable configuration for creating a durable pull consumer. `ackPolicy`
+/// / `deliverPolicy` are lowercase string tags mapped to the async-nats enums by
+/// the adapter (unknown -> `explicit` / `all`).
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConsumerConfigDto {
+    pub durable_name: String,
+    /// Single subject filter; `None` = all subjects on the stream.
+    pub filter_subject: Option<String>,
+    /// One of `none` | `all` | `explicit`.
+    pub ack_policy: String,
+    /// One of `all` | `last` | `new` | `lastPerSubject`.
+    pub deliver_policy: String,
+    /// Max delivery attempts before giving up. `None` = unlimited (`-1` on the wire).
+    pub max_deliver: Option<U64>,
+    /// Redelivery wait, in seconds. `None` / `0` = server default.
+    pub ack_wait_seconds: Option<U64>,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateConsumerRequest {
+    pub connection_id: String,
+    pub stream_name: String,
+    pub config: ConsumerConfigDto,
+}
+
 // --- Message browser --------------------------------------------------------
 
 /// A single stored JetStream message, fetched by sequence for the browser.
