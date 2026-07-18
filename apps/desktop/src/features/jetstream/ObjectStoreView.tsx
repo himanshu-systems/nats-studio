@@ -96,15 +96,13 @@ function ObjectStore({ connId }: { connId: string }): JSX.Element {
   });
 
   return (
-    <div className="mx-auto grid h-full max-w-6xl gap-4 overflow-hidden p-4 lg:grid-cols-[1fr_320px]">
-      <div className="grid min-h-0 grid-rows-[auto_1fr] gap-4 overflow-hidden">
-      <div className="flex items-center justify-between gap-3">
-        <SectionLabel>
-          Object Store{bucket ? ` — ${bucket} (${objectList.length})` : ""}
-        </SectionLabel>
-        <div className="flex items-center gap-2">
-          <input
-            ref={fileRef}
+    <div className="mx-auto grid h-full max-w-6xl gap-4 overflow-hidden p-4 lg:grid-cols-[1fr_300px]">
+      <div className="grid min-h-0 grid-rows-[auto_1fr] gap-3 overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <SectionLabel>Object Store{bucket ? ` — ${bucket} (${objectList.length})` : ""}</SectionLabel>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={fileRef}
             type="file"
             className="hidden"
             onChange={(e) => {
@@ -121,40 +119,39 @@ function ObjectStore({ connId }: { connId: string }): JSX.Element {
           >
             {upload.isPending ? "Uploading…" : "Upload"}
           </Button>
-          <Select
-            className="max-w-[220px]"
-            value={bucket ?? ""}
-            onChange={(v) => {
-              setPickedBucket(v);
-              setSelected(null);
-            }}
-            options={bucketNames.map((n) => ({ value: n, label: n }))}
-            disabled={bucketNames.length === 0}
-            placeholder="No buckets"
-          />
-          <Button
-            size="sm"
-            variant="outline"
-            icon="replay"
-            onClick={() => void objects.refetch()}
-            disabled={bucket === null || objects.isFetching}
-          >
-            {objects.isFetching ? "Refreshing…" : "Refresh"}
-          </Button>
+            <Select
+              className="w-44"
+              value={bucket ?? ""}
+              onChange={(v) => {
+                setPickedBucket(v);
+                setSelected(null);
+              }}
+              options={bucketNames.map((n) => ({ value: n, label: n }))}
+              disabled={bucketNames.length === 0}
+              placeholder="No buckets"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              icon="replay"
+              onClick={() => void objects.refetch()}
+              disabled={bucket === null || objects.isFetching}
+            >
+              {objects.isFetching ? "…" : "Refresh"}
+            </Button>
+          </div>
         </div>
-      </div>
 
-      {buckets.isError && <p className="text-xs text-danger">{errorMessage(buckets.error)}</p>}
-      {upload.isError && <p className="text-xs text-danger">{errorMessage(upload.error)}</p>}
+        {buckets.isError && <p className="text-xs text-danger">{errorMessage(buckets.error)}</p>}
+        {upload.isError && <p className="text-xs text-danger">{errorMessage(upload.error)}</p>}
 
-      {bucket === null && !buckets.isLoading ? (
-        <EmptyState icon="cube" title="No Object-Store buckets">
-          This account has no JetStream Object-Store buckets yet. Create one with the form on the
-          right.
-        </EmptyState>
-      ) : (
-        <div className="grid min-h-0 gap-4 lg:grid-cols-[280px_1fr]">
-          <Panel className="flex min-h-0 flex-col p-2">
+        {bucket === null && !buckets.isLoading ? (
+          <EmptyState icon="cube" title="No Object-Store buckets">
+            Create one with the form on the right.
+          </EmptyState>
+        ) : (
+          <div className="grid min-h-0 gap-3 sm:grid-cols-[220px_1fr]">
+            <Panel className="flex min-h-0 flex-col overflow-hidden p-2">
             {objects.isError && (
               <p className="p-2 text-xs text-danger">{errorMessage(objects.error)}</p>
             )}
@@ -201,13 +198,15 @@ function ObjectStore({ connId }: { connId: string }): JSX.Element {
       )}
       </div>
 
-      <CreateObjectBucketForm
-        connId={connId}
-        onCreated={(b) => {
-          setPickedBucket(b);
-          setSelected(null);
-        }}
-      />
+      <div className="space-y-4 overflow-auto">
+        <CreateObjectBucketForm
+          connId={connId}
+          onCreated={(b) => {
+            setPickedBucket(b);
+            setSelected(null);
+          }}
+        />
+      </div>
     </div>
   );
 }

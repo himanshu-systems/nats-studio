@@ -58,94 +58,89 @@ function Kv({ connId }: { connId: string }): JSX.Element {
   const keyList = keys.data?.keys ?? [];
 
   return (
-    <div className="mx-auto grid h-full max-w-6xl gap-4 overflow-hidden p-4 lg:grid-cols-[1fr_320px]">
-      <div className="grid min-h-0 grid-rows-[auto_1fr] gap-4 overflow-hidden">
-      <div className="flex items-center justify-between gap-3">
-        <SectionLabel>Key-Value{bucket ? ` — ${bucket} (${keyList.length})` : ""}</SectionLabel>
-        <div className="flex items-center gap-2">
-          <Select
-            className="max-w-[220px]"
-            value={bucket ?? ""}
-            onChange={(v) => {
-              setPickedBucket(v);
-              setSelectedKey(null);
-            }}
-            options={bucketNames.map((n) => ({ value: n, label: n }))}
-            disabled={bucketNames.length === 0}
-            placeholder="No buckets"
-          />
-          <Button
-            size="sm"
-            variant="outline"
-            icon="replay"
-            onClick={() => void keys.refetch()}
-            disabled={bucket === null || keys.isFetching}
-          >
-            {keys.isFetching ? "Refreshing…" : "Refresh"}
-          </Button>
-        </div>
-      </div>
-
-      {buckets.isError && <p className="text-xs text-danger">{errorMessage(buckets.error)}</p>}
-
-      {bucket === null && !buckets.isLoading ? (
-        <EmptyState icon="key" title="No KV buckets">
-          This account has no JetStream Key-Value buckets yet.
-        </EmptyState>
-      ) : (
-        <div className="grid min-h-0 gap-4 lg:grid-cols-[240px_1fr]">
-          <Panel className="flex min-h-0 flex-col p-2">
-            {keys.isError && (
-              <p className="p-2 text-xs text-danger">{errorMessage(keys.error)}</p>
-            )}
-            {keyList.length === 0 && !keys.isLoading ? (
-              <p className="p-3 text-xs text-muted">No keys in this bucket.</p>
-            ) : (
-              <ul className="min-h-0 space-y-0.5 overflow-auto">
-                {keyList.map((k) => (
-                  <li key={k}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedKey(k)}
-                      className={cx(
-                        "w-full truncate rounded-lg px-2.5 py-1.5 text-left font-mono text-xs",
-                        k === selectedKey
-                          ? "bg-accent/10 text-accent"
-                          : "text-content hover:bg-surface-2",
-                      )}
-                    >
-                      {k}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Panel>
-
-          <div className="min-h-0 space-y-4 overflow-auto">
-            {bucket && selectedKey && (
-              <KeyDetail
-                connId={connId}
-                bucket={bucket}
-                keyName={selectedKey}
-                onDeleted={() => setSelectedKey(null)}
-              />
-            )}
-            {bucket && (
-              <NewKeyForm connId={connId} bucket={bucket} onCreated={setSelectedKey} />
-            )}
+    <div className="mx-auto grid h-full max-w-6xl gap-4 overflow-hidden p-4 lg:grid-cols-[1fr_300px]">
+      <div className="grid min-h-0 grid-rows-[auto_1fr] gap-3 overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SectionLabel>Key-Value{bucket ? ` — ${bucket} (${keyList.length})` : ""}</SectionLabel>
+          <div className="flex items-center gap-2">
+            <Select
+              className="w-48"
+              value={bucket ?? ""}
+              onChange={(v) => {
+                setPickedBucket(v);
+                setSelectedKey(null);
+              }}
+              options={bucketNames.map((n) => ({ value: n, label: n }))}
+              disabled={bucketNames.length === 0}
+              placeholder="No buckets"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              icon="replay"
+              onClick={() => void keys.refetch()}
+              disabled={bucket === null || keys.isFetching}
+            >
+              {keys.isFetching ? "…" : "Refresh"}
+            </Button>
           </div>
         </div>
-      )}
+
+        {buckets.isError ? (
+          <p className="text-xs text-danger">{errorMessage(buckets.error)}</p>
+        ) : bucket === null && !buckets.isLoading ? (
+          <EmptyState icon="key" title="No KV buckets">
+            Create one with the form on the right.
+          </EmptyState>
+        ) : (
+          <div className="grid min-h-0 gap-3 sm:grid-cols-[210px_1fr]">
+            <Panel className="flex min-h-0 flex-col overflow-hidden p-2">
+              {keys.isError && <p className="p-2 text-xs text-danger">{errorMessage(keys.error)}</p>}
+              {keyList.length === 0 && !keys.isLoading ? (
+                <p className="p-3 text-xs text-muted">No keys in this bucket.</p>
+              ) : (
+                <ul className="min-h-0 space-y-0.5 overflow-auto">
+                  {keyList.map((k) => (
+                    <li key={k}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedKey(k)}
+                        className={cx(
+                          "w-full truncate rounded-lg px-2.5 py-1.5 text-left font-mono text-xs",
+                          k === selectedKey ? "bg-accent/10 text-accent" : "text-content hover:bg-surface-2",
+                        )}
+                      >
+                        {k}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Panel>
+
+            <div className="min-h-0 overflow-auto">
+              {bucket && selectedKey ? (
+                <KeyDetail connId={connId} bucket={bucket} keyName={selectedKey} onDeleted={() => setSelectedKey(null)} />
+              ) : (
+                <EmptyState icon="key" title="Select a key">
+                  Pick a key on the left to view and edit its value, or add one on the right.
+                </EmptyState>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
-      <CreateKvBucketForm
-        connId={connId}
-        onCreated={(b) => {
-          setPickedBucket(b);
-          setSelectedKey(null);
-        }}
-      />
+      <div className="space-y-4 overflow-auto">
+        <CreateKvBucketForm
+          connId={connId}
+          onCreated={(b) => {
+            setPickedBucket(b);
+            setSelectedKey(null);
+          }}
+        />
+        {bucket && <NewKeyForm connId={connId} bucket={bucket} onCreated={setSelectedKey} />}
+      </div>
     </div>
   );
 }
