@@ -64,7 +64,7 @@ Built with **Rust + Tauri v2** (tiny, secure, no Electron) and **React + TypeScr
 ## Install
 
 ### Download (recommended)
-Grab the latest installer for your OS from the [**Releases**](https://github.com/himanshu-systems/NATS/releases) page.
+Grab the latest installer for your OS from the [**Releases**](https://github.com/himanshu-systems/nats-studio/releases) page.
 
 > Binaries are not yet code-signed, so Windows SmartScreen / macOS Gatekeeper may warn on first launch (More info → Run anyway / right-click → Open). Signing is on the roadmap.
 
@@ -72,7 +72,7 @@ Grab the latest installer for your OS from the [**Releases**](https://github.com
 Prerequisites: [Rust](https://rustup.rs), [Node 20+](https://nodejs.org), [pnpm](https://pnpm.io), and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your OS (WebView2 on Windows, `webkit2gtk` on Linux).
 
 ```bash
-git clone https://github.com/himanshu-systems/NATS.git nats-studio
+git clone https://github.com/himanshu-systems/nats-studio.git nats-studio
 cd nats-studio
 pnpm install
 cd apps/desktop && pnpm tauri build   # or `pnpm tauri dev` to run locally
