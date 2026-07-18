@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ipc } from "@bindings";
 import type { ConsumerInfoDto } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
-import { Badge, Button, EmptyState, Panel, SectionLabel } from "../../components/ui";
+import { Badge, Button, EmptyState, Panel, SearchInput, SectionLabel } from "../../components/ui";
 import { errorMessage } from "../messaging/message";
 
 const streamsKey = (connId: string): [string, string] => ["streams", connId];
@@ -40,12 +40,24 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
     onSettled: () => qc.invalidateQueries({ queryKey: consumersKey(connId, stream ?? "") }),
   });
 
+  const [q, setQ] = useState("");
   const items = consumers.data?.consumers ?? [];
+  const needle = q.trim().toLowerCase();
+  const filtered =
+    needle === ""
+      ? items
+      : items.filter(
+          (c) =>
+            c.name.toLowerCase().includes(needle) ||
+            (c.filterSubject ?? "").toLowerCase().includes(needle),
+        );
 
   return (
     <div className="mx-auto max-w-4xl space-y-3 overflow-auto p-4">
       <div className="flex items-center justify-between gap-3">
-        <SectionLabel>Consumers{stream ? ` — ${stream} (${items.length})` : ""}</SectionLabel>
+        <SectionLabel>
+          Consumers{stream ? ` — ${stream} (${filtered.length}${needle ? ` / ${items.length}` : ""})` : ""}
+        </SectionLabel>
         <div className="flex items-center gap-2">
           <select
             className="field h-8 max-w-[220px] text-xs"
@@ -72,6 +84,10 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
         </div>
       </div>
 
+      {stream !== null && items.length > 0 && (
+        <SearchInput value={q} onChange={setQ} placeholder="Search consumer or subject…" />
+      )}
+
       {streams.isError && <p className="text-xs text-danger">{errorMessage(streams.error)}</p>}
       {consumers.isError && <p className="text-xs text-danger">{errorMessage(consumers.error)}</p>}
       {remove.isError && <p className="text-xs text-danger">{errorMessage(remove.error)}</p>}
@@ -84,9 +100,11 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
         <EmptyState icon="users" title="No consumers">
           Stream “{stream}” has no consumers.
         </EmptyState>
+      ) : filtered.length === 0 ? (
+        <p className="px-1 py-6 text-center text-xs text-muted">No consumers match “{q}”.</p>
       ) : (
         <ul className="space-y-2.5">
-          {items.map((c) => (
+          {filtered.map((c) => (
             <ConsumerCard
               key={c.name}
               info={c}

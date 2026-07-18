@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ipc, StreamDiscard, StreamRetention, StreamStorage } from "@bindings";
 import type { StreamConfigDto, StreamInfoDto } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
-import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../components/ui";
+import { Badge, Button, EmptyState, Panel, SearchInput, SectionLabel, cx } from "../../components/ui";
 import { Icon } from "../../components/Icon";
 import { errorMessage } from "../messaging/message";
 
@@ -55,14 +55,27 @@ function Streams({ connId }: { connId: string }): JSX.Element {
   });
 
   const [purgeTarget, setPurgeTarget] = useState<string | null>(null);
+  const [q, setQ] = useState("");
 
   const items = streams.data?.streams ?? [];
+  const needle = q.trim().toLowerCase();
+  const filtered =
+    needle === ""
+      ? items
+      : items.filter(
+          (s) =>
+            s.config.name.toLowerCase().includes(needle) ||
+            s.config.subjects.some((subj) => subj.toLowerCase().includes(needle)),
+        );
 
   return (
     <div className="mx-auto grid h-full max-w-6xl grid-rows-[1fr] gap-4 overflow-auto p-4 lg:grid-cols-[1fr_340px]">
       <div className="min-w-0 space-y-3">
-        <div className="flex items-center justify-between">
-          <SectionLabel>Streams ({items.length})</SectionLabel>
+        <div className="flex items-center justify-between gap-3">
+          <SectionLabel>
+            Streams ({filtered.length}
+            {needle && ` / ${items.length}`})
+          </SectionLabel>
           <Button
             size="sm"
             variant="outline"
@@ -73,6 +86,7 @@ function Streams({ connId }: { connId: string }): JSX.Element {
             {streams.isFetching ? "Refreshing…" : "Refresh"}
           </Button>
         </div>
+        <SearchInput value={q} onChange={setQ} placeholder="Search name or subject…" />
 
         {streams.isError && (
           <p className="text-xs text-danger">{errorMessage(streams.error)}</p>
@@ -82,9 +96,11 @@ function Streams({ connId }: { connId: string }): JSX.Element {
           <EmptyState icon="database" title="No streams">
             This account has no JetStream streams yet. Create one with the form on the right.
           </EmptyState>
+        ) : filtered.length === 0 ? (
+          <p className="px-1 py-6 text-center text-xs text-muted">No streams match “{q}”.</p>
         ) : (
           <ul className="space-y-2.5">
-            {items.map((s) => (
+            {filtered.map((s) => (
               <StreamCard
                 key={s.config.name}
                 info={s}

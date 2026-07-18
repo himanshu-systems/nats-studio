@@ -261,11 +261,14 @@ impl ConnectionService {
                 .ok_or_else(|| ConnectionError::ConnectionNotFound(connection_id.to_owned()))?
         };
         let rtt = client.rtt().await?;
-        let ms = u64::try_from(rtt.as_millis()).unwrap_or(u64::MAX);
+        // Return microseconds: localhost RTT is routinely sub-millisecond, so
+        // millisecond resolution floors to 0 and the latency graph looks empty.
+        // The connection summary keeps its coarser `rtt_ms`.
+        let micros = u64::try_from(rtt.as_micros()).unwrap_or(u64::MAX);
         if let Some(handle) = self.connections.write().await.get_mut(&conn_id) {
-            handle.rtt_ms = Some(ms);
+            handle.rtt_ms = Some(micros / 1000);
         }
-        Ok(ms)
+        Ok(micros)
     }
 
     // --- helpers ----------------------------------------------------------
@@ -754,8 +757,8 @@ mod tests {
         let (svc, _, _, _) = service(false);
         let profile = svc.create_profile(user_pass_input()).await.unwrap();
         let summary = svc.connect(&profile.id).await.unwrap();
-        let ms = svc.ping(&summary.connection_id).await.unwrap();
-        assert_eq!(ms, 3);
+        let micros = svc.ping(&summary.connection_id).await.unwrap();
+        assert_eq!(micros, 3_000); // mock rtt is 3ms == 3000µs
         let status = svc.get_status(&summary.connection_id).await.unwrap();
         assert_eq!(status.rtt_ms, Some(3));
     }

@@ -2,6 +2,11 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ipc } from "@bindings";
 import { Badge, Button, EmptyState, Panel, SectionLabel } from "../../components/ui";
+import { LineChart } from "../../components/Chart";
+
+const TEAL = "#27c6a0";
+const ACCENT = "rgb(var(--c-accent))";
+const MAX_HISTORY = 60;
 
 const DEFAULT_URL = "http://127.0.0.1:8222";
 
@@ -38,6 +43,7 @@ export function MetricsView(): JSX.Element {
   const [url, setUrl] = useState(DEFAULT_URL);
   const prev = useRef<Sample | null>(null);
   const [rates, setRates] = useState<Rates | null>(null);
+  const [history, setHistory] = useState<Rates[]>([]);
 
   const varz = useQuery({
     queryKey: ["monitor", "varz", url],
@@ -53,12 +59,14 @@ export function MetricsView(): JSX.Element {
     const p = prev.current;
     if (p && now > p.t) {
       const dt = (now - p.t) / 1000;
-      setRates({
+      const r: Rates = {
         inMsgs: Math.max(0, (data.inMsgs - p.inMsgs) / dt),
         outMsgs: Math.max(0, (data.outMsgs - p.outMsgs) / dt),
         inBytes: Math.max(0, (data.inBytes - p.inBytes) / dt),
         outBytes: Math.max(0, (data.outBytes - p.outBytes) / dt),
-      });
+      };
+      setRates(r);
+      setHistory((h) => [...h, r].slice(-MAX_HISTORY));
     }
     prev.current = {
       t: now,
@@ -137,7 +145,72 @@ export function MetricsView(): JSX.Element {
           />
         </div>
       )}
+
+      {data && (
+        <div className="grid gap-3 lg:grid-cols-2">
+          <ChartPanel
+            title="Messages / sec"
+            legend={[
+              { label: "in", color: ACCENT, value: rates ? `${fmtNum(Math.round(rates.inMsgs))}` : "—" },
+              { label: "out", color: TEAL, value: rates ? `${fmtNum(Math.round(rates.outMsgs))}` : "—" },
+            ]}
+            series={[
+              { label: "in", values: history.map((h) => h.inMsgs), color: ACCENT },
+              { label: "out", values: history.map((h) => h.outMsgs), color: TEAL },
+            ]}
+            empty={history.length < 2}
+          />
+          <ChartPanel
+            title="Throughput / sec"
+            legend={[
+              { label: "in", color: ACCENT, value: rates ? `${fmtBytes(rates.inBytes)}` : "—" },
+              { label: "out", color: TEAL, value: rates ? `${fmtBytes(rates.outBytes)}` : "—" },
+            ]}
+            series={[
+              { label: "in", values: history.map((h) => h.inBytes), color: ACCENT },
+              { label: "out", values: history.map((h) => h.outBytes), color: TEAL },
+            ]}
+            empty={history.length < 2}
+          />
+        </div>
+      )}
     </div>
+  );
+}
+
+function ChartPanel({
+  title,
+  legend,
+  series,
+  empty,
+}: {
+  title: string;
+  legend: { label: string; color: string; value: string }[];
+  series: { label: string; values: number[]; color: string }[];
+  empty: boolean;
+}): JSX.Element {
+  return (
+    <Panel className="p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <SectionLabel>{title}</SectionLabel>
+        <div className="flex items-center gap-3">
+          {legend.map((l) => (
+            <span key={l.label} className="flex items-center gap-1.5 text-xs">
+              <span className="h-2 w-2 rounded-full" style={{ background: l.color }} />
+              <span className="text-muted">{l.label}</span>
+              <span className="tabular-nums text-content">{l.value}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+      {empty ? (
+        <div className="flex h-[130px] items-center justify-center text-xs text-faint">
+          Collecting samples…
+        </div>
+      ) : (
+        <LineChart series={series} height={130} />
+      )}
+    </Panel>
   );
 }
 

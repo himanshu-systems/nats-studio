@@ -132,6 +132,41 @@ export function statusMeta(status: ConnectionStatus): { label: string; tone: Ton
   return { label: STATUS_STYLE[status].label, tone: STATUS_STYLE[status].tone };
 }
 
+export function SearchInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}): JSX.Element {
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted">
+        <Icon name="search" size={15} />
+      </span>
+      <input
+        className="field pl-8"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        spellCheck={false}
+      />
+      {value && (
+        <button
+          type="button"
+          aria-label="Clear search"
+          onClick={() => onChange("")}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-content"
+        >
+          <Icon name="x" size={14} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function EmptyState({
   icon,
   title,
