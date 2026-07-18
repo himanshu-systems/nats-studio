@@ -10,7 +10,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use ns_types::{ConnectionProfile, ServerInfoDto, Settings};
 
-use crate::{CoreError, SecretString};
+use crate::{CoreError, IncomingMessage, OutgoingMessage, SecretString};
 
 /// Secure storage for credentials, backed by the OS keychain with an encrypted
 /// fallback (implemented in `ns-security`).
@@ -99,6 +99,32 @@ pub trait NatsClient: Send + Sync {
     async fn flush(&self) -> Result<(), CoreError>;
     /// Drain and close the connection gracefully.
     async fn drain(&self) -> Result<(), CoreError>;
+
+    /// Publish a message (core NATS).
+    async fn publish(&self, message: OutgoingMessage) -> Result<(), CoreError>;
+
+    /// Subscribe to a subject (optionally in a queue group), returning a stream
+    /// of messages.
+    async fn subscribe(
+        &self,
+        subject: &str,
+        queue_group: Option<String>,
+    ) -> Result<Box<dyn Subscription>, CoreError>;
+
+    /// Send a request and await a single reply, or time out.
+    async fn request(
+        &self,
+        message: OutgoingMessage,
+        timeout: Duration,
+    ) -> Result<IncomingMessage, CoreError>;
+}
+
+/// A live subscription: a message stream that can be cancelled (implemented in
+/// `ns-nats`). `next` yields `None` when the subscription ends.
+#[async_trait]
+pub trait Subscription: Send {
+    async fn next(&mut self) -> Option<IncomingMessage>;
+    async fn unsubscribe(&mut self) -> Result<(), CoreError>;
 }
 
 /// Establishes NATS connections from a [`ConnectSpec`] (implemented in `ns-nats`).

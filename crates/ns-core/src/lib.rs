@@ -13,6 +13,7 @@ mod config;
 mod error;
 mod event;
 mod ids;
+mod message;
 mod ports;
 mod redact;
 mod runtime;
@@ -22,9 +23,10 @@ pub use config::default_settings;
 pub use error::{CoreError, DomainError};
 pub use event::{Event, EventPublisher, Topic};
 pub use ids::{ConnectionId, SessionId, SubscriptionId, TaskId};
+pub use message::{IncomingMessage, OutgoingMessage};
 pub use ports::{
     ConnectSpec, ConnectionProfileRepo, NatsClient, NatsClientFactory, ResolvedAuth, ResolvedTls,
-    SecretStore, SettingsRepo,
+    SecretStore, SettingsRepo, Subscription,
 };
 pub use redact::{Redacted, SecretString};
 pub use runtime::{CancellationRegistry, TaskRegistry};

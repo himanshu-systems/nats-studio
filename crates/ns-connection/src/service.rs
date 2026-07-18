@@ -417,7 +417,9 @@ mod tests {
     use std::sync::Mutex;
 
     use async_trait::async_trait;
-    use ns_core::{CoreError, DomainError, ErrorCode};
+    use ns_core::{
+        CoreError, DomainError, ErrorCode, IncomingMessage, OutgoingMessage, Subscription,
+    };
     use ns_types::ConnectionOptions;
     use time::OffsetDateTime;
 
@@ -502,6 +504,23 @@ mod tests {
         }
         async fn drain(&self) -> Result<(), CoreError> {
             Ok(())
+        }
+        async fn publish(&self, _message: OutgoingMessage) -> Result<(), CoreError> {
+            Ok(())
+        }
+        async fn subscribe(
+            &self,
+            _subject: &str,
+            _queue_group: Option<String>,
+        ) -> Result<Box<dyn Subscription>, CoreError> {
+            Err(CoreError::coded(ErrorCode::Internal, "mock", false))
+        }
+        async fn request(
+            &self,
+            _message: OutgoingMessage,
+            _timeout: Duration,
+        ) -> Result<IncomingMessage, CoreError> {
+            Err(CoreError::coded(ErrorCode::Internal, "mock", false))
         }
     }
 

@@ -14,6 +14,8 @@ pub enum NatsError {
     Tls(String),
     #[error("invalid server address: {0}")]
     InvalidAddress(String),
+    #[error("no responders for subject")]
+    NoResponders,
     #[error("operation timed out: {0}")]
     Timeout(String),
     #[error("nats io error: {0}")]
@@ -29,6 +31,7 @@ impl DomainError for NatsError {
             NatsError::Auth(_) => ErrorCode::AuthFailed,
             NatsError::Tls(_) => ErrorCode::TlsError,
             NatsError::InvalidAddress(_) | NatsError::Unsupported(_) => ErrorCode::InvalidArgument,
+            NatsError::NoResponders => ErrorCode::NoResponders,
             NatsError::Timeout(_) => ErrorCode::Timeout,
             NatsError::Io(_) => ErrorCode::Io,
         }

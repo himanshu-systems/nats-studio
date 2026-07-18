@@ -16,9 +16,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use async_nats::{ConnectOptions, ServerAddr};
+use async_nats::{ConnectOptions, HeaderMap, Request, ServerAddr};
 use async_trait::async_trait;
-use ns_core::{ConnectSpec, CoreError, NatsClient, NatsClientFactory, ResolvedAuth, ResolvedTls};
+use ns_core::{
+    ConnectSpec, CoreError, IncomingMessage, NatsClient, NatsClientFactory, OutgoingMessage,
+    ResolvedAuth, ResolvedTls, Subscription,
+};
 use ns_types::ServerInfoDto;
 
 use crate::error::NatsError;
@@ -62,13 +65,139 @@ impl NatsClient for AsyncNatsClient {
     }
 
     async fn drain(&self) -> Result<(), CoreError> {
-        // Best-effort graceful close for Phase 1: flush pending writes; the
-        // connection closes when the last handle drops. Full subscription-drain
-        // semantics land with the pub/sub crate.
+        // Best-effort graceful close: flush pending writes; the connection closes
+        // when the last handle drops.
         self.client
             .flush()
             .await
             .map_err(|e| NatsError::Io(e.to_string()).into())
+    }
+
+    async fn publish(&self, message: OutgoingMessage) -> Result<(), CoreError> {
+        let OutgoingMessage {
+            subject,
+            payload,
+            reply,
+            headers,
+        } = message;
+        let result = match (reply, to_header_map(&headers)) {
+            (Some(reply), Some(h)) => {
+                self.client
+                    .publish_with_reply_and_headers(subject, reply, h, payload.into())
+                    .await
+            }
+            (Some(reply), None) => {
+                self.client
+                    .publish_with_reply(subject, reply, payload.into())
+                    .await
+            }
+            (None, Some(h)) => {
+                self.client
+                    .publish_with_headers(subject, h, payload.into())
+                    .await
+            }
+            (None, None) => self.client.publish(subject, payload.into()).await,
+        };
+        result.map_err(|e| NatsError::Io(e.to_string()).into())
+    }
+
+    async fn subscribe(
+        &self,
+        subject: &str,
+        queue_group: Option<String>,
+    ) -> Result<Box<dyn Subscription>, CoreError> {
+        let subscriber = match queue_group {
+            Some(group) => self.client.queue_subscribe(subject.to_owned(), group).await,
+            None => self.client.subscribe(subject.to_owned()).await,
+        }
+        .map_err(|e| NatsError::Io(e.to_string()))?;
+        Ok(Box::new(AsyncNatsSubscription { inner: subscriber }))
+    }
+
+    async fn request(
+        &self,
+        message: OutgoingMessage,
+        timeout: Duration,
+    ) -> Result<IncomingMessage, CoreError> {
+        let OutgoingMessage {
+            subject,
+            payload,
+            headers,
+            ..
+        } = message;
+        let mut request = Request::new()
+            .payload(payload.into())
+            .timeout(Some(timeout));
+        if let Some(h) = to_header_map(&headers) {
+            request = request.headers(h);
+        }
+        let reply = self
+            .client
+            .send_request(subject, request)
+            .await
+            .map_err(map_request_error)?;
+        Ok(map_message(reply))
+    }
+}
+
+/// A live subscription wrapping an `async-nats` `Subscriber` (a message stream).
+struct AsyncNatsSubscription {
+    inner: async_nats::Subscriber,
+}
+
+#[async_trait]
+impl Subscription for AsyncNatsSubscription {
+    async fn next(&mut self) -> Option<IncomingMessage> {
+        use futures::StreamExt;
+        self.inner.next().await.map(map_message)
+    }
+
+    async fn unsubscribe(&mut self) -> Result<(), CoreError> {
+        self.inner
+            .unsubscribe()
+            .await
+            .map_err(|e| NatsError::Io(e.to_string()).into())
+    }
+}
+
+fn to_header_map(headers: &[(String, String)]) -> Option<HeaderMap> {
+    if headers.is_empty() {
+        return None;
+    }
+    let mut map = HeaderMap::new();
+    for (name, value) in headers {
+        map.insert(name.as_str(), value.as_str());
+    }
+    Some(map)
+}
+
+fn map_message(message: async_nats::Message) -> IncomingMessage {
+    let headers = message
+        .headers
+        .map(|h| {
+            h.iter()
+                .flat_map(|(name, values)| {
+                    values
+                        .iter()
+                        .map(move |v| (name.to_string(), v.to_string()))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    IncomingMessage {
+        subject: message.subject.to_string(),
+        payload: message.payload.to_vec(),
+        reply: message.reply.map(|r| r.to_string()),
+        headers,
+    }
+}
+
+fn map_request_error(err: async_nats::client::RequestError) -> CoreError {
+    use async_nats::client::RequestErrorKind;
+    match err.kind() {
+        RequestErrorKind::NoResponders => NatsError::NoResponders.into(),
+        RequestErrorKind::TimedOut => NatsError::Timeout("request timed out".to_owned()).into(),
+        _ => NatsError::Io(err.to_string()).into(),
     }
 }
 
@@ -302,5 +431,45 @@ mod tests {
         let rtt = client.rtt().await.expect("rtt");
         assert!(rtt.as_millis() < 5_000, "rtt is sane");
         client.drain().await.expect("drain");
+    }
+
+    /// End-to-end publish -> subscribe roundtrip against a live server.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "requires a local nats-server on 127.0.0.1:4222"]
+    async fn live_pub_sub_roundtrip() {
+        // no_echo must be false so a same-connection publish echoes back to the sub.
+        let spec = ConnectSpec {
+            servers: vec!["nats://127.0.0.1:4222".to_owned()],
+            auth: ResolvedAuth::None,
+            tls: None,
+            name: Some("pubsub-test".to_owned()),
+            connect_timeout: Duration::from_secs(5),
+            ping_interval: Duration::from_secs(30),
+            no_echo: false,
+        };
+        let client = AsyncNatsFactory.connect(&spec).await.expect("connect");
+        let mut sub = client
+            .subscribe("ns.studio.test", None)
+            .await
+            .expect("subscribe");
+        client.flush().await.expect("flush sub"); // ensure SUB reaches the server
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        client
+            .publish(OutgoingMessage::new(
+                "ns.studio.test",
+                b"hello nats".to_vec(),
+            ))
+            .await
+            .expect("publish");
+        client.flush().await.expect("flush");
+
+        let msg = tokio::time::timeout(Duration::from_secs(2), sub.next())
+            .await
+            .expect("no timeout")
+            .expect("a message");
+        assert_eq!(msg.subject, "ns.studio.test");
+        assert_eq!(msg.payload, b"hello nats");
+        sub.unsubscribe().await.expect("unsubscribe");
     }
 }

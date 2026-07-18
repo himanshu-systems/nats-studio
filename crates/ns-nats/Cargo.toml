@@ -11,6 +11,7 @@ ns-types = { workspace = true }
 ns-core = { workspace = true }
 async-nats = { workspace = true }
 nkeys = { workspace = true }
+futures = { workspace = true }
 async-trait = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
