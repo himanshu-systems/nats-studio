@@ -2,8 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * NATS Studio design tokens. Colors are RGB triplets (space-separated) so
+ * Tailwind can apply `<alpha-value>`. Light is the default; `.dark` on <html>
+ * (toggled by the ThemeProvider) swaps to the logo's deep-navy surfaces.
+ */
 :root {
-  color-scheme: light dark;
+  --c-canvas: 246 247 250; /* #F6F7FA app background */
+  --c-surface: 255 255 255; /* #FFFFFF panels / cards */
+  --c-surface-2: 240 242 246; /* #F0F2F6 inset / raised */
+  --c-overlay: 255 255 255;
+  --c-border: 226 230 236; /* #E2E6EC */
+  --c-border-strong: 202 209 219;
+  --c-content: 17 22 30; /* #11161E text */
+  --c-muted: 90 100 114; /* #5A6472 secondary text */
+  --c-faint: 140 149 162;
+  --c-accent: 37 129 224; /* #2581E0 brand blue */
+  --c-accent-hover: 26 112 201;
+  --c-accent-content: 255 255 255;
+  --c-positive: 22 160 96;
+  --c-warning: 202 138 4;
+  --c-danger: 216 62 62;
+
+  color-scheme: light;
+}
+
+.dark {
+  --c-canvas: 13 18 28; /* #0D121C deep navy canvas */
+  --c-surface: 21 28 42; /* #151C2A panels */
+  --c-surface-2: 28 37 54; /* #1C2536 inset / raised */
+  --c-overlay: 25 33 49;
+  --c-border: 37 47 65; /* #252F41 */
+  --c-border-strong: 54 67 90;
+  --c-content: 228 234 242; /* #E4EAF2 text */
+  --c-muted: 141 151 168; /* #8D97A8 */
+  --c-faint: 96 107 125;
+  --c-accent: 60 156 245; /* #3C9CF5 brighter on navy */
+  --c-accent-hover: 90 174 250;
+  --c-accent-content: 255 255 255;
+  --c-positive: 46 200 150;
+  --c-warning: 232 180 60;
+  --c-danger: 240 110 110;
+
+  color-scheme: dark;
 }
 
 html,
@@ -12,12 +53,59 @@ body,
   height: 100%;
 }
 
-body {
-  margin: 0;
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+@layer base {
+  body {
+    @apply bg-canvas font-sans text-content antialiased;
+    margin: 0;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "ss01";
+  }
+
+  ::selection {
+    background: rgb(var(--c-accent) / 0.28);
+  }
+
+  /* Themed, unobtrusive scrollbars. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--c-border-strong)) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: rgb(var(--c-border-strong) / 0.8);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--c-faint));
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* Brand gradient (logo blue → teal), for text or fills. */
+  .text-brand-gradient {
+    background-image: linear-gradient(120deg, #2e8de8 0%, #27c6a0 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .bg-brand-gradient {
+    background-image: linear-gradient(120deg, #2e8de8 0%, #27c6a0 100%);
+  }
+
+  /* Standard form control. */
+  .field {
+    @apply w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-content
+      outline-none transition placeholder:text-faint
+      focus:border-accent focus:ring-2 focus:ring-accent/25;
+  }
+  .field-mono {
+    @apply field font-mono;
+  }
 }

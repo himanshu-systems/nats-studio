@@ -2,6 +2,8 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "@/App";
+import { ThemeProvider } from "@/lib/theme";
+import { ActiveConnectionProvider } from "@/lib/activeConnection";
 import "@/index.css";
 
 const queryClient = new QueryClient({
@@ -23,7 +25,11 @@ if (!rootEl) {
 ReactDOM.createRoot(rootEl).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <ThemeProvider>
+        <ActiveConnectionProvider>
+          <App />
+        </ActiveConnectionProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   </React.StrictMode>,
 );

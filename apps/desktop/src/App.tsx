@@ -1,64 +1,60 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ipc } from "@bindings";
+import { useUiStore } from "@/lib/uiStore";
+import { useActiveConnection } from "@/lib/activeConnection";
+import { useLiveEvents } from "@/lib/liveEvents";
+import { findNavItem } from "@/nav";
+import { Sidebar } from "@/components/Sidebar";
+import { TopBar } from "@/components/TopBar";
+import { ComingSoon } from "@/components/ComingSoon";
+import { OverviewView } from "@/features/overview/OverviewView";
 import { ConnectionsView } from "@/features/connections/ConnectionsView";
-import { MessagingView } from "@/features/messaging/MessagingView";
+import { PublisherView } from "@/features/messaging/PublisherView";
+import { RequestReplyView } from "@/features/messaging/RequestReplyView";
+import { LiveTailView } from "@/features/messaging/LiveTailView";
 
-type View = "connections" | "messaging";
-
-const TABS: ReadonlyArray<{ id: View; label: string }> = [
-  { id: "connections", label: "Connections" },
-  { id: "messaging", label: "Messaging" },
-];
+/** Render the feature view for the active nav id (falling back to a scaffold). */
+function renderView(view: string): JSX.Element {
+  switch (view) {
+    case "overview":
+      return <OverviewView />;
+    case "connections":
+      return <ConnectionsView />;
+    case "publisher":
+      return <PublisherView />;
+    case "requestreply":
+      return <RequestReplyView />;
+    case "livetail":
+      return <LiveTailView />;
+    default: {
+      const item = findNavItem(view);
+      return item ? <ComingSoon item={item} /> : <OverviewView />;
+    }
+  }
+}
 
 /**
- * Application shell: a header with live `app_info`, a primary nav that switches
- * between feature workspaces, and the active feature view. Phase 1 shipped
- * Connections; Phase 2 adds Messaging (publish / request / subscribe). A dockable
- * multi-panel workspace (dockview, ADR-0012) lands in a later phase.
+ * Application shell: sidebar navigation + top bar + the active feature view.
+ * Connection-scoped views are keyed by the active connection id, so switching
+ * connections gives each one its own fresh, isolated view state.
  */
 export default function App(): JSX.Element {
-  const [view, setView] = useState<View>("connections");
-  const { data: info } = useQuery({
-    queryKey: ["app", "info"],
-    queryFn: () => ipc.app.info(),
-  });
+  useLiveEvents();
+  const view = useUiStore((s) => s.view);
+  const { activeId } = useActiveConnection();
+  const item = findNavItem(view);
+  const scoped = item?.requiresConnection ?? false;
+  const contentKey = scoped ? `${view}:${activeId ?? "none"}` : view;
 
   return (
-    <div className="flex h-full flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <header className="flex items-center justify-between border-b border-slate-200 px-5 py-3 dark:border-slate-800">
-        <div className="flex items-center gap-5">
-          <div className="flex items-center gap-2.5">
-            <div className="h-6 w-6 rounded-md bg-emerald-500" aria-hidden />
-            <span className="text-sm font-semibold tracking-tight">NATS Studio</span>
+    <div className="flex h-full">
+      <Sidebar />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <TopBar />
+        <main className="min-h-0 flex-1 overflow-hidden">
+          <div key={contentKey} className="h-full animate-fade-in">
+            {renderView(view)}
           </div>
-          <nav className="flex items-center gap-1">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setView(tab.id)}
-                className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
-                  view === tab.id
-                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                    : "opacity-60 hover:bg-slate-100 hover:opacity-100 dark:hover:bg-slate-800"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
-        </div>
-        {info && (
-          <span className="text-xs opacity-50">
-            v{info.version} · schema {info.appSchemaVersion} · {info.os}/{info.arch} ·{" "}
-            {info.buildChannel}
-          </span>
-        )}
-      </header>
-      <main className="min-h-0 flex-1 overflow-hidden">
-        {view === "connections" ? <ConnectionsView /> : <MessagingView />}
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
