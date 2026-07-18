@@ -6,9 +6,15 @@ rust-version.workspace = true
 license.workspace = true
 publish = false
 
+# Depends only on the ns-core ports + shared DTOs (dependency inversion): the
+# binary injects the concrete adapters (ns-nats, ns-security, ns-storage, ns-event).
 [dependencies]
 ns-types = { workspace = true }
 ns-core = { workspace = true }
-ns-event = { workspace = true }
-ns-nats = { workspace = true }
-ns-security = { workspace = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+time = { workspace = true }

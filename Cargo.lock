@@ -2036,11 +2036,12 @@ dependencies = [
 name = "ns-connection"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "ns-core",
- "ns-event",
- "ns-nats",
- "ns-security",
  "ns-types",
+ "thiserror 2.0.18",
+ "time",
+ "tokio",
 ]
 
 [[package]]
