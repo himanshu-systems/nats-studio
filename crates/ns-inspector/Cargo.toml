@@ -9,3 +9,7 @@ publish = false
 [dependencies]
 ns-types = { workspace = true }
 ns-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+flate2 = { workspace = true }
