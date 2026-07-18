@@ -7,11 +7,13 @@ use ns_types::{
     AppInfo, ConnectRequest, ConnectionProfile, ConnectionRef, ConnectionStatusDto,
     ConnectionSummary, ConnzDto, CreateProfileRequest, CreateStreamRequest, DeleteConsumerRequest,
     DeleteProfileRequest, DeleteStreamRequest, GetStreamRequest, HealthStatus, IpcError,
-    ListConnectionsResponse, ListConsumersRequest, ListConsumersResponse, ListProfilesResponse,
-    ListStreamsRequest, ListStreamsResponse, LogRecordDto, MessageView, MonitorRequest,
-    PublishRequest, PurgeStreamRequest, PurgeStreamResponse, RequestRequest, Settings,
-    StreamInfoDto, SubStreamEvent, SubscribeRequest, SubscriptionHandle, UnsubscribeRequest,
-    UpdateProfileRequest, UpdateSettingsRequest, VarzDto,
+    KvDeleteRequest, KvGetRequest, KvGetResponse, KvPutRequest, KvPutResponse, ListBucketsRequest,
+    ListBucketsResponse, ListConnectionsResponse, ListConsumersRequest, ListConsumersResponse,
+    ListKeysRequest, ListKeysResponse, ListProfilesResponse, ListStreamsRequest,
+    ListStreamsResponse, LogRecordDto, MessageView, MonitorRequest, PublishRequest,
+    PurgeStreamRequest, PurgeStreamResponse, RequestRequest, Settings, StreamInfoDto,
+    SubStreamEvent, SubscribeRequest, SubscriptionHandle, UnsubscribeRequest, UpdateProfileRequest,
+    UpdateSettingsRequest, VarzDto,
 };
 use tauri::ipc::Channel;
 use tauri::State;
@@ -285,4 +287,56 @@ pub async fn monitor_connz(
     state: State<'_, AppState>,
 ) -> Result<ConnzDto, IpcError> {
     map_ipc(state.monitor.connz(&req.base_url).await)
+}
+
+// --- jetstream: key-value ----------------------------------------------------
+
+#[tauri::command]
+pub async fn js_list_buckets(
+    req: ListBucketsRequest,
+    state: State<'_, AppState>,
+) -> Result<ListBucketsResponse, IpcError> {
+    map_ipc(state.jetstream.list_buckets(req).await)
+}
+
+#[tauri::command]
+pub async fn js_kv_keys(
+    req: ListKeysRequest,
+    state: State<'_, AppState>,
+) -> Result<ListKeysResponse, IpcError> {
+    map_ipc(state.jetstream.kv_keys(req).await)
+}
+
+#[tauri::command]
+pub async fn js_kv_get(
+    req: KvGetRequest,
+    state: State<'_, AppState>,
+) -> Result<KvGetResponse, IpcError> {
+    map_ipc(state.jetstream.kv_get(req).await)
+}
+
+#[tauri::command]
+pub async fn js_kv_put(
+    req: KvPutRequest,
+    state: State<'_, AppState>,
+) -> Result<KvPutResponse, IpcError> {
+    map_ipc(state.jetstream.kv_put(req).await)
+}
+
+#[tauri::command]
+pub async fn js_kv_delete(
+    req: KvDeleteRequest,
+    state: State<'_, AppState>,
+) -> Result<(), IpcError> {
+    map_ipc(state.jetstream.kv_delete(req).await)
+}
+
+// --- connection: ping (RTT) --------------------------------------------------
+
+#[tauri::command]
+pub async fn connection_ping(
+    req: ConnectionRef,
+    state: State<'_, AppState>,
+) -> Result<u64, IpcError> {
+    map_ipc(state.connections.ping(&req.connection_id).await)
 }

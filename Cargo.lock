@@ -2138,6 +2138,7 @@ name = "ns-jetstream"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "ns-core",
  "ns-types",
  "thiserror 2.0.18",
@@ -2163,6 +2164,7 @@ version = "0.1.0"
 dependencies = [
  "async-nats",
  "async-trait",
+ "base64 0.22.1",
  "futures",
  "nkeys",
  "ns-core",

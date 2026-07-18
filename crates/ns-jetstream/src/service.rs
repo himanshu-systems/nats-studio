@@ -5,11 +5,15 @@
 
 use std::sync::Arc;
 
+use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine as _;
 use ns_core::{NatsClientProvider, PurgeSpec};
 use ns_types::{
     CreateStreamRequest, DeleteConsumerRequest, DeleteStreamRequest, GetStreamRequest,
-    ListConsumersRequest, ListConsumersResponse, ListStreamsRequest, ListStreamsResponse,
-    PurgeStreamRequest, PurgeStreamResponse, StreamInfoDto,
+    KvDeleteRequest, KvGetRequest, KvGetResponse, KvPutRequest, KvPutResponse, ListBucketsRequest,
+    ListBucketsResponse, ListConsumersRequest, ListConsumersResponse, ListKeysRequest,
+    ListKeysResponse, ListStreamsRequest, ListStreamsResponse, PurgeStreamRequest,
+    PurgeStreamResponse, StreamInfoDto,
 };
 
 use crate::error::JetStreamError;
@@ -140,6 +144,81 @@ impl JetStreamService {
         js.delete_consumer(stream, name).await?;
         Ok(())
     }
+
+    // --- Key-Value -----------------------------------------------------------
+
+    /// List every KV bucket in the account.
+    pub async fn list_buckets(
+        &self,
+        req: ListBucketsRequest,
+    ) -> Result<ListBucketsResponse, JetStreamError> {
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        let buckets = js.list_buckets().await?;
+        Ok(ListBucketsResponse { buckets })
+    }
+
+    /// List the keys in a bucket.
+    pub async fn kv_keys(&self, req: ListKeysRequest) -> Result<ListKeysResponse, JetStreamError> {
+        let bucket = require_arg(&req.bucket, "bucket")?;
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        let keys = js.kv_keys(bucket).await?;
+        Ok(ListKeysResponse { keys })
+    }
+
+    /// Get the latest entry for a key (value base64-encoded by the adapter).
+    pub async fn kv_get(&self, req: KvGetRequest) -> Result<KvGetResponse, JetStreamError> {
+        let bucket = require_arg(&req.bucket, "bucket")?;
+        let key = require_arg(&req.key, "key")?;
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        let entry = js.kv_get(bucket, key).await?;
+        Ok(KvGetResponse { entry })
+    }
+
+    /// Put a value (base64) into a key; returns the new revision.
+    pub async fn kv_put(&self, req: KvPutRequest) -> Result<KvPutResponse, JetStreamError> {
+        let bucket = require_arg(&req.bucket, "bucket")?;
+        let key = require_arg(&req.key, "key")?;
+        let value = BASE64.decode(req.value_base64.trim()).map_err(|e| {
+            JetStreamError::InvalidArgument(format!("value is not valid base64: {e}"))
+        })?;
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        let revision = js.kv_put(bucket, key, value).await?;
+        Ok(KvPutResponse { revision })
+    }
+
+    /// Delete a key from a bucket.
+    pub async fn kv_delete(&self, req: KvDeleteRequest) -> Result<(), JetStreamError> {
+        let bucket = require_arg(&req.bucket, "bucket")?;
+        let key = require_arg(&req.key, "key")?;
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        js.kv_delete(bucket, key).await?;
+        Ok(())
+    }
 }
 
 /// Validate a stream name is non-empty, returning the trimmed borrow.
@@ -149,6 +228,15 @@ fn require_name(name: &str) -> Result<&str, JetStreamError> {
         return Err(JetStreamError::InvalidName(
             "stream name is empty".to_owned(),
         ));
+    }
+    Ok(trimmed)
+}
+
+/// Validate a KV bucket/key argument is non-empty, returning the trimmed borrow.
+fn require_arg<'a>(value: &'a str, what: &str) -> Result<&'a str, JetStreamError> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(JetStreamError::InvalidArgument(format!("{what} is empty")));
     }
     Ok(trimmed)
 }
@@ -164,8 +252,8 @@ mod tests {
         OutgoingMessage, PurgeSpec, Subscription,
     };
     use ns_types::{
-        ConsumerInfoDto, ErrorCode, ServerInfoDto, StreamConfigDto, StreamDiscard, StreamInfoDto,
-        StreamRetention, StreamStateDto, StreamStorage,
+        ConsumerInfoDto, ErrorCode, KvBucketDto, KvEntryDto, ServerInfoDto, StreamConfigDto,
+        StreamDiscard, StreamInfoDto, StreamRetention, StreamStateDto, StreamStorage,
     };
 
     use super::*;
@@ -217,12 +305,24 @@ mod tests {
         }
     }
 
+    fn sample_bucket(name: &str) -> KvBucketDto {
+        KvBucketDto {
+            bucket: name.to_owned(),
+            values: 3,
+            history: 5,
+            ttl_seconds: 0,
+            bytes: 128,
+        }
+    }
+
     #[derive(Default)]
     struct MockJetStream {
         created: Mutex<Vec<StreamConfigDto>>,
         purged: Mutex<Vec<(String, PurgeSpec)>>,
         deleted: Mutex<Vec<String>>,
         deleted_consumers: Mutex<Vec<(String, String)>>,
+        kv_puts: Mutex<Vec<(String, String, Vec<u8>)>>,
+        kv_deletes: Mutex<Vec<(String, String)>>,
     }
 
     #[async_trait]
@@ -263,6 +363,34 @@ mod tests {
                 .lock()
                 .unwrap()
                 .push((stream.to_owned(), name.to_owned()));
+            Ok(())
+        }
+        async fn list_buckets(&self) -> Result<Vec<KvBucketDto>, CoreError> {
+            Ok(vec![sample_bucket("config"), sample_bucket("sessions")])
+        }
+        async fn kv_keys(&self, _bucket: &str) -> Result<Vec<String>, CoreError> {
+            Ok(vec!["alpha".to_owned(), "beta".to_owned()])
+        }
+        async fn kv_get(&self, _bucket: &str, key: &str) -> Result<Option<KvEntryDto>, CoreError> {
+            Ok(Some(KvEntryDto {
+                key: key.to_owned(),
+                value_base64: BASE64.encode(b"hello"),
+                revision: 7,
+                is_deleted: false,
+            }))
+        }
+        async fn kv_put(&self, bucket: &str, key: &str, value: Vec<u8>) -> Result<u64, CoreError> {
+            self.kv_puts
+                .lock()
+                .unwrap()
+                .push((bucket.to_owned(), key.to_owned(), value));
+            Ok(99)
+        }
+        async fn kv_delete(&self, bucket: &str, key: &str) -> Result<(), CoreError> {
+            self.kv_deletes
+                .lock()
+                .unwrap()
+                .push((bucket.to_owned(), key.to_owned()));
             Ok(())
         }
     }
@@ -466,5 +594,53 @@ mod tests {
         .unwrap();
         let deleted = js.deleted_consumers.lock().unwrap();
         assert_eq!(deleted.as_slice(), &[("orders".into(), "worker".into())]);
+    }
+
+    #[tokio::test]
+    async fn kv_put_validates_and_base64_decodes() {
+        let (svc, js) = service();
+
+        // Blank bucket -> InvalidArgument, never reaches the port.
+        let err = svc
+            .kv_put(KvPutRequest {
+                connection_id: "c1".into(),
+                bucket: "  ".into(),
+                key: "k".into(),
+                value_base64: BASE64.encode(b"x"),
+            })
+            .await
+            .unwrap_err();
+        assert!(matches!(err, JetStreamError::InvalidArgument(_)));
+        assert!(js.kv_puts.lock().unwrap().is_empty());
+
+        // Bad base64 -> InvalidArgument, never reaches the port.
+        let err = svc
+            .kv_put(KvPutRequest {
+                connection_id: "c1".into(),
+                bucket: "config".into(),
+                key: "k".into(),
+                value_base64: "not base64!!".into(),
+            })
+            .await
+            .unwrap_err();
+        assert!(matches!(err, JetStreamError::InvalidArgument(_)));
+
+        // Valid -> base64 is decoded to raw bytes at the port.
+        let resp = svc
+            .kv_put(KvPutRequest {
+                connection_id: "c1".into(),
+                bucket: "config".into(),
+                key: "greeting".into(),
+                value_base64: BASE64.encode(b"hello"),
+            })
+            .await
+            .unwrap();
+        assert_eq!(resp.revision, 99);
+
+        let puts = js.kv_puts.lock().unwrap();
+        assert_eq!(puts.len(), 1);
+        assert_eq!(puts[0].0, "config");
+        assert_eq!(puts[0].1, "greeting");
+        assert_eq!(puts[0].2, b"hello");
     }
 }

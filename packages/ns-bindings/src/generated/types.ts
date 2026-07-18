@@ -333,6 +333,65 @@ export interface JwtAuth {
 	seed?: string;
 }
 
+/** Summary of a KV bucket (a JetStream stream named `KV_<bucket>`). */
+export interface KvBucketDto {
+	bucket: string;
+	/** Stored messages (keys incl. history revisions) — a rough "size". */
+	values: number;
+	/** Max history kept per key. */
+	history: number;
+	/** Per-key TTL in seconds; `0` = no TTL. */
+	ttlSeconds: number;
+	bytes: number;
+}
+
+export interface KvDeleteRequest {
+	connectionId: string;
+	bucket: string;
+	key: string;
+}
+
+/**
+ * The latest entry for a key. `valueBase64` is the base64-encoded value bytes;
+ * empty when the entry is a delete/purge marker.
+ */
+export interface KvEntryDto {
+	key: string;
+	valueBase64: string;
+	revision: number;
+	/** True if the last operation on the key was a delete / purge. */
+	isDeleted: boolean;
+}
+
+export interface KvGetRequest {
+	connectionId: string;
+	bucket: string;
+	key: string;
+}
+
+export interface KvGetResponse {
+	entry?: KvEntryDto;
+}
+
+export interface KvPutRequest {
+	connectionId: string;
+	bucket: string;
+	key: string;
+	valueBase64: string;
+}
+
+export interface KvPutResponse {
+	revision: number;
+}
+
+export interface ListBucketsRequest {
+	connectionId: string;
+}
+
+export interface ListBucketsResponse {
+	buckets: KvBucketDto[];
+}
+
 export interface ListConnectionsResponse {
 	connections: ConnectionSummary[];
 }
@@ -344,6 +403,15 @@ export interface ListConsumersRequest {
 
 export interface ListConsumersResponse {
 	consumers: ConsumerInfoDto[];
+}
+
+export interface ListKeysRequest {
+	connectionId: string;
+	bucket: string;
+}
+
+export interface ListKeysResponse {
+	keys: string[];
 }
 
 export interface ListProfilesResponse {

@@ -11,6 +11,7 @@ publish = false
 [dependencies]
 ns-types = { workspace = true }
 ns-core = { workspace = true }
+base64 = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]

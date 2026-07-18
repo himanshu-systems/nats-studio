@@ -14,9 +14,18 @@ import type {
   GetStreamRequest,
   HealthStatus,
   IpcError,
+  KvDeleteRequest,
+  KvGetRequest,
+  KvGetResponse,
+  KvPutRequest,
+  KvPutResponse,
+  ListBucketsRequest,
+  ListBucketsResponse,
   ListConnectionsResponse,
   ListConsumersRequest,
   ListConsumersResponse,
+  ListKeysRequest,
+  ListKeysResponse,
   ListProfilesResponse,
   ListStreamsRequest,
   ListStreamsResponse,
@@ -103,6 +112,7 @@ export const ipc = {
     list: () => call<ListConnectionsResponse>("connection_list"),
     getStatus: (connectionId: string) =>
       call<ConnectionStatusDto | null>("connection_get_status", { connectionId }),
+    ping: (connectionId: string) => call<number>("connection_ping", { connectionId }),
   },
   pubsub: {
     publish: (req: PublishRequest) => call<void>("pubsub_publish", req),
@@ -139,6 +149,12 @@ export const ipc = {
     listConsumers: (req: ListConsumersRequest) =>
       call<ListConsumersResponse>("js_list_consumers", req),
     deleteConsumer: (req: DeleteConsumerRequest) => call<void>("js_delete_consumer", req),
+    listBuckets: (req: ListBucketsRequest) =>
+      call<ListBucketsResponse>("js_list_buckets", req),
+    listKeys: (req: ListKeysRequest) => call<ListKeysResponse>("js_kv_keys", req),
+    kvGet: (req: KvGetRequest) => call<KvGetResponse>("js_kv_get", req),
+    kvPut: (req: KvPutRequest) => call<KvPutResponse>("js_kv_put", req),
+    kvDelete: (req: KvDeleteRequest) => call<void>("js_kv_delete", req),
   },
   monitor: {
     varz: (req: MonitorRequest) => call<VarzDto>("monitor_varz", req),

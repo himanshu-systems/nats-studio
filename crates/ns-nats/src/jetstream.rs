@@ -10,14 +10,17 @@ use std::time::Duration;
 use async_nats::jetstream::{
     self,
     consumer::{self, AckPolicy, DeliverPolicy},
+    kv::{self, Operation},
     stream::{Config, DiscardPolicy, Info, RetentionPolicy, State, StorageType},
 };
 use async_trait::async_trait;
+use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine as _;
 use futures::TryStreamExt;
 use ns_core::{CoreError, JetStreamManager, PurgeSpec};
 use ns_types::{
-    ConsumerInfoDto, ErrorCode, StreamConfigDto, StreamDiscard, StreamInfoDto, StreamRetention,
-    StreamStateDto, StreamStorage,
+    ConsumerInfoDto, ErrorCode, KvBucketDto, KvEntryDto, StreamConfigDto, StreamDiscard,
+    StreamInfoDto, StreamRetention, StreamStateDto, StreamStorage,
 };
 use time::format_description::well_known::Rfc3339;
 
@@ -149,6 +152,99 @@ impl JetStreamManager for AsyncJetStream {
             .await
             .map_err(|e| js_err("delete consumer", &e, ErrorCode::ConsumerNotFound))?;
         Ok(())
+    }
+
+    async fn list_buckets(&self) -> Result<Vec<KvBucketDto>, CoreError> {
+        // KV buckets are streams named `KV_<bucket>`; list streams and strip.
+        let mut streams = self.ctx.streams();
+        let mut out = Vec::new();
+        while let Some(info) = streams
+            .try_next()
+            .await
+            .map_err(|e| js_err("list buckets", &e, ErrorCode::Internal))?
+        {
+            if let Some(bucket) = info.config.name.strip_prefix("KV_") {
+                out.push(bucket_to_dto(bucket, &info));
+            }
+        }
+        Ok(out)
+    }
+
+    async fn kv_keys(&self, bucket: &str) -> Result<Vec<String>, CoreError> {
+        let store = self
+            .ctx
+            .get_key_value(bucket)
+            .await
+            .map_err(|e| js_err("open bucket", &e, ErrorCode::StreamNotFound))?;
+        let keys = store
+            .keys()
+            .await
+            .map_err(|e| js_err("list keys", &e, ErrorCode::Internal))?
+            .try_collect::<Vec<String>>()
+            .await
+            .map_err(|e| js_err("list keys", &e, ErrorCode::Internal))?;
+        Ok(keys)
+    }
+
+    async fn kv_get(&self, bucket: &str, key: &str) -> Result<Option<KvEntryDto>, CoreError> {
+        let store = self
+            .ctx
+            .get_key_value(bucket)
+            .await
+            .map_err(|e| js_err("open bucket", &e, ErrorCode::StreamNotFound))?;
+        // `entry` (not `get`) so we can surface delete/purge markers + revision.
+        let entry = store
+            .entry(key)
+            .await
+            .map_err(|e| js_err("kv get", &e, ErrorCode::Internal))?;
+        Ok(entry.map(|e| entry_to_dto(&e)))
+    }
+
+    async fn kv_put(&self, bucket: &str, key: &str, value: Vec<u8>) -> Result<u64, CoreError> {
+        let store = self
+            .ctx
+            .get_key_value(bucket)
+            .await
+            .map_err(|e| js_err("open bucket", &e, ErrorCode::StreamNotFound))?;
+        store
+            .put(key, value.into())
+            .await
+            .map_err(|e| js_err("kv put", &e, ErrorCode::Internal))
+    }
+
+    async fn kv_delete(&self, bucket: &str, key: &str) -> Result<(), CoreError> {
+        let store = self
+            .ctx
+            .get_key_value(bucket)
+            .await
+            .map_err(|e| js_err("open bucket", &e, ErrorCode::StreamNotFound))?;
+        store
+            .delete(key)
+            .await
+            .map_err(|e| js_err("kv delete", &e, ErrorCode::Internal))?;
+        Ok(())
+    }
+}
+
+fn bucket_to_dto(bucket: &str, info: &Info) -> KvBucketDto {
+    KvBucketDto {
+        bucket: bucket.to_owned(),
+        values: info.state.messages,
+        history: info
+            .config
+            .max_messages_per_subject
+            .clamp(0, u8::MAX as i64) as u8,
+        ttl_seconds: info.config.max_age.as_secs(),
+        bytes: info.state.bytes,
+    }
+}
+
+fn entry_to_dto(entry: &kv::Entry) -> KvEntryDto {
+    KvEntryDto {
+        key: entry.key.clone(),
+        value_base64: BASE64.encode(&entry.value),
+        revision: entry.revision,
+        is_deleted: matches!(entry.operation, Operation::Delete | Operation::Purge),
     }
 }
 
