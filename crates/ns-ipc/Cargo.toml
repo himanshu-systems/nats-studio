@@ -10,3 +10,10 @@ publish = false
 ns-types = { workspace = true }
 ns-core = { workspace = true }
 ns-event = { workspace = true }
+tauri = { workspace = true }
+time = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+thiserror = { workspace = true }

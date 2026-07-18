@@ -2096,6 +2096,11 @@ dependencies = [
  "ns-core",
  "ns-event",
  "ns-types",
+ "tauri",
+ "thiserror 2.0.18",
+ "time",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
