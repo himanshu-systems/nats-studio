@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ConnectionStatus, ipc } from "@bindings";
+import { ConnectionStatus, ipc, type VarzDto } from "@bindings";
 import { useActiveConnection } from "../../lib/activeConnection";
 import { useUiStore } from "../../lib/uiStore";
 import { Badge, Button, EmptyState, Panel, SearchInput, SectionLabel, StatusDot, statusMeta } from "../../components/ui";
@@ -9,22 +9,30 @@ import { LineChart } from "../../components/Chart";
 import { RequireConnection } from "../../components/RequireConnection";
 
 const DEFAULT_URL = "http://127.0.0.1:8222";
+const ACCENT = "rgb(var(--c-accent))";
+const TEAL = "#27c6a0";
 const fmtNum = (n: number): string => n.toLocaleString();
+
+function fmtBytes(n: number): string {
+  if (n < 1024) return `${Math.round(n)} B`;
+  const u = ["KiB", "MiB", "GiB", "TiB"];
+  let v = n / 1024;
+  let i = 0;
+  while (v >= 1024 && i < u.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  return `${v.toFixed(1)} ${u[i]}`;
+}
 
 function fmtRtt(micros: number | undefined): string {
   if (micros == null) return "—";
   return micros < 1000 ? `${Math.round(micros)} µs` : `${(micros / 1000).toFixed(2)} ms`;
 }
 
-/**
- * Unified dashboard: server identity + health + latency + streams↔subjects +
- * clients/subscribers for the active connection. (Merges the former Overview,
- * Topology, Health, Latency and Accounts views.)
- */
 export function OverviewView(): JSX.Element {
   const { active } = useActiveConnection();
   const setView = useUiStore((s) => s.setView);
-
   if (!active) {
     return (
       <EmptyState
@@ -36,7 +44,7 @@ export function OverviewView(): JSX.Element {
           </Button>
         }
       >
-        Connect to a NATS server and its identity, health, latency and topology appear here.
+        Connect to a NATS server and its identity, health, data and topology appear here.
       </EmptyState>
     );
   }
@@ -53,30 +61,22 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
   const [url, setUrl] = useState(DEFAULT_URL);
   const [q, setQ] = useState("");
   const [rtt, setRtt] = useState<number[]>([]);
+  const prevVarz = useRef<{ t: number; inBytes: number; outBytes: number } | null>(null);
+  const [proc, setProc] = useState<{ rate: number; history: number[] }>({ rate: 0, history: [] });
 
-  const streams = useQuery({
-    queryKey: ["streams", connId],
-    queryFn: () => ipc.jetstream.listStreams({ connectionId: connId }),
-  });
-  const varz = useQuery({
-    queryKey: ["monitor", "varz", url],
-    queryFn: () => ipc.monitor.varz({ baseUrl: url }),
-    refetchInterval: 3000,
-  });
-  const connz = useQuery({
-    queryKey: ["monitor", "connz", url],
-    queryFn: () => ipc.monitor.connz({ baseUrl: url }),
-    refetchInterval: 3000,
-  });
+  const streams = useQuery({ queryKey: ["streams", connId], queryFn: () => ipc.jetstream.listStreams({ connectionId: connId }) });
+  const varz = useQuery({ queryKey: ["monitor", "varz", url], queryFn: () => ipc.monitor.varz({ baseUrl: url }), refetchInterval: 1000 });
+  const connz = useQuery({ queryKey: ["monitor", "connz", url], queryFn: () => ipc.monitor.connz({ baseUrl: url }), refetchInterval: 3000 });
+  const v: VarzDto | undefined = varz.data;
 
-  // Live RTT sample (microseconds).
+  // Live RTT (µs).
   useEffect(() => {
     setRtt([]);
     let alive = true;
     const tick = async (): Promise<void> => {
       try {
         const us = await ipc.connection.ping(connId);
-        if (alive) setRtt((s) => [...s, us].slice(-40));
+        if (alive) setRtt((s) => [...s, us].slice(-48));
       } catch {
         /* transient */
       }
@@ -89,36 +89,41 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
     };
   }, [connId]);
 
+  // Data-processed rate (bytes/sec in+out) from varz deltas.
+  useEffect(() => {
+    if (!v) return;
+    const now = Date.now();
+    const p = prevVarz.current;
+    if (p && now > p.t) {
+      const dt = (now - p.t) / 1000;
+      const rate = Math.max(0, (v.inBytes - p.inBytes + (v.outBytes - p.outBytes)) / dt);
+      setProc((s) => ({ rate, history: [...s.history, rate].slice(-48) }));
+    }
+    prevVarz.current = { t: now, inBytes: v.inBytes, outBytes: v.outBytes };
+  }, [v]);
+
   const items = streams.data?.streams ?? [];
   const needle = q.trim().toLowerCase();
   const filtered =
     needle === ""
       ? items
-      : items.filter(
-          (s) =>
-            s.config.name.toLowerCase().includes(needle) ||
-            s.config.subjects.some((subj) => subj.toLowerCase().includes(needle)),
-        );
+      : items.filter((s) => s.config.name.toLowerCase().includes(needle) || s.config.subjects.some((subj) => subj.toLowerCase().includes(needle)));
   const conns = connz.data?.connections ?? [];
-  const v = varz.data;
+
+  const totalStored = items.reduce((a, s) => a + s.state.bytes, 0);
+  const totalMsgs = items.reduce((a, s) => a + s.state.messages, 0);
+  const topStreams = [...items].sort((a, b) => b.state.bytes - a.state.bytes).slice(0, 6);
+  const maxStreamBytes = Math.max(1, ...topStreams.map((s) => s.state.bytes));
 
   const checks: { label: string; tone: "positive" | "warning" | "danger"; icon: string }[] = [
-    connected
-      ? { label: "Connected", tone: "positive", icon: "check" }
-      : { label: meta.label, tone: "danger", icon: "x" },
-    info?.jetstream
-      ? { label: "JetStream", tone: "positive", icon: "check" }
-      : { label: "No JetStream", tone: "warning", icon: "alert" },
-    varz.isError
-      ? { label: "Monitoring off", tone: "warning", icon: "alert" }
-      : { label: "Monitoring", tone: "positive", icon: "check" },
-    v && v.slowConsumers > 0
-      ? { label: `${v.slowConsumers} slow`, tone: "warning", icon: "alert" }
-      : { label: "No slow consumers", tone: "positive", icon: "check" },
+    connected ? { label: "Connected", tone: "positive", icon: "check" } : { label: meta.label, tone: "danger", icon: "x" },
+    info?.jetstream ? { label: "JetStream", tone: "positive", icon: "check" } : { label: "No JetStream", tone: "warning", icon: "alert" },
+    varz.isError ? { label: "Monitoring off", tone: "warning", icon: "alert" } : { label: "Monitoring", tone: "positive", icon: "check" },
+    v && v.slowConsumers > 0 ? { label: `${v.slowConsumers} slow`, tone: "warning", icon: "alert" } : { label: "No slow consumers", tone: "positive", icon: "check" },
   ];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 overflow-auto p-4">
+    <div className="mx-auto max-w-6xl space-y-5 overflow-auto p-5">
       {/* Server + health */}
       <Panel className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -145,13 +150,53 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
             ))}
           </div>
         </div>
-        {active?.lastError && (
-          <p className="mt-3 rounded-lg border border-danger/25 bg-danger/10 px-3 py-2 text-xs text-danger">{active.lastError}</p>
-        )}
+        {active?.lastError && <p className="mt-3 rounded-lg border border-danger/25 bg-danger/10 px-3 py-2 text-xs text-danger">{active.lastError}</p>}
       </Panel>
 
+      {/* Data: stored + processed */}
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Panel className="p-4">
+          <div className="flex items-baseline justify-between">
+            <SectionLabel>Data stored (JetStream)</SectionLabel>
+            <div className="text-right">
+              <div className="text-2xl font-semibold tabular-nums text-content">{fmtBytes(totalStored)}</div>
+              <div className="text-[11px] text-muted">{fmtNum(totalMsgs)} messages</div>
+            </div>
+          </div>
+          <div className="mt-3 space-y-1.5">
+            {topStreams.length === 0 ? (
+              <p className="py-4 text-center text-xs text-muted">No streams — nothing stored yet.</p>
+            ) : (
+              topStreams.map((s) => (
+                <div key={s.config.name} className="flex items-center gap-2 text-xs">
+                  <span className="w-28 shrink-0 truncate text-muted" title={s.config.name}>{s.config.name}</span>
+                  <div className="h-3 flex-1 overflow-hidden rounded bg-surface-2">
+                    <div className="h-full rounded bg-accent/70" style={{ width: `${(s.state.bytes / maxStreamBytes) * 100}%` }} />
+                  </div>
+                  <span className="w-16 shrink-0 text-right tabular-nums text-content">{fmtBytes(s.state.bytes)}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </Panel>
+
+        <Panel className="p-4">
+          <div className="flex items-baseline justify-between">
+            <SectionLabel>Data processed / sec</SectionLabel>
+            <div className="text-2xl font-semibold tabular-nums text-content">{fmtBytes(proc.rate)}/s</div>
+          </div>
+          <div className="mt-3 h-[120px]">
+            {proc.history.length > 1 ? (
+              <LineChart series={[{ label: "bytes/s", values: proc.history, color: TEAL }]} height={120} zeroBased area formatY={(b) => `${fmtBytes(b)}/s`} />
+            ) : (
+              <div className="flex h-full items-center justify-center text-xs text-faint">collecting samples…</div>
+            )}
+          </div>
+        </Panel>
+      </div>
+
       {/* Stats + latency */}
-      <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1fr_1.4fr]">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Subscribers" value={v ? fmtNum(v.subscriptions) : "—"} icon="signal" />
         <Stat label="Connections" value={v ? fmtNum(v.connections) : "—"} icon="users" />
         <Stat label="Streams" value={fmtNum(items.length)} icon="database" />
@@ -161,11 +206,11 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
               <Icon name="clock" size={15} />
               <span className="text-[11px] font-semibold uppercase tracking-wider">Round-trip</span>
             </div>
-            <span className="text-sm font-semibold tabular-nums text-content">{fmtRtt(rtt.at(-1))}</span>
+            <span className="text-lg font-semibold tabular-nums text-content">{fmtRtt(rtt.at(-1))}</span>
           </div>
-          <div className="mt-2 h-12">
+          <div className="mt-2 h-16">
             {rtt.length > 1 ? (
-              <LineChart series={[{ label: "rtt", values: rtt }]} height={48} />
+              <LineChart series={[{ label: "rtt", values: rtt, color: ACCENT }]} height={64} formatY={fmtRtt} />
             ) : (
               <div className="flex h-full items-center text-[11px] text-faint">sampling…</div>
             )}
@@ -198,16 +243,12 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
             {filtered.map((s) => (
               <Panel key={s.config.name} className="p-3">
                 <div className="flex items-center justify-between gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setView("browser")}
-                    className="truncate text-sm font-medium text-content hover:text-accent"
-                    title="Open in Message Browser"
-                  >
+                  <button type="button" onClick={() => setView("browser")} className="truncate text-sm font-medium text-content hover:text-accent" title="Open in Message Browser">
                     {s.config.name}
                   </button>
                   <div className="flex shrink-0 items-center gap-3 text-xs text-muted">
                     <span className="tabular-nums">{fmtNum(s.state.messages)} msgs</span>
+                    <span className="tabular-nums">{fmtBytes(s.state.bytes)}</span>
                     <span className="tabular-nums">{fmtNum(s.state.consumerCount)} consumers</span>
                   </div>
                 </div>
@@ -228,38 +269,42 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
         )}
       </div>
 
-      {/* Clients / subscribers */}
+      {/* Clients */}
       <div>
         <SectionLabel>Clients on this server ({conns.length})</SectionLabel>
         <Panel className="mt-2 overflow-hidden p-0">
           {conns.length === 0 ? (
-            <p className="p-4 text-xs text-muted">
-              {varz.isError ? "Monitoring endpoint unreachable — start the server with -m 8222." : "No client connections reported."}
-            </p>
+            <p className="p-4 text-xs text-muted">{varz.isError ? "Monitoring endpoint unreachable — start the server with -m 8222." : "No client connections reported."}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="border-b border-border text-muted">
+                <thead className="border-b border-border bg-surface-2/50 text-muted">
                   <tr>
                     <Th>CID</Th>
                     <Th>Name</Th>
                     <Th>Address</Th>
+                    <Th>Lang</Th>
                     <Th right>Subs</Th>
-                    <Th right>In</Th>
-                    <Th right>Out</Th>
+                    <Th right>Msgs in</Th>
+                    <Th right>Msgs out</Th>
+                    <Th right>Bytes in</Th>
+                    <Th right>Bytes out</Th>
+                    <Th right>Uptime</Th>
                   </tr>
                 </thead>
                 <tbody>
                   {conns.map((c) => (
-                    <tr key={c.cid} className="border-b border-border/50 last:border-0">
+                    <tr key={c.cid} className="border-b border-border/40 last:border-0 hover:bg-surface-2/40">
                       <Td mono>{c.cid}</Td>
                       <Td>{c.name || <span className="text-faint">—</span>}</Td>
-                      <Td mono>
-                        {c.ip}:{c.port} {c.lang ? <Badge tone="neutral">{c.lang}</Badge> : null}
-                      </Td>
+                      <Td mono>{c.ip}:{c.port}</Td>
+                      <Td>{c.lang ? `${c.lang}${c.version ? ` ${c.version}` : ""}` : <span className="text-faint">—</span>}</Td>
                       <Td right mono>{fmtNum(c.subscriptions)}</Td>
                       <Td right mono>{fmtNum(c.inMsgs)}</Td>
                       <Td right mono>{fmtNum(c.outMsgs)}</Td>
+                      <Td right mono>{fmtBytes(c.inBytes)}</Td>
+                      <Td right mono>{fmtBytes(c.outBytes)}</Td>
+                      <Td right mono>{c.uptime}</Td>
                     </tr>
                   ))}
                 </tbody>
@@ -290,8 +335,8 @@ function Stat({ label, value, icon }: { label: string; value: string; icon: stri
 }
 
 function Th({ children, right }: { children: React.ReactNode; right?: boolean }): JSX.Element {
-  return <th className={`px-3 py-2 font-medium ${right ? "text-right" : ""}`}>{children}</th>;
+  return <th className={`whitespace-nowrap px-3 py-2 font-medium ${right ? "text-right" : ""}`}>{children}</th>;
 }
 function Td({ children, right, mono }: { children: React.ReactNode; right?: boolean; mono?: boolean }): JSX.Element {
-  return <td className={`px-3 py-1.5 text-content ${right ? "text-right" : ""} ${mono ? "font-mono tabular-nums" : ""}`}>{children}</td>;
+  return <td className={`whitespace-nowrap px-3 py-1.5 text-content ${right ? "text-right" : ""} ${mono ? "font-mono tabular-nums" : ""}`}>{children}</td>;
 }
