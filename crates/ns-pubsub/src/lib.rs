@@ -1,5 +1,12 @@
-//! `ns-pubsub` — NATS Studio. See docs/architecture/.
+//! ns-pubsub — core NATS publish / subscribe / request. Built on the `ns-core`
+//! `NatsClientProvider` port (the bin injects `ns-connection`) and `ns-inspector`
+//! for payload decoding. Streaming subscriptions are driven by the caller.
 //!
-//! Phase 0 skeleton: wired into the workspace dependency graph; the real
-//! implementation lands in this crate roadmap phase.
+//! See docs/architecture/sub-pubsub.md.
 #![forbid(unsafe_code)]
+
+mod error;
+mod service;
+
+pub use error::PubSubError;
+pub use service::PubSubService;

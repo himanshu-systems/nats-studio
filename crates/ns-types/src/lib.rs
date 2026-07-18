@@ -9,12 +9,14 @@ mod app;
 mod connection;
 mod error;
 mod event;
+mod message;
 mod settings;
 
 pub use app::*;
 pub use connection::*;
 pub use error::*;
 pub use event::*;
+pub use message::*;
 pub use settings::*;
 
 /// Wire alias for 64-bit unsigned integers. typeshare maps `U64` to the TS

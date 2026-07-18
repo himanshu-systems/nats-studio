@@ -16,9 +16,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
+use async_trait::async_trait;
 use ns_core::{
-    Clock, ConnectSpec, ConnectionId, ConnectionProfileRepo, DomainError, Event, EventPublisher,
-    NatsClient, NatsClientFactory, ResolvedAuth, ResolvedTls, SecretStore, SecretString,
+    Clock, ConnectSpec, ConnectionId, ConnectionProfileRepo, CoreError, DomainError, ErrorCode,
+    Event, EventPublisher, NatsClient, NatsClientFactory, NatsClientProvider, ResolvedAuth,
+    ResolvedTls, SecretStore, SecretString,
 };
 use ns_types::{
     ConnectionAuth, ConnectionProfile, ConnectionProfileInput, ConnectionStatus,
@@ -394,6 +396,27 @@ impl ConnectionService {
             Some(conn_id.to_string()),
             self.clock.now(),
         ));
+    }
+}
+
+#[async_trait]
+impl NatsClientProvider for ConnectionService {
+    async fn client(&self, connection_id: &str) -> Result<Arc<dyn NatsClient>, CoreError> {
+        let conn_id = connection_id
+            .parse::<ConnectionId>()
+            .map_err(|_| CoreError::coded(ErrorCode::NotFound, "unknown connection", false))?;
+        self.connections
+            .read()
+            .await
+            .get(&conn_id)
+            .and_then(|handle| handle.client.clone())
+            .ok_or_else(|| {
+                CoreError::coded(
+                    ErrorCode::ConnectionClosed,
+                    "connection is not connected",
+                    false,
+                )
+            })
     }
 }
 

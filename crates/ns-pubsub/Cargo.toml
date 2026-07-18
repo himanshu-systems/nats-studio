@@ -6,8 +6,15 @@ rust-version.workspace = true
 license.workspace = true
 publish = false
 
+# Consumes the ns-core NatsClientProvider port (the bin injects ns-connection)
+# and ns-inspector for payload decoding. No dependency on adapter crates.
 [dependencies]
 ns-types = { workspace = true }
 ns-core = { workspace = true }
-ns-event = { workspace = true }
 ns-inspector = { workspace = true }
+base64 = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+async-trait = { workspace = true }

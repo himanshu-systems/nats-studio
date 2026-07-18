@@ -25,8 +25,8 @@ pub use event::{Event, EventPublisher, Topic};
 pub use ids::{ConnectionId, SessionId, SubscriptionId, TaskId};
 pub use message::{IncomingMessage, OutgoingMessage};
 pub use ports::{
-    ConnectSpec, ConnectionProfileRepo, NatsClient, NatsClientFactory, ResolvedAuth, ResolvedTls,
-    SecretStore, SettingsRepo, Subscription,
+    ConnectSpec, ConnectionProfileRepo, NatsClient, NatsClientFactory, NatsClientProvider,
+    ResolvedAuth, ResolvedTls, SecretStore, SettingsRepo, Subscription,
 };
 pub use redact::{Redacted, SecretString};
 pub use runtime::{CancellationRegistry, TaskRegistry};

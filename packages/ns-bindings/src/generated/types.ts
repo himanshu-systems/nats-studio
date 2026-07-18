@@ -252,6 +252,30 @@ export interface LogRecordDto {
 	correlationId?: string;
 }
 
+export interface MessageHeader {
+	name: string;
+	value: string;
+}
+
+/** A decoded message delivered to the UI (from a subscription or a reply). */
+export interface MessageView {
+	seq: number;
+	subject: string;
+	reply?: string;
+	headers: MessageHeader[];
+	/** The raw payload bytes, base64-encoded. */
+	payloadBase64: string;
+	size: number;
+	/** Detected format: `json` | `text` | `binary` | `empty`. */
+	format: string;
+	/** Detected compression: `none` | `gzip` | `zlib` | `zstd`. */
+	compression: string;
+	/** A human-readable decoded preview. */
+	preview: string;
+	/** RFC-3339 receive timestamp. */
+	ts: string;
+}
+
 /** Where a metrics frame originated (client-side counters vs server monitoring). */
 export enum MetricSource {
 	Client = "client",
@@ -287,6 +311,30 @@ export interface NotificationDto {
 	ts: string;
 }
 
+/** How a `payload` string in a request should be interpreted into bytes. */
+export enum PayloadEncoding {
+	Utf8 = "utf8",
+	Base64 = "base64",
+}
+
+export interface PublishRequest {
+	connectionId: string;
+	subject: string;
+	payload: string;
+	encoding: PayloadEncoding;
+	headers: MessageHeader[];
+	reply?: string;
+}
+
+export interface RequestRequest {
+	connectionId: string;
+	subject: string;
+	payload: string;
+	encoding: PayloadEncoding;
+	headers: MessageHeader[];
+	timeoutMs: number;
+}
+
 export interface ServerInfoUpdatedDto {
 	connectionId: string;
 	serverInfo: ServerInfoDto;
@@ -308,6 +356,16 @@ export interface Settings {
 	confirmDestructiveActions: boolean;
 }
 
+export interface SubscribeRequest {
+	connectionId: string;
+	subject: string;
+	queueGroup?: string;
+}
+
+export interface SubscriptionHandle {
+	subscriptionId: string;
+}
+
 export interface TaskProgressDto {
 	taskId: string;
 	label: string;
@@ -324,6 +382,10 @@ export interface TokenAuth {
 	token?: string;
 }
 
+export interface UnsubscribeRequest {
+	subscriptionId: string;
+}
+
 export interface UpdateProfileRequest {
 	profile: ConnectionProfile;
 }
@@ -336,4 +398,10 @@ export interface UserPasswordAuth {
 	username: string;
 	password?: string;
 }
+
+/** Events delivered over a subscription's Tauri Channel. */
+export type SubStreamEvent = 
+	| { kind: "message", data: MessageView }
+	| { kind: "error", data: IpcError }
+	| { kind: "ended", data?: undefined };
 

@@ -2177,10 +2177,13 @@ dependencies = [
 name = "ns-pubsub"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "base64 0.22.1",
  "ns-core",
- "ns-event",
  "ns-inspector",
  "ns-types",
+ "thiserror 2.0.18",
+ "tokio",
 ]
 
 [[package]]

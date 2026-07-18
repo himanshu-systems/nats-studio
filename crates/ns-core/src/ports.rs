@@ -132,3 +132,13 @@ pub trait Subscription: Send {
 pub trait NatsClientFactory: Send + Sync {
     async fn connect(&self, spec: &ConnectSpec) -> Result<Arc<dyn NatsClient>, CoreError>;
 }
+
+/// Resolves the live [`NatsClient`] for a connection id. Implemented by the
+/// connection registry (`ns-connection`) and consumed by feature services that
+/// operate on an existing connection (`ns-pubsub`, later `ns-jetstream`) — so
+/// they depend on this port, not on `ns-connection` itself.
+#[async_trait]
+pub trait NatsClientProvider: Send + Sync {
+    /// The live client for `connection_id`, or an error if it is not connected.
+    async fn client(&self, connection_id: &str) -> Result<Arc<dyn NatsClient>, CoreError>;
+}

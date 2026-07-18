@@ -31,6 +31,7 @@ nkeys = "0.4"
 futures = "0.3"
 tauri = { version = "2", features = [] }
 flate2 = "1"
+base64 = "0.22"
 keyring = "3"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 rustls-pemfile = "2"
