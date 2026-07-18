@@ -9,3 +9,15 @@ publish = false
 [dependencies]
 ns-types = { workspace = true }
 ns-core = { workspace = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+zeroize = { workspace = true }
+keyring = { workspace = true }
+rustls = { workspace = true }
+rustls-pemfile = { workspace = true }
+rustls-native-certs = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+rcgen = "0.13"
