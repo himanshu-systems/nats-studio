@@ -1,0 +1,35 @@
+# NATS broker for NATS Studio development.
+#
+#   Start:   docker compose -f deploy/nats/docker-compose.yml up -d
+#   Status:  docker compose -f deploy/nats/docker-compose.yml ps
+#   Logs:    docker compose -f deploy/nats/docker-compose.yml logs -f
+#   Stop:    docker compose -f deploy/nats/docker-compose.yml down
+#   Wipe JS: docker compose -f deploy/nats/docker-compose.yml down -v
+#
+# The app's default profile connects to nats://127.0.0.1:4222, which maps here.
+name: nats-studio
+
+services:
+  nats:
+    image: nats:2.10-alpine
+    container_name: nats-studio
+    restart: unless-stopped
+    command: ["-c", "/etc/nats/nats-server.conf"]
+    ports:
+      - "4222:4222" # client protocol — the app connects here
+      - "8222:8222" # HTTP monitoring (/healthz, /varz, /jsz)
+      - "6222:6222" # cluster routing (reserved for future clustering)
+    volumes:
+      - ./nats-server.conf:/etc/nats/nats-server.conf:ro
+      - jetstream:/data/jetstream
+    healthcheck:
+      # busybox wget ships in the alpine image; /healthz returns 200 when ready.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8222/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  jetstream:
+    name: nats-studio-jetstream
