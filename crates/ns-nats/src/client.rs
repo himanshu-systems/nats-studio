@@ -19,12 +19,13 @@ use std::time::Duration;
 use async_nats::{ConnectOptions, HeaderMap, Request, ServerAddr};
 use async_trait::async_trait;
 use ns_core::{
-    ConnectSpec, CoreError, IncomingMessage, NatsClient, NatsClientFactory, OutgoingMessage,
-    ResolvedAuth, ResolvedTls, Subscription,
+    ConnectSpec, CoreError, IncomingMessage, JetStreamManager, NatsClient, NatsClientFactory,
+    OutgoingMessage, ResolvedAuth, ResolvedTls, Subscription,
 };
 use ns_types::ServerInfoDto;
 
 use crate::error::NatsError;
+use crate::jetstream::AsyncJetStream;
 
 /// A live NATS connection implementing the `ns-core` port.
 pub struct AsyncNatsClient {
@@ -137,6 +138,10 @@ impl NatsClient for AsyncNatsClient {
             .await
             .map_err(map_request_error)?;
         Ok(map_message(reply))
+    }
+
+    async fn jetstream(&self) -> Result<Arc<dyn JetStreamManager>, CoreError> {
+        Ok(Arc::new(AsyncJetStream::new(self.client.clone())))
     }
 }
 

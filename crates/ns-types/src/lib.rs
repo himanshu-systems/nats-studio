@@ -9,6 +9,7 @@ mod app;
 mod connection;
 mod error;
 mod event;
+mod jetstream;
 mod message;
 mod settings;
 
@@ -16,6 +17,7 @@ pub use app::*;
 pub use connection::*;
 pub use error::*;
 pub use event::*;
+pub use jetstream::*;
 pub use message::*;
 pub use settings::*;
 

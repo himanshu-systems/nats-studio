@@ -5,10 +5,12 @@ use ns_core::{SettingsRepo, SubscriptionId};
 use ns_ipc::map_ipc;
 use ns_types::{
     AppInfo, ConnectRequest, ConnectionProfile, ConnectionRef, ConnectionStatusDto,
-    ConnectionSummary, CreateProfileRequest, DeleteProfileRequest, HealthStatus, IpcError,
-    ListConnectionsResponse, ListProfilesResponse, LogRecordDto, MessageView, PublishRequest,
-    RequestRequest, Settings, SubStreamEvent, SubscribeRequest, SubscriptionHandle,
-    UnsubscribeRequest, UpdateProfileRequest, UpdateSettingsRequest,
+    ConnectionSummary, CreateProfileRequest, CreateStreamRequest, DeleteProfileRequest,
+    DeleteStreamRequest, GetStreamRequest, HealthStatus, IpcError, ListConnectionsResponse,
+    ListProfilesResponse, ListStreamsRequest, ListStreamsResponse, LogRecordDto, MessageView,
+    PublishRequest, PurgeStreamRequest, PurgeStreamResponse, RequestRequest, Settings,
+    StreamInfoDto, SubStreamEvent, SubscribeRequest, SubscriptionHandle, UnsubscribeRequest,
+    UpdateProfileRequest, UpdateSettingsRequest,
 };
 use tauri::ipc::Channel;
 use tauri::State;
@@ -204,4 +206,46 @@ pub async fn pubsub_unsubscribe(
 ) -> Result<(), IpcError> {
     state.subscriptions.cancel(&req.subscription_id);
     Ok(())
+}
+
+// --- jetstream: streams ------------------------------------------------------
+
+#[tauri::command]
+pub async fn js_list_streams(
+    req: ListStreamsRequest,
+    state: State<'_, AppState>,
+) -> Result<ListStreamsResponse, IpcError> {
+    map_ipc(state.jetstream.list_streams(req).await)
+}
+
+#[tauri::command]
+pub async fn js_get_stream(
+    req: GetStreamRequest,
+    state: State<'_, AppState>,
+) -> Result<StreamInfoDto, IpcError> {
+    map_ipc(state.jetstream.get_stream(req).await)
+}
+
+#[tauri::command]
+pub async fn js_create_stream(
+    req: CreateStreamRequest,
+    state: State<'_, AppState>,
+) -> Result<StreamInfoDto, IpcError> {
+    map_ipc(state.jetstream.create_stream(req).await)
+}
+
+#[tauri::command]
+pub async fn js_delete_stream(
+    req: DeleteStreamRequest,
+    state: State<'_, AppState>,
+) -> Result<(), IpcError> {
+    map_ipc(state.jetstream.delete_stream(req).await)
+}
+
+#[tauri::command]
+pub async fn js_purge_stream(
+    req: PurgeStreamRequest,
+    state: State<'_, AppState>,
+) -> Result<PurgeStreamResponse, IpcError> {
+    map_ipc(state.jetstream.purge_stream(req).await)
 }

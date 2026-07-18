@@ -7,14 +7,22 @@ import type {
   ConnectionProfileInput,
   ConnectionStatusDto,
   ConnectionSummary,
+  CreateStreamRequest,
+  DeleteStreamRequest,
+  GetStreamRequest,
   HealthStatus,
   IpcError,
   ListConnectionsResponse,
   ListProfilesResponse,
+  ListStreamsRequest,
+  ListStreamsResponse,
   MessageView,
   PublishRequest,
+  PurgeStreamRequest,
+  PurgeStreamResponse,
   RequestRequest,
   Settings,
+  StreamInfoDto,
   SubStreamEvent,
   SubscribeRequest,
   SubscriptionHandle,
@@ -113,6 +121,15 @@ export const ipc = {
     },
     unsubscribe: (subscriptionId: string) =>
       call<void>("pubsub_unsubscribe", { subscriptionId }),
+  },
+  jetstream: {
+    listStreams: (req: ListStreamsRequest) =>
+      call<ListStreamsResponse>("js_list_streams", req),
+    getStream: (req: GetStreamRequest) => call<StreamInfoDto>("js_get_stream", req),
+    createStream: (req: CreateStreamRequest) => call<StreamInfoDto>("js_create_stream", req),
+    deleteStream: (req: DeleteStreamRequest) => call<void>("js_delete_stream", req),
+    purgeStream: (req: PurgeStreamRequest) =>
+      call<PurgeStreamResponse>("js_purge_stream", req),
   },
 };
 

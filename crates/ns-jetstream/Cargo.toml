@@ -6,8 +6,13 @@ rust-version.workspace = true
 license.workspace = true
 publish = false
 
+# Consumes the ns-core NatsClientProvider + JetStreamManager ports (the bin
+# injects ns-connection). No dependency on the async-nats adapter crate.
 [dependencies]
 ns-types = { workspace = true }
 ns-core = { workspace = true }
-ns-event = { workspace = true }
-ns-inspector = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+async-trait = { workspace = true }

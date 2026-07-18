@@ -10,6 +10,7 @@ import { ConnectionsView } from "@/features/connections/ConnectionsView";
 import { PublisherView } from "@/features/messaging/PublisherView";
 import { RequestReplyView } from "@/features/messaging/RequestReplyView";
 import { LiveTailView } from "@/features/messaging/LiveTailView";
+import { StreamsView } from "@/features/jetstream/StreamsView";
 
 /** Render the feature view for the active nav id (falling back to a scaffold). */
 function renderView(view: string): JSX.Element {
@@ -24,6 +25,8 @@ function renderView(view: string): JSX.Element {
       return <RequestReplyView />;
     case "livetail":
       return <LiveTailView />;
+    case "streams":
+      return <StreamsView />;
     default: {
       const item = findNavItem(view);
       return item ? <ComingSoon item={item} /> : <OverviewView />;

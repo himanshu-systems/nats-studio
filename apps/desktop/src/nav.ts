@@ -91,7 +91,7 @@ export const NAV: NavSection[] = [
         id: "streams",
         label: "Streams",
         icon: "database",
-        phase: "Phase 3",
+        live: true,
         requiresConnection: true,
         blurb: "App / KV / Object / System streams — create, edit, delete and purge (all, by-subject, keep-N, up-to-seq).",
       },

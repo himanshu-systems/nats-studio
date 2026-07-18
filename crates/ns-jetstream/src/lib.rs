@@ -1,5 +1,14 @@
-//! `ns-jetstream` — NATS Studio. See docs/architecture/.
+//! `ns-jetstream` — JetStream stream management (list / get / create / delete /
+//! purge). Built on the `ns-core` `NatsClientProvider` + `JetStreamManager` ports
+//! (the bin injects `ns-connection` + the `async-nats` adapter); this crate never
+//! links `async-nats`. The shared foundation reused by later JetStream features
+//! (Consumers, KV, Object Store).
 //!
-//! Phase 0 skeleton: wired into the workspace dependency graph; the real
-//! implementation lands in this crate roadmap phase.
+//! See docs/architecture/.
 #![forbid(unsafe_code)]
+
+mod error;
+mod service;
+
+pub use error::JetStreamError;
+pub use service::JetStreamService;

@@ -150,6 +150,52 @@ export interface CreateProfileRequest {
 	profile: ConnectionProfileInput;
 }
 
+/** How messages are retained in a stream. Mirrors async-nats `RetentionPolicy`. */
+export enum StreamRetention {
+	Limits = "limits",
+	Interest = "interest",
+	WorkQueue = "workQueue",
+}
+
+/** Where a stream keeps its data. Mirrors async-nats `StorageType`. */
+export enum StreamStorage {
+	File = "file",
+	Memory = "memory",
+}
+
+/** What happens when a stream reaches its limits. Mirrors async-nats `DiscardPolicy`. */
+export enum StreamDiscard {
+	Old = "old",
+	New = "new",
+}
+
+/** The editable configuration of a JetStream stream. */
+export interface StreamConfigDto {
+	name: string;
+	subjects: string[];
+	retention: StreamRetention;
+	storage: StreamStorage;
+	discard: StreamDiscard;
+	/** Max messages before the discard policy kicks in. `None` = unlimited. */
+	maxMessages?: number;
+	/** Max total bytes before the discard policy kicks in. `None` = unlimited. */
+	maxBytes?: number;
+	/** Max age of any message, in milliseconds. `None` = unlimited. */
+	maxAgeMs?: number;
+	/** Largest accepted message size, in bytes. `None` = unlimited. */
+	maxMessageSize?: number;
+	/** Number of replicas (clustered JetStream). `0` lets the server default it. */
+	numReplicas: number;
+	/** Duplicate-tracking window, in milliseconds. `None` = server default. */
+	duplicateWindowMs?: number;
+	description?: string;
+}
+
+export interface CreateStreamRequest {
+	connectionId: string;
+	config: StreamConfigDto;
+}
+
 export interface CredsAuth {
 	credsPath: string;
 }
@@ -158,8 +204,18 @@ export interface DeleteProfileRequest {
 	id: string;
 }
 
+export interface DeleteStreamRequest {
+	connectionId: string;
+	name: string;
+}
+
 export interface GetProfileRequest {
 	id: string;
+}
+
+export interface GetStreamRequest {
+	connectionId: string;
+	name: string;
 }
 
 /** Returned by the `app_health` command. */
@@ -233,6 +289,35 @@ export interface ListConnectionsResponse {
 
 export interface ListProfilesResponse {
 	profiles: ConnectionProfile[];
+}
+
+export interface ListStreamsRequest {
+	connectionId: string;
+}
+
+/** Live metrics for a stream. */
+export interface StreamStateDto {
+	messages: number;
+	bytes: number;
+	firstSeq: number;
+	lastSeq: number;
+	consumerCount: number;
+	numSubjects: number;
+	numDeleted: number;
+}
+
+/** A stream's configuration plus its current state. */
+export interface StreamInfoDto {
+	config: StreamConfigDto;
+	state: StreamStateDto;
+	/** RFC-3339 stream creation timestamp. */
+	createdRfc3339: string;
+	/** Cluster name, if the stream is clustered. */
+	cluster?: string;
+}
+
+export interface ListStreamsResponse {
+	streams: StreamInfoDto[];
 }
 
 export enum LogLevel {
@@ -324,6 +409,21 @@ export interface PublishRequest {
 	encoding: PayloadEncoding;
 	headers: MessageHeader[];
 	reply?: string;
+}
+
+export interface PurgeStreamRequest {
+	connectionId: string;
+	name: string;
+	/** Purge only messages on this subject. */
+	filter?: string;
+	/** Keep this many of the newest messages, purge the rest. */
+	keep?: number;
+	/** Purge up to (but not including) this sequence. */
+	upToSeq?: number;
+}
+
+export interface PurgeStreamResponse {
+	purged: number;
 }
 
 export interface RequestRequest {

@@ -12,6 +12,7 @@ use ns_core::{
     SecretStore, SystemClock,
 };
 use ns_event::EventBus;
+use ns_jetstream::JetStreamService;
 use ns_nats::AsyncNatsFactory;
 use ns_pubsub::PubSubService;
 use ns_security::KeyringSecretStore;
@@ -23,6 +24,7 @@ use tauri::{AppHandle, Manager, Runtime};
 pub struct AppState {
     pub connections: Arc<ConnectionService>,
     pub pubsub: Arc<PubSubService>,
+    pub jetstream: Arc<JetStreamService>,
     pub settings_repo: Arc<SqliteSettingsRepo>,
     pub events: EventBus,
     pub log_store: LogStore,
@@ -59,11 +61,15 @@ pub async fn build_state<R: Runtime>(app: &AppHandle<R>, log_store: LogStore) ->
     // The connection registry is also the NatsClientProvider for feature services.
     let provider: Arc<dyn NatsClientProvider> =
         Arc::clone(&connections) as Arc<dyn NatsClientProvider>;
+    let jetstream = Arc::new(JetStreamService::new(
+        Arc::clone(&connections) as Arc<dyn NatsClientProvider>
+    ));
     let pubsub = Arc::new(PubSubService::new(provider, clock));
 
     Ok(AppState {
         connections,
         pubsub,
+        jetstream,
         settings_repo,
         events,
         log_store,

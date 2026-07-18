@@ -13,6 +13,7 @@ mod config;
 mod error;
 mod event;
 mod ids;
+mod jetstream;
 mod message;
 mod ports;
 mod redact;
@@ -23,6 +24,7 @@ pub use config::default_settings;
 pub use error::{CoreError, DomainError};
 pub use event::{Event, EventPublisher, Topic};
 pub use ids::{ConnectionId, SessionId, SubscriptionId, TaskId};
+pub use jetstream::{JetStreamManager, PurgeSpec};
 pub use message::{IncomingMessage, OutgoingMessage};
 pub use ports::{
     ConnectSpec, ConnectionProfileRepo, NatsClient, NatsClientFactory, NatsClientProvider,

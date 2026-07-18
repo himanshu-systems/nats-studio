@@ -7,6 +7,8 @@
 
 mod client;
 mod error;
+mod jetstream;
 
 pub use client::{AsyncNatsClient, AsyncNatsFactory};
 pub use error::NatsError;
+pub use jetstream::AsyncJetStream;

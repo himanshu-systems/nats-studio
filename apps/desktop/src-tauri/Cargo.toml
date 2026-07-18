@@ -34,5 +34,6 @@ ns-security = { workspace = true }
 ns-nats = { workspace = true }
 ns-connection = { workspace = true }
 ns-pubsub = { workspace = true }
+ns-jetstream = { workspace = true }
 ns-telemetry = { workspace = true }
 ns-ipc = { workspace = true }

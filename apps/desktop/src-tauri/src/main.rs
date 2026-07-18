@@ -50,6 +50,11 @@ fn main() {
             commands::pubsub_request,
             commands::pubsub_subscribe,
             commands::pubsub_unsubscribe,
+            commands::js_list_streams,
+            commands::js_get_stream,
+            commands::js_create_stream,
+            commands::js_delete_stream,
+            commands::js_purge_stream,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the NATS Studio application");

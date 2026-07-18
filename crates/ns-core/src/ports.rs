@@ -10,7 +10,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use ns_types::{ConnectionProfile, ServerInfoDto, Settings};
 
-use crate::{CoreError, IncomingMessage, OutgoingMessage, SecretString};
+use crate::{CoreError, IncomingMessage, JetStreamManager, OutgoingMessage, SecretString};
 
 /// Secure storage for credentials, backed by the OS keychain with an encrypted
 /// fallback (implemented in `ns-security`).
@@ -117,6 +117,17 @@ pub trait NatsClient: Send + Sync {
         message: OutgoingMessage,
         timeout: Duration,
     ) -> Result<IncomingMessage, CoreError>;
+
+    /// A JetStream management handle for this client. Implemented by the
+    /// `async-nats` adapter; the default rejects so existing (non-JetStream)
+    /// mocks and clients compile unchanged.
+    async fn jetstream(&self) -> Result<Arc<dyn JetStreamManager>, CoreError> {
+        Err(CoreError::coded(
+            ns_types::ErrorCode::JetstreamNotEnabled,
+            "JetStream not available on this client",
+            false,
+        ))
+    }
 }
 
 /// A live subscription: a message stream that can be cancelled (implemented in
