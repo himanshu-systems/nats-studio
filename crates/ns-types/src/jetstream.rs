@@ -147,3 +147,49 @@ pub struct PurgeStreamRequest {
 pub struct PurgeStreamResponse {
     pub purged: U64,
 }
+
+/// A JetStream consumer's config summary plus its live delivery/ack counters.
+/// `deliverPolicy`/`ackPolicy` are lowercase string tags of the async-nats enums.
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConsumerInfoDto {
+    pub name: String,
+    pub stream_name: String,
+    /// `Some` for durable consumers, `None` for ephemeral.
+    pub durable_name: Option<String>,
+    pub deliver_policy: String,
+    pub ack_policy: String,
+    /// The single subject filter, if any (empty on the wire -> `None`).
+    pub filter_subject: Option<String>,
+    pub num_pending: U64,
+    pub num_ack_pending: U64,
+    pub num_redelivered: U64,
+    pub num_waiting: U64,
+    pub ack_floor_stream_seq: U64,
+    pub delivered_stream_seq: U64,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListConsumersRequest {
+    pub connection_id: String,
+    pub stream_name: String,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListConsumersResponse {
+    pub consumers: Vec<ConsumerInfoDto>,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteConsumerRequest {
+    pub connection_id: String,
+    pub stream_name: String,
+    pub name: String,
+}

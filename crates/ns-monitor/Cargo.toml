@@ -6,7 +6,15 @@ rust-version.workspace = true
 license.workspace = true
 publish = false
 
+# Reads the NATS server HTTP monitoring endpoint (/varz, /connz). Plain http,
+# so reqwest has TLS disabled. `reqwest` is confined to this crate (spine 5.2.6).
 [dependencies]
 ns-types = { workspace = true }
 ns-core = { workspace = true }
-ns-event = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+reqwest = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

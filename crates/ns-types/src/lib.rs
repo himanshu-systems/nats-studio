@@ -11,6 +11,7 @@ mod error;
 mod event;
 mod jetstream;
 mod message;
+mod monitor;
 mod settings;
 
 pub use app::*;
@@ -19,6 +20,7 @@ pub use error::*;
 pub use event::*;
 pub use jetstream::*;
 pub use message::*;
+pub use monitor::*;
 pub use settings::*;
 
 /// Wire alias for 64-bit unsigned integers. typeshare maps `U64` to the TS

@@ -13,6 +13,7 @@ use ns_core::{
 };
 use ns_event::EventBus;
 use ns_jetstream::JetStreamService;
+use ns_monitor::MonitorService;
 use ns_nats::AsyncNatsFactory;
 use ns_pubsub::PubSubService;
 use ns_security::KeyringSecretStore;
@@ -25,6 +26,7 @@ pub struct AppState {
     pub connections: Arc<ConnectionService>,
     pub pubsub: Arc<PubSubService>,
     pub jetstream: Arc<JetStreamService>,
+    pub monitor: Arc<MonitorService>,
     pub settings_repo: Arc<SqliteSettingsRepo>,
     pub events: EventBus,
     pub log_store: LogStore,
@@ -65,11 +67,13 @@ pub async fn build_state<R: Runtime>(app: &AppHandle<R>, log_store: LogStore) ->
         Arc::clone(&connections) as Arc<dyn NatsClientProvider>
     ));
     let pubsub = Arc::new(PubSubService::new(provider, clock));
+    let monitor = Arc::new(MonitorService::new());
 
     Ok(AppState {
         connections,
         pubsub,
         jetstream,
+        monitor,
         settings_repo,
         events,
         log_store,

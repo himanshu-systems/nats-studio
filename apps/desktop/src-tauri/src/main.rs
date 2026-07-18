@@ -55,6 +55,10 @@ fn main() {
             commands::js_create_stream,
             commands::js_delete_stream,
             commands::js_purge_stream,
+            commands::js_list_consumers,
+            commands::js_delete_consumer,
+            commands::monitor_varz,
+            commands::monitor_connz,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the NATS Studio application");

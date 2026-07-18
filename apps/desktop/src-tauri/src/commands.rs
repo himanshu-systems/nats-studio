@@ -5,12 +5,13 @@ use ns_core::{SettingsRepo, SubscriptionId};
 use ns_ipc::map_ipc;
 use ns_types::{
     AppInfo, ConnectRequest, ConnectionProfile, ConnectionRef, ConnectionStatusDto,
-    ConnectionSummary, CreateProfileRequest, CreateStreamRequest, DeleteProfileRequest,
-    DeleteStreamRequest, GetStreamRequest, HealthStatus, IpcError, ListConnectionsResponse,
-    ListProfilesResponse, ListStreamsRequest, ListStreamsResponse, LogRecordDto, MessageView,
+    ConnectionSummary, ConnzDto, CreateProfileRequest, CreateStreamRequest, DeleteConsumerRequest,
+    DeleteProfileRequest, DeleteStreamRequest, GetStreamRequest, HealthStatus, IpcError,
+    ListConnectionsResponse, ListConsumersRequest, ListConsumersResponse, ListProfilesResponse,
+    ListStreamsRequest, ListStreamsResponse, LogRecordDto, MessageView, MonitorRequest,
     PublishRequest, PurgeStreamRequest, PurgeStreamResponse, RequestRequest, Settings,
     StreamInfoDto, SubStreamEvent, SubscribeRequest, SubscriptionHandle, UnsubscribeRequest,
-    UpdateProfileRequest, UpdateSettingsRequest,
+    UpdateProfileRequest, UpdateSettingsRequest, VarzDto,
 };
 use tauri::ipc::Channel;
 use tauri::State;
@@ -248,4 +249,40 @@ pub async fn js_purge_stream(
     state: State<'_, AppState>,
 ) -> Result<PurgeStreamResponse, IpcError> {
     map_ipc(state.jetstream.purge_stream(req).await)
+}
+
+// --- jetstream: consumers ----------------------------------------------------
+
+#[tauri::command]
+pub async fn js_list_consumers(
+    req: ListConsumersRequest,
+    state: State<'_, AppState>,
+) -> Result<ListConsumersResponse, IpcError> {
+    map_ipc(state.jetstream.list_consumers(req).await)
+}
+
+#[tauri::command]
+pub async fn js_delete_consumer(
+    req: DeleteConsumerRequest,
+    state: State<'_, AppState>,
+) -> Result<(), IpcError> {
+    map_ipc(state.jetstream.delete_consumer(req).await)
+}
+
+// --- monitoring --------------------------------------------------------------
+
+#[tauri::command]
+pub async fn monitor_varz(
+    req: MonitorRequest,
+    state: State<'_, AppState>,
+) -> Result<VarzDto, IpcError> {
+    map_ipc(state.monitor.varz(&req.base_url).await)
+}
+
+#[tauri::command]
+pub async fn monitor_connz(
+    req: MonitorRequest,
+    state: State<'_, AppState>,
+) -> Result<ConnzDto, IpcError> {
+    map_ipc(state.monitor.connz(&req.base_url).await)
 }

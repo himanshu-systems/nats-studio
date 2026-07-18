@@ -7,8 +7,9 @@ use std::sync::Arc;
 
 use ns_core::{NatsClientProvider, PurgeSpec};
 use ns_types::{
-    CreateStreamRequest, DeleteStreamRequest, GetStreamRequest, ListStreamsRequest,
-    ListStreamsResponse, PurgeStreamRequest, PurgeStreamResponse, StreamInfoDto,
+    CreateStreamRequest, DeleteConsumerRequest, DeleteStreamRequest, GetStreamRequest,
+    ListConsumersRequest, ListConsumersResponse, ListStreamsRequest, ListStreamsResponse,
+    PurgeStreamRequest, PurgeStreamResponse, StreamInfoDto,
 };
 
 use crate::error::JetStreamError;
@@ -104,6 +105,41 @@ impl JetStreamService {
         let purged = js.purge_stream(name, spec).await?;
         Ok(PurgeStreamResponse { purged })
     }
+
+    /// List a stream's consumers.
+    pub async fn list_consumers(
+        &self,
+        req: ListConsumersRequest,
+    ) -> Result<ListConsumersResponse, JetStreamError> {
+        let stream = require_name(&req.stream_name)?;
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        let consumers = js.list_consumers(stream).await?;
+        Ok(ListConsumersResponse { consumers })
+    }
+
+    /// Delete a consumer from a stream by name.
+    pub async fn delete_consumer(&self, req: DeleteConsumerRequest) -> Result<(), JetStreamError> {
+        let stream = require_name(&req.stream_name)?;
+        let name = req.name.trim();
+        if name.is_empty() {
+            return Err(JetStreamError::InvalidName(
+                "consumer name is empty".to_owned(),
+            ));
+        }
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        js.delete_consumer(stream, name).await?;
+        Ok(())
+    }
 }
 
 /// Validate a stream name is non-empty, returning the trimmed borrow.
@@ -128,8 +164,8 @@ mod tests {
         OutgoingMessage, PurgeSpec, Subscription,
     };
     use ns_types::{
-        ErrorCode, ServerInfoDto, StreamConfigDto, StreamDiscard, StreamInfoDto, StreamRetention,
-        StreamStateDto, StreamStorage,
+        ConsumerInfoDto, ErrorCode, ServerInfoDto, StreamConfigDto, StreamDiscard, StreamInfoDto,
+        StreamRetention, StreamStateDto, StreamStorage,
     };
 
     use super::*;
@@ -164,11 +200,29 @@ mod tests {
         }
     }
 
+    fn sample_consumer(stream: &str, name: &str) -> ConsumerInfoDto {
+        ConsumerInfoDto {
+            name: name.to_owned(),
+            stream_name: stream.to_owned(),
+            durable_name: Some(name.to_owned()),
+            deliver_policy: "all".to_owned(),
+            ack_policy: "explicit".to_owned(),
+            filter_subject: None,
+            num_pending: 0,
+            num_ack_pending: 0,
+            num_redelivered: 0,
+            num_waiting: 0,
+            ack_floor_stream_seq: 0,
+            delivered_stream_seq: 0,
+        }
+    }
+
     #[derive(Default)]
     struct MockJetStream {
         created: Mutex<Vec<StreamConfigDto>>,
         purged: Mutex<Vec<(String, PurgeSpec)>>,
         deleted: Mutex<Vec<String>>,
+        deleted_consumers: Mutex<Vec<(String, String)>>,
     }
 
     #[async_trait]
@@ -197,6 +251,19 @@ mod tests {
         async fn purge_stream(&self, name: &str, spec: PurgeSpec) -> Result<u64, CoreError> {
             self.purged.lock().unwrap().push((name.to_owned(), spec));
             Ok(42)
+        }
+        async fn list_consumers(&self, stream: &str) -> Result<Vec<ConsumerInfoDto>, CoreError> {
+            Ok(vec![
+                sample_consumer(stream, "worker"),
+                sample_consumer(stream, "audit"),
+            ])
+        }
+        async fn delete_consumer(&self, stream: &str, name: &str) -> Result<(), CoreError> {
+            self.deleted_consumers
+                .lock()
+                .unwrap()
+                .push((stream.to_owned(), name.to_owned()));
+            Ok(())
         }
     }
 
@@ -351,5 +418,53 @@ mod tests {
             .unwrap_err();
         assert!(matches!(err, JetStreamError::Core(_)));
         assert_eq!(ns_core::DomainError::code(&err), ErrorCode::StreamNotFound);
+    }
+
+    #[tokio::test]
+    async fn list_consumers_requires_stream_then_delegates() {
+        let (svc, js) = service();
+
+        // Blank stream name -> InvalidName, never reaches the port.
+        let err = svc
+            .list_consumers(ListConsumersRequest {
+                connection_id: "c1".into(),
+                stream_name: "  ".into(),
+            })
+            .await
+            .unwrap_err();
+        assert!(matches!(err, JetStreamError::InvalidName(_)));
+
+        // Valid -> returns the stream's consumers.
+        let resp = svc
+            .list_consumers(ListConsumersRequest {
+                connection_id: "c1".into(),
+                stream_name: "orders".into(),
+            })
+            .await
+            .unwrap();
+        assert_eq!(resp.consumers.len(), 2);
+        assert_eq!(resp.consumers[0].name, "worker");
+        assert_eq!(resp.consumers[0].stream_name, "orders");
+
+        // Blank consumer name -> InvalidName; delete of a valid one delegates.
+        let err = svc
+            .delete_consumer(DeleteConsumerRequest {
+                connection_id: "c1".into(),
+                stream_name: "orders".into(),
+                name: " ".into(),
+            })
+            .await
+            .unwrap_err();
+        assert!(matches!(err, JetStreamError::InvalidName(_)));
+
+        svc.delete_consumer(DeleteConsumerRequest {
+            connection_id: "c1".into(),
+            stream_name: "orders".into(),
+            name: "worker".into(),
+        })
+        .await
+        .unwrap();
+        let deleted = js.deleted_consumers.lock().unwrap();
+        assert_eq!(deleted.as_slice(), &[("orders".into(), "worker".into())]);
     }
 }

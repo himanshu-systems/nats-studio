@@ -4,7 +4,7 @@
 //! the DTOs, so it never links `async-nats` (spine single-import confinement).
 
 use async_trait::async_trait;
-use ns_types::{StreamConfigDto, StreamInfoDto};
+use ns_types::{ConsumerInfoDto, StreamConfigDto, StreamInfoDto};
 
 use crate::CoreError;
 
@@ -35,4 +35,8 @@ pub trait JetStreamManager: Send + Sync {
     async fn delete_stream(&self, name: &str) -> Result<(), CoreError>;
     /// Purge messages from a stream; returns the number of purged messages.
     async fn purge_stream(&self, name: &str, spec: PurgeSpec) -> Result<u64, CoreError>;
+    /// All consumers of a given stream.
+    async fn list_consumers(&self, stream: &str) -> Result<Vec<ConsumerInfoDto>, CoreError>;
+    /// Delete a consumer from a stream by name.
+    async fn delete_consumer(&self, stream: &str, name: &str) -> Result<(), CoreError>;
 }

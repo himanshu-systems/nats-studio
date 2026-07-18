@@ -9,14 +9,15 @@ use std::time::Duration;
 
 use async_nats::jetstream::{
     self,
+    consumer::{self, AckPolicy, DeliverPolicy},
     stream::{Config, DiscardPolicy, Info, RetentionPolicy, State, StorageType},
 };
 use async_trait::async_trait;
 use futures::TryStreamExt;
 use ns_core::{CoreError, JetStreamManager, PurgeSpec};
 use ns_types::{
-    ErrorCode, StreamConfigDto, StreamDiscard, StreamInfoDto, StreamRetention, StreamStateDto,
-    StreamStorage,
+    ConsumerInfoDto, ErrorCode, StreamConfigDto, StreamDiscard, StreamInfoDto, StreamRetention,
+    StreamStateDto, StreamStorage,
 };
 use time::format_description::well_known::Rfc3339;
 
@@ -117,6 +118,76 @@ impl JetStreamManager for AsyncJetStream {
         }
         .map_err(|e| js_err("purge stream", &e, ErrorCode::Internal))?;
         Ok(response.purged)
+    }
+
+    async fn list_consumers(&self, stream: &str) -> Result<Vec<ConsumerInfoDto>, CoreError> {
+        let stream = self
+            .ctx
+            .get_stream(stream)
+            .await
+            .map_err(|e| js_err("get stream", &e, ErrorCode::StreamNotFound))?;
+        let mut consumers = stream.consumers();
+        let mut out = Vec::new();
+        while let Some(info) = consumers
+            .try_next()
+            .await
+            .map_err(|e| js_err("list consumers", &e, ErrorCode::Internal))?
+        {
+            out.push(consumer_to_dto(&info));
+        }
+        Ok(out)
+    }
+
+    async fn delete_consumer(&self, stream: &str, name: &str) -> Result<(), CoreError> {
+        let stream = self
+            .ctx
+            .get_stream(stream)
+            .await
+            .map_err(|e| js_err("get stream", &e, ErrorCode::StreamNotFound))?;
+        stream
+            .delete_consumer(name)
+            .await
+            .map_err(|e| js_err("delete consumer", &e, ErrorCode::ConsumerNotFound))?;
+        Ok(())
+    }
+}
+
+fn consumer_to_dto(info: &consumer::Info) -> ConsumerInfoDto {
+    let filter = info.config.filter_subject.trim();
+    ConsumerInfoDto {
+        name: info.name.clone(),
+        stream_name: info.stream_name.clone(),
+        durable_name: info.config.durable_name.clone(),
+        deliver_policy: deliver_policy_str(&info.config.deliver_policy).to_owned(),
+        ack_policy: ack_policy_str(&info.config.ack_policy).to_owned(),
+        filter_subject: (!filter.is_empty()).then(|| filter.to_owned()),
+        num_pending: info.num_pending,
+        num_ack_pending: info.num_ack_pending as u64,
+        num_redelivered: info.num_redelivered as u64,
+        num_waiting: info.num_waiting as u64,
+        ack_floor_stream_seq: info.ack_floor.stream_sequence,
+        delivered_stream_seq: info.delivered.stream_sequence,
+    }
+}
+
+fn deliver_policy_str(p: &DeliverPolicy) -> &'static str {
+    match p {
+        DeliverPolicy::All => "all",
+        DeliverPolicy::Last => "last",
+        DeliverPolicy::New => "new",
+        DeliverPolicy::ByStartSequence { .. } => "byStartSequence",
+        DeliverPolicy::ByStartTime { .. } => "byStartTime",
+        DeliverPolicy::LastPerSubject => "lastPerSubject",
+    }
+}
+
+fn ack_policy_str(p: &AckPolicy) -> &'static str {
+    match p {
+        AckPolicy::None => "none",
+        AckPolicy::All => "all",
+        AckPolicy::Explicit => "explicit",
+        // e.g. `FlowControl` under the `server_2_14` feature.
+        _ => "unknown",
     }
 }
 

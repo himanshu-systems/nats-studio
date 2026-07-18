@@ -7,16 +7,21 @@ import type {
   ConnectionProfileInput,
   ConnectionStatusDto,
   ConnectionSummary,
+  ConnzDto,
   CreateStreamRequest,
+  DeleteConsumerRequest,
   DeleteStreamRequest,
   GetStreamRequest,
   HealthStatus,
   IpcError,
   ListConnectionsResponse,
+  ListConsumersRequest,
+  ListConsumersResponse,
   ListProfilesResponse,
   ListStreamsRequest,
   ListStreamsResponse,
   MessageView,
+  MonitorRequest,
   PublishRequest,
   PurgeStreamRequest,
   PurgeStreamResponse,
@@ -26,6 +31,7 @@ import type {
   SubStreamEvent,
   SubscribeRequest,
   SubscriptionHandle,
+  VarzDto,
 } from "./generated/types";
 
 /**
@@ -130,6 +136,13 @@ export const ipc = {
     deleteStream: (req: DeleteStreamRequest) => call<void>("js_delete_stream", req),
     purgeStream: (req: PurgeStreamRequest) =>
       call<PurgeStreamResponse>("js_purge_stream", req),
+    listConsumers: (req: ListConsumersRequest) =>
+      call<ListConsumersResponse>("js_list_consumers", req),
+    deleteConsumer: (req: DeleteConsumerRequest) => call<void>("js_delete_consumer", req),
+  },
+  monitor: {
+    varz: (req: MonitorRequest) => call<VarzDto>("monitor_varz", req),
+    connz: (req: MonitorRequest) => call<ConnzDto>("monitor_connz", req),
   },
 };
 

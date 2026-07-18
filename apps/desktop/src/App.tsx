@@ -11,6 +11,9 @@ import { PublisherView } from "@/features/messaging/PublisherView";
 import { RequestReplyView } from "@/features/messaging/RequestReplyView";
 import { LiveTailView } from "@/features/messaging/LiveTailView";
 import { StreamsView } from "@/features/jetstream/StreamsView";
+import { ConsumersView } from "@/features/jetstream/ConsumersView";
+import { MetricsView } from "@/features/monitoring/MetricsView";
+import { AccountsView } from "@/features/monitoring/AccountsView";
 
 /** Render the feature view for the active nav id (falling back to a scaffold). */
 function renderView(view: string): JSX.Element {
@@ -27,6 +30,12 @@ function renderView(view: string): JSX.Element {
       return <LiveTailView />;
     case "streams":
       return <StreamsView />;
+    case "consumers":
+      return <ConsumersView />;
+    case "metrics":
+      return <MetricsView />;
+    case "accounts":
+      return <AccountsView />;
     default: {
       const item = findNavItem(view);
       return item ? <ComingSoon item={item} /> : <OverviewView />;

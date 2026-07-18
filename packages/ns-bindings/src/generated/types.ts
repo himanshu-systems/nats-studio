@@ -34,6 +34,22 @@ export interface AppInfo {
 	buildChannel: string;
 }
 
+/** A single client connection from `/connz`. */
+export interface ConnInfoDto {
+	cid: number;
+	name?: string;
+	ip: string;
+	port: number;
+	subscriptions: number;
+	inMsgs: number;
+	outMsgs: number;
+	inBytes: number;
+	outBytes: number;
+	lang?: string;
+	version?: string;
+	uptime: string;
+}
+
 export interface ConnectRequest {
 	profileId: string;
 }
@@ -146,6 +162,34 @@ export interface ConnectionSummary {
 	lastError?: string;
 }
 
+/** The server's `/connz` connection listing. */
+export interface ConnzDto {
+	numConnections: number;
+	total: number;
+	connections: ConnInfoDto[];
+}
+
+/**
+ * A JetStream consumer's config summary plus its live delivery/ack counters.
+ * `deliverPolicy`/`ackPolicy` are lowercase string tags of the async-nats enums.
+ */
+export interface ConsumerInfoDto {
+	name: string;
+	streamName: string;
+	/** `Some` for durable consumers, `None` for ephemeral. */
+	durableName?: string;
+	deliverPolicy: string;
+	ackPolicy: string;
+	/** The single subject filter, if any (empty on the wire -> `None`). */
+	filterSubject?: string;
+	numPending: number;
+	numAckPending: number;
+	numRedelivered: number;
+	numWaiting: number;
+	ackFloorStreamSeq: number;
+	deliveredStreamSeq: number;
+}
+
 export interface CreateProfileRequest {
 	profile: ConnectionProfileInput;
 }
@@ -198,6 +242,12 @@ export interface CreateStreamRequest {
 
 export interface CredsAuth {
 	credsPath: string;
+}
+
+export interface DeleteConsumerRequest {
+	connectionId: string;
+	streamName: string;
+	name: string;
 }
 
 export interface DeleteProfileRequest {
@@ -285,6 +335,15 @@ export interface JwtAuth {
 
 export interface ListConnectionsResponse {
 	connections: ConnectionSummary[];
+}
+
+export interface ListConsumersRequest {
+	connectionId: string;
+	streamName: string;
+}
+
+export interface ListConsumersResponse {
+	consumers: ConsumerInfoDto[];
 }
 
 export interface ListProfilesResponse {
@@ -375,6 +434,11 @@ export interface MetricsTickDto {
 	inBytes: number;
 	outBytes: number;
 	rttMs?: number;
+}
+
+/** Request carrying the monitoring base URL (e.g. `http://127.0.0.1:8222`). */
+export interface MonitorRequest {
+	baseUrl: string;
 }
 
 export interface NKeyAuth {
@@ -497,6 +561,22 @@ export interface UpdateSettingsRequest {
 export interface UserPasswordAuth {
 	username: string;
 	password?: string;
+}
+
+/** Selected fields from the server's `/varz` general-metrics endpoint. */
+export interface VarzDto {
+	serverName: string;
+	version: string;
+	connections: number;
+	inMsgs: number;
+	outMsgs: number;
+	inBytes: number;
+	outBytes: number;
+	slowConsumers: number;
+	subscriptions: number;
+	uptime: string;
+	cpu: number;
+	mem: number;
 }
 
 /** Events delivered over a subscription's Tauri Channel. */
