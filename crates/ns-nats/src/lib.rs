@@ -1,5 +1,12 @@
-//! `ns-nats` — NATS Studio. See docs/architecture/.
+//! ns-nats — the `async-nats` adapter. Implements the `ns_core::NatsClient` and
+//! `ns_core::NatsClientFactory` ports; the ONLY crate that imports `async-nats`
+//! (spine ADR-0001). Everyone else talks to the port traits in `ns-core`.
 //!
-//! Phase 0 skeleton: wired into the workspace dependency graph; the real
-//! implementation lands in this crate roadmap phase.
+//! See docs/architecture/sub-connection-manager.md.
 #![forbid(unsafe_code)]
+
+mod client;
+mod error;
+
+pub use client::{AsyncNatsClient, AsyncNatsFactory};
+pub use error::NatsError;
