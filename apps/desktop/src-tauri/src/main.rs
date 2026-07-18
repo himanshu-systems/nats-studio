@@ -67,6 +67,10 @@ fn main() {
             commands::connection_ping,
             commands::js_get_messages,
             commands::js_delete_message,
+            commands::js_list_object_buckets,
+            commands::js_list_objects,
+            commands::js_get_object,
+            commands::js_delete_object,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the NATS Studio application");

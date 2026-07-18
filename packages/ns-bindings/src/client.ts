@@ -11,9 +11,12 @@ import type {
   CreateStreamRequest,
   DeleteConsumerRequest,
   DeleteMessageRequest,
+  DeleteObjectRequest,
   DeleteStreamRequest,
   GetMessagesRequest,
   GetMessagesResponse,
+  GetObjectRequest,
+  GetObjectResponse,
   GetStreamRequest,
   HealthStatus,
   IpcError,
@@ -29,6 +32,10 @@ import type {
   ListConsumersResponse,
   ListKeysRequest,
   ListKeysResponse,
+  ListObjectBucketsRequest,
+  ListObjectBucketsResponse,
+  ListObjectsRequest,
+  ListObjectsResponse,
   ListProfilesResponse,
   ListStreamsRequest,
   ListStreamsResponse,
@@ -161,6 +168,12 @@ export const ipc = {
     getMessages: (req: GetMessagesRequest) =>
       call<GetMessagesResponse>("js_get_messages", req),
     deleteMessage: (req: DeleteMessageRequest) => call<void>("js_delete_message", req),
+    listObjectBuckets: (req: ListObjectBucketsRequest) =>
+      call<ListObjectBucketsResponse>("js_list_object_buckets", req),
+    listObjects: (req: ListObjectsRequest) =>
+      call<ListObjectsResponse>("js_list_objects", req),
+    getObject: (req: GetObjectRequest) => call<GetObjectResponse>("js_get_object", req),
+    deleteObject: (req: DeleteObjectRequest) => call<void>("js_delete_object", req),
   },
   monitor: {
     varz: (req: MonitorRequest) => call<VarzDto>("monitor_varz", req),

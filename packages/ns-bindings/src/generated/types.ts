@@ -256,6 +256,12 @@ export interface DeleteMessageRequest {
 	seq: number;
 }
 
+export interface DeleteObjectRequest {
+	connectionId: string;
+	bucket: string;
+	name: string;
+}
+
 export interface DeleteProfileRequest {
 	id: string;
 }
@@ -295,6 +301,22 @@ export interface GetMessagesResponse {
 	messages: StoredMessageDto[];
 	firstSeq: number;
 	lastSeq: number;
+}
+
+export interface GetObjectRequest {
+	connectionId: string;
+	bucket: string;
+	name: string;
+}
+
+/**
+ * A small object's bytes, base64-encoded. Capped by the adapter (larger objects
+ * return an error rather than a body).
+ */
+export interface GetObjectResponse {
+	name: string;
+	size: number;
+	dataBase64: string;
 }
 
 export interface GetProfileRequest {
@@ -450,6 +472,43 @@ export interface ListKeysRequest {
 
 export interface ListKeysResponse {
 	keys: string[];
+}
+
+export interface ListObjectBucketsRequest {
+	connectionId: string;
+}
+
+/** Summary of an Object-Store bucket (a JetStream stream named `OBJ_<bucket>`). */
+export interface ObjectBucketDto {
+	bucket: string;
+	/**
+	 * Stored messages in the backing stream (object meta + chunks) — a rough
+	 * object count, not exact (an exact count needs a per-bucket list).
+	 */
+	objects: number;
+	size: number;
+}
+
+export interface ListObjectBucketsResponse {
+	buckets: ObjectBucketDto[];
+}
+
+export interface ListObjectsRequest {
+	connectionId: string;
+	bucket: string;
+}
+
+/** Metadata for a single stored object. */
+export interface ObjectInfoDto {
+	name: string;
+	size: number;
+	digest?: string;
+	modifiedRfc3339: string;
+	deleted: boolean;
+}
+
+export interface ListObjectsResponse {
+	objects: ObjectInfoDto[];
 }
 
 export interface ListProfilesResponse {

@@ -6,13 +6,15 @@ use ns_ipc::map_ipc;
 use ns_types::{
     AppInfo, ConnectRequest, ConnectionProfile, ConnectionRef, ConnectionStatusDto,
     ConnectionSummary, ConnzDto, CreateProfileRequest, CreateStreamRequest, DeleteConsumerRequest,
-    DeleteMessageRequest, DeleteProfileRequest, DeleteStreamRequest, GetMessagesRequest,
-    GetMessagesResponse, GetStreamRequest, HealthStatus, IpcError, KvDeleteRequest, KvGetRequest,
-    KvGetResponse, KvPutRequest, KvPutResponse, ListBucketsRequest, ListBucketsResponse,
-    ListConnectionsResponse, ListConsumersRequest, ListConsumersResponse, ListKeysRequest,
-    ListKeysResponse, ListProfilesResponse, ListStreamsRequest, ListStreamsResponse, LogRecordDto,
-    MessageView, MonitorRequest, PublishRequest, PurgeStreamRequest, PurgeStreamResponse,
-    RequestRequest, Settings, StreamInfoDto, SubStreamEvent, SubscribeRequest, SubscriptionHandle,
+    DeleteMessageRequest, DeleteObjectRequest, DeleteProfileRequest, DeleteStreamRequest,
+    GetMessagesRequest, GetMessagesResponse, GetObjectRequest, GetObjectResponse, GetStreamRequest,
+    HealthStatus, IpcError, KvDeleteRequest, KvGetRequest, KvGetResponse, KvPutRequest,
+    KvPutResponse, ListBucketsRequest, ListBucketsResponse, ListConnectionsResponse,
+    ListConsumersRequest, ListConsumersResponse, ListKeysRequest, ListKeysResponse,
+    ListObjectBucketsRequest, ListObjectBucketsResponse, ListObjectsRequest, ListObjectsResponse,
+    ListProfilesResponse, ListStreamsRequest, ListStreamsResponse, LogRecordDto, MessageView,
+    MonitorRequest, PublishRequest, PurgeStreamRequest, PurgeStreamResponse, RequestRequest,
+    Settings, StreamInfoDto, SubStreamEvent, SubscribeRequest, SubscriptionHandle,
     UnsubscribeRequest, UpdateProfileRequest, UpdateSettingsRequest, VarzDto,
 };
 use tauri::ipc::Channel;
@@ -357,4 +359,38 @@ pub async fn js_delete_message(
     state: State<'_, AppState>,
 ) -> Result<(), IpcError> {
     map_ipc(state.jetstream.delete_message(req).await)
+}
+
+// --- jetstream: object store -------------------------------------------------
+
+#[tauri::command]
+pub async fn js_list_object_buckets(
+    req: ListObjectBucketsRequest,
+    state: State<'_, AppState>,
+) -> Result<ListObjectBucketsResponse, IpcError> {
+    map_ipc(state.jetstream.list_object_buckets(req).await)
+}
+
+#[tauri::command]
+pub async fn js_list_objects(
+    req: ListObjectsRequest,
+    state: State<'_, AppState>,
+) -> Result<ListObjectsResponse, IpcError> {
+    map_ipc(state.jetstream.list_objects(req).await)
+}
+
+#[tauri::command]
+pub async fn js_get_object(
+    req: GetObjectRequest,
+    state: State<'_, AppState>,
+) -> Result<GetObjectResponse, IpcError> {
+    map_ipc(state.jetstream.get_object(req).await)
+}
+
+#[tauri::command]
+pub async fn js_delete_object(
+    req: DeleteObjectRequest,
+    state: State<'_, AppState>,
+) -> Result<(), IpcError> {
+    map_ipc(state.jetstream.delete_object(req).await)
 }

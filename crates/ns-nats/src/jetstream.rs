@@ -11,6 +11,7 @@ use async_nats::jetstream::{
     self,
     consumer::{self, AckPolicy, DeliverPolicy},
     kv::{self, Operation},
+    object_store::ObjectInfo,
     stream::{Config, DiscardPolicy, Info, RetentionPolicy, State, StorageType},
 };
 use async_trait::async_trait;
@@ -19,11 +20,15 @@ use base64::Engine as _;
 use futures::TryStreamExt;
 use ns_core::{CoreError, JetStreamManager, PurgeSpec};
 use ns_types::{
-    ConsumerInfoDto, ErrorCode, GetMessagesResponse, KvBucketDto, KvEntryDto, MessageHeader,
-    StoredMessageDto, StreamConfigDto, StreamDiscard, StreamInfoDto, StreamRetention,
-    StreamStateDto, StreamStorage,
+    ConsumerInfoDto, ErrorCode, GetMessagesResponse, GetObjectResponse, KvBucketDto, KvEntryDto,
+    MessageHeader, ObjectBucketDto, ObjectInfoDto, StoredMessageDto, StreamConfigDto,
+    StreamDiscard, StreamInfoDto, StreamRetention, StreamStateDto, StreamStorage,
 };
 use time::format_description::well_known::Rfc3339;
+use tokio::io::AsyncReadExt as _;
+
+/// Largest object we'll pull into memory for a preview/download over IPC.
+const MAX_OBJECT_PREVIEW: usize = 4 * 1024 * 1024;
 
 /// A JetStream management handle over a live `async-nats` client.
 pub struct AsyncJetStream {
@@ -270,6 +275,111 @@ impl JetStreamManager for AsyncJetStream {
             .await
             .map_err(|e| js_err("kv delete", &e, ErrorCode::Internal))?;
         Ok(())
+    }
+
+    async fn list_object_buckets(&self) -> Result<Vec<ObjectBucketDto>, CoreError> {
+        // Object buckets are streams named `OBJ_<bucket>`; list streams and strip.
+        let mut streams = self.ctx.streams();
+        let mut out = Vec::new();
+        while let Some(info) = streams
+            .try_next()
+            .await
+            .map_err(|e| js_err("list object buckets", &e, ErrorCode::Internal))?
+        {
+            if let Some(bucket) = info.config.name.strip_prefix("OBJ_") {
+                // ponytail: `objects`/`size` are the backing stream's message/byte
+                // totals (meta + chunks), a rough proxy — an exact object count
+                // needs a per-bucket list(). Fine for a summary picker.
+                out.push(ObjectBucketDto {
+                    bucket: bucket.to_owned(),
+                    objects: info.state.messages,
+                    size: info.state.bytes,
+                });
+            }
+        }
+        Ok(out)
+    }
+
+    async fn list_objects(&self, bucket: &str) -> Result<Vec<ObjectInfoDto>, CoreError> {
+        let store = self
+            .ctx
+            .get_object_store(bucket)
+            .await
+            .map_err(|e| js_err("open object bucket", &e, ErrorCode::StreamNotFound))?;
+        let mut list = store
+            .list()
+            .await
+            .map_err(|e| js_err("list objects", &e, ErrorCode::Internal))?;
+        let mut out = Vec::new();
+        while let Some(info) = list
+            .try_next()
+            .await
+            .map_err(|e| js_err("list objects", &e, ErrorCode::Internal))?
+        {
+            out.push(object_to_dto(&info));
+        }
+        Ok(out)
+    }
+
+    async fn get_object(&self, bucket: &str, name: &str) -> Result<GetObjectResponse, CoreError> {
+        let store = self
+            .ctx
+            .get_object_store(bucket)
+            .await
+            .map_err(|e| js_err("open object bucket", &e, ErrorCode::StreamNotFound))?;
+        // `get` resolves the object's info (and rejects deleted objects) before any
+        // bytes stream, so we can cap on `info.size` without downloading first.
+        let mut object = store
+            .get(name)
+            .await
+            .map_err(|e| js_err("get object", &e, ErrorCode::StreamNotFound))?;
+        if object.info.size > MAX_OBJECT_PREVIEW {
+            return Err(CoreError::coded(
+                ErrorCode::InvalidArgument,
+                format!(
+                    "object '{name}' is {} bytes; too large to preview (max {MAX_OBJECT_PREVIEW})",
+                    object.info.size
+                ),
+                false,
+            ));
+        }
+        let out_name = object.info.name.clone();
+        let mut bytes = Vec::with_capacity(object.info.size);
+        object
+            .read_to_end(&mut bytes)
+            .await
+            .map_err(|e| js_err("read object", &e, ErrorCode::Internal))?;
+        Ok(GetObjectResponse {
+            name: out_name,
+            size: bytes.len() as u64,
+            data_base64: BASE64.encode(&bytes),
+        })
+    }
+
+    async fn delete_object(&self, bucket: &str, name: &str) -> Result<(), CoreError> {
+        let store = self
+            .ctx
+            .get_object_store(bucket)
+            .await
+            .map_err(|e| js_err("open object bucket", &e, ErrorCode::StreamNotFound))?;
+        store
+            .delete(name)
+            .await
+            .map_err(|e| js_err("delete object", &e, ErrorCode::Internal))?;
+        Ok(())
+    }
+}
+
+fn object_to_dto(info: &ObjectInfo) -> ObjectInfoDto {
+    ObjectInfoDto {
+        name: info.name.clone(),
+        size: info.size as u64,
+        digest: info.digest.clone(),
+        modified_rfc3339: info
+            .modified
+            .and_then(|t| t.format(&Rfc3339).ok())
+            .unwrap_or_default(),
+        deleted: info.deleted,
     }
 }
 

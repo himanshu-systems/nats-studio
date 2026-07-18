@@ -9,12 +9,13 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
 use ns_core::{NatsClientProvider, PurgeSpec};
 use ns_types::{
-    CreateStreamRequest, DeleteConsumerRequest, DeleteMessageRequest, DeleteStreamRequest,
-    GetMessagesRequest, GetMessagesResponse, GetStreamRequest, KvDeleteRequest, KvGetRequest,
-    KvGetResponse, KvPutRequest, KvPutResponse, ListBucketsRequest, ListBucketsResponse,
-    ListConsumersRequest, ListConsumersResponse, ListKeysRequest, ListKeysResponse,
-    ListStreamsRequest, ListStreamsResponse, PurgeStreamRequest, PurgeStreamResponse,
-    StreamInfoDto,
+    CreateStreamRequest, DeleteConsumerRequest, DeleteMessageRequest, DeleteObjectRequest,
+    DeleteStreamRequest, GetMessagesRequest, GetMessagesResponse, GetObjectRequest,
+    GetObjectResponse, GetStreamRequest, KvDeleteRequest, KvGetRequest, KvGetResponse,
+    KvPutRequest, KvPutResponse, ListBucketsRequest, ListBucketsResponse, ListConsumersRequest,
+    ListConsumersResponse, ListKeysRequest, ListKeysResponse, ListObjectBucketsRequest,
+    ListObjectBucketsResponse, ListObjectsRequest, ListObjectsResponse, ListStreamsRequest,
+    ListStreamsResponse, PurgeStreamRequest, PurgeStreamResponse, StreamInfoDto,
 };
 
 use crate::error::JetStreamError;
@@ -250,6 +251,69 @@ impl JetStreamService {
         js.kv_delete(bucket, key).await?;
         Ok(())
     }
+
+    // --- Object Store --------------------------------------------------------
+
+    /// List every Object-Store bucket in the account.
+    pub async fn list_object_buckets(
+        &self,
+        req: ListObjectBucketsRequest,
+    ) -> Result<ListObjectBucketsResponse, JetStreamError> {
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        let buckets = js.list_object_buckets().await?;
+        Ok(ListObjectBucketsResponse { buckets })
+    }
+
+    /// List the objects in a bucket.
+    pub async fn list_objects(
+        &self,
+        req: ListObjectsRequest,
+    ) -> Result<ListObjectsResponse, JetStreamError> {
+        let bucket = require_arg(&req.bucket, "bucket")?;
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        let objects = js.list_objects(bucket).await?;
+        Ok(ListObjectsResponse { objects })
+    }
+
+    /// Fetch a small object's bytes (base64-encoded by the adapter).
+    pub async fn get_object(
+        &self,
+        req: GetObjectRequest,
+    ) -> Result<GetObjectResponse, JetStreamError> {
+        let bucket = require_arg(&req.bucket, "bucket")?;
+        let name = require_arg(&req.name, "name")?;
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        Ok(js.get_object(bucket, name).await?)
+    }
+
+    /// Delete an object from a bucket.
+    pub async fn delete_object(&self, req: DeleteObjectRequest) -> Result<(), JetStreamError> {
+        let bucket = require_arg(&req.bucket, "bucket")?;
+        let name = require_arg(&req.name, "name")?;
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        js.delete_object(bucket, name).await?;
+        Ok(())
+    }
 }
 
 /// Validate a stream name is non-empty, returning the trimmed borrow.
@@ -283,9 +347,10 @@ mod tests {
         OutgoingMessage, PurgeSpec, Subscription,
     };
     use ns_types::{
-        ConsumerInfoDto, ErrorCode, GetMessagesResponse, KvBucketDto, KvEntryDto, ServerInfoDto,
-        StoredMessageDto, StreamConfigDto, StreamDiscard, StreamInfoDto, StreamRetention,
-        StreamStateDto, StreamStorage,
+        ConsumerInfoDto, ErrorCode, GetMessagesResponse, GetObjectResponse, KvBucketDto,
+        KvEntryDto, ObjectBucketDto, ObjectInfoDto, ServerInfoDto, StoredMessageDto,
+        StreamConfigDto, StreamDiscard, StreamInfoDto, StreamRetention, StreamStateDto,
+        StreamStorage,
     };
 
     use super::*;
@@ -347,6 +412,24 @@ mod tests {
         }
     }
 
+    fn sample_object_bucket(name: &str) -> ObjectBucketDto {
+        ObjectBucketDto {
+            bucket: name.to_owned(),
+            objects: 2,
+            size: 4096,
+        }
+    }
+
+    fn sample_object(name: &str) -> ObjectInfoDto {
+        ObjectInfoDto {
+            name: name.to_owned(),
+            size: 5,
+            digest: Some("SHA-256=abc".to_owned()),
+            modified_rfc3339: "2024-01-01T00:00:00Z".to_owned(),
+            deleted: false,
+        }
+    }
+
     #[derive(Default)]
     struct MockJetStream {
         created: Mutex<Vec<StreamConfigDto>>,
@@ -356,6 +439,7 @@ mod tests {
         deleted_messages: Mutex<Vec<(String, u64)>>,
         kv_puts: Mutex<Vec<(String, String, Vec<u8>)>>,
         kv_deletes: Mutex<Vec<(String, String)>>,
+        deleted_objects: Mutex<Vec<(String, String)>>,
     }
 
     #[async_trait]
@@ -454,6 +538,33 @@ mod tests {
                 .lock()
                 .unwrap()
                 .push((bucket.to_owned(), key.to_owned()));
+            Ok(())
+        }
+        async fn list_object_buckets(&self) -> Result<Vec<ObjectBucketDto>, CoreError> {
+            Ok(vec![
+                sample_object_bucket("assets"),
+                sample_object_bucket("images"),
+            ])
+        }
+        async fn list_objects(&self, _bucket: &str) -> Result<Vec<ObjectInfoDto>, CoreError> {
+            Ok(vec![sample_object("logo.png")])
+        }
+        async fn get_object(
+            &self,
+            _bucket: &str,
+            name: &str,
+        ) -> Result<GetObjectResponse, CoreError> {
+            Ok(GetObjectResponse {
+                name: name.to_owned(),
+                size: 5,
+                data_base64: BASE64.encode(b"hello"),
+            })
+        }
+        async fn delete_object(&self, bucket: &str, name: &str) -> Result<(), CoreError> {
+            self.deleted_objects
+                .lock()
+                .unwrap()
+                .push((bucket.to_owned(), name.to_owned()));
             Ok(())
         }
     }
@@ -749,5 +860,74 @@ mod tests {
         assert_eq!(puts[0].0, "config");
         assert_eq!(puts[0].1, "greeting");
         assert_eq!(puts[0].2, b"hello");
+    }
+
+    #[tokio::test]
+    async fn object_store_lists_gets_and_validates() {
+        let (svc, js) = service();
+
+        // Buckets come straight from the port.
+        let resp = svc
+            .list_object_buckets(ListObjectBucketsRequest {
+                connection_id: "c1".into(),
+            })
+            .await
+            .unwrap();
+        assert_eq!(resp.buckets.len(), 2);
+        assert_eq!(resp.buckets[0].bucket, "assets");
+
+        // Blank bucket -> InvalidArgument, never reaches the port.
+        let err = svc
+            .list_objects(ListObjectsRequest {
+                connection_id: "c1".into(),
+                bucket: "  ".into(),
+            })
+            .await
+            .unwrap_err();
+        assert!(matches!(err, JetStreamError::InvalidArgument(_)));
+
+        let objs = svc
+            .list_objects(ListObjectsRequest {
+                connection_id: "c1".into(),
+                bucket: "assets".into(),
+            })
+            .await
+            .unwrap();
+        assert_eq!(objs.objects.len(), 1);
+        assert_eq!(objs.objects[0].name, "logo.png");
+
+        // Get returns the (base64) bytes from the port.
+        let got = svc
+            .get_object(GetObjectRequest {
+                connection_id: "c1".into(),
+                bucket: "assets".into(),
+                name: "logo.png".into(),
+            })
+            .await
+            .unwrap();
+        assert_eq!(got.data_base64, BASE64.encode(b"hello"));
+
+        // Blank name on delete -> InvalidArgument; a valid one delegates.
+        let err = svc
+            .delete_object(DeleteObjectRequest {
+                connection_id: "c1".into(),
+                bucket: "assets".into(),
+                name: " ".into(),
+            })
+            .await
+            .unwrap_err();
+        assert!(matches!(err, JetStreamError::InvalidArgument(_)));
+
+        svc.delete_object(DeleteObjectRequest {
+            connection_id: "c1".into(),
+            bucket: "assets".into(),
+            name: "logo.png".into(),
+        })
+        .await
+        .unwrap();
+        assert_eq!(
+            js.deleted_objects.lock().unwrap().as_slice(),
+            &[("assets".into(), "logo.png".into())]
+        );
     }
 }

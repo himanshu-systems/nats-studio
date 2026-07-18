@@ -13,6 +13,7 @@ mod jetstream;
 mod kv;
 mod message;
 mod monitor;
+mod objectstore;
 mod settings;
 
 pub use app::*;
@@ -23,6 +24,7 @@ pub use jetstream::*;
 pub use kv::*;
 pub use message::*;
 pub use monitor::*;
+pub use objectstore::*;
 pub use settings::*;
 
 /// Wire alias for 64-bit unsigned integers. typeshare maps `U64` to the TS

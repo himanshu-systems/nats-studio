@@ -5,7 +5,8 @@
 
 use async_trait::async_trait;
 use ns_types::{
-    ConsumerInfoDto, GetMessagesResponse, KvBucketDto, KvEntryDto, StreamConfigDto, StreamInfoDto,
+    ConsumerInfoDto, GetMessagesResponse, GetObjectResponse, KvBucketDto, KvEntryDto,
+    ObjectBucketDto, ObjectInfoDto, StreamConfigDto, StreamInfoDto,
 };
 
 use crate::CoreError;
@@ -64,4 +65,16 @@ pub trait JetStreamManager: Send + Sync {
     async fn kv_put(&self, bucket: &str, key: &str, value: Vec<u8>) -> Result<u64, CoreError>;
     /// Delete a key (writes a delete marker).
     async fn kv_delete(&self, bucket: &str, key: &str) -> Result<(), CoreError>;
+
+    // --- Object Store ------------------------------------------------------
+
+    /// All Object-Store buckets in the account.
+    async fn list_object_buckets(&self) -> Result<Vec<ObjectBucketDto>, CoreError>;
+    /// Info for every (non-deleted) object in a bucket.
+    async fn list_objects(&self, bucket: &str) -> Result<Vec<ObjectInfoDto>, CoreError>;
+    /// Fetch a small object's bytes (base64-encoded by the adapter); errors if the
+    /// object exceeds the preview cap.
+    async fn get_object(&self, bucket: &str, name: &str) -> Result<GetObjectResponse, CoreError>;
+    /// Delete an object from a bucket.
+    async fn delete_object(&self, bucket: &str, name: &str) -> Result<(), CoreError>;
 }

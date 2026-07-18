@@ -10,10 +10,13 @@ import { ConnectionsView } from "@/features/connections/ConnectionsView";
 import { PublisherView } from "@/features/messaging/PublisherView";
 import { RequestReplyView } from "@/features/messaging/RequestReplyView";
 import { LiveTailView } from "@/features/messaging/LiveTailView";
+import { ReplayView } from "@/features/messaging/ReplayView";
 import { StreamsView } from "@/features/jetstream/StreamsView";
 import { ConsumersView } from "@/features/jetstream/ConsumersView";
 import { KvView } from "@/features/jetstream/KvView";
+import { ObjectStoreView } from "@/features/jetstream/ObjectStoreView";
 import { MessageBrowserView } from "@/features/jetstream/MessageBrowserView";
+import { BackupView } from "@/features/jetstream/BackupView";
 import { MetricsView } from "@/features/monitoring/MetricsView";
 import { AccountsView } from "@/features/monitoring/AccountsView";
 import { LatencyView } from "@/features/monitoring/LatencyView";
@@ -40,8 +43,14 @@ function renderView(view: string): JSX.Element {
       return <ConsumersView />;
     case "kv":
       return <KvView />;
+    case "objectstore":
+      return <ObjectStoreView />;
     case "browser":
       return <MessageBrowserView />;
+    case "backup":
+      return <BackupView />;
+    case "replay":
+      return <ReplayView />;
     case "metrics":
       return <MetricsView />;
     case "accounts":
