@@ -1,5 +1,18 @@
 import { invoke, Channel } from "@tauri-apps/api/core";
-import type { AppInfo, IpcError } from "./generated/types";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import type {
+  AppEvent,
+  AppInfo,
+  ConnectionProfile,
+  ConnectionProfileInput,
+  ConnectionStatusDto,
+  ConnectionSummary,
+  HealthStatus,
+  IpcError,
+  ListConnectionsResponse,
+  ListProfilesResponse,
+  Settings,
+} from "./generated/types";
 
 /**
  * Frontend rehydration of the backend's `IpcError` wire DTO. TanStack Query and
@@ -48,11 +61,38 @@ export async function call<T>(command: string, req?: unknown): Promise<T> {
   }
 }
 
-/** Typed command facade, namespaced by subsystem (grows as commands land). */
+/** Typed command facade, namespaced by subsystem. */
 export const ipc = {
   app: {
     info: () => call<AppInfo>("app_info"),
+    health: () => call<HealthStatus>("app_health"),
+  },
+  settings: {
+    get: () => call<Settings>("settings_get"),
+    update: (settings: Settings) => call<void>("settings_update", { settings }),
+  },
+  connection: {
+    listProfiles: () => call<ListProfilesResponse>("connection_list_profiles"),
+    createProfile: (profile: ConnectionProfileInput) =>
+      call<ConnectionProfile>("connection_create_profile", { profile }),
+    updateProfile: (profile: ConnectionProfile) =>
+      call<ConnectionProfile>("connection_update_profile", { profile }),
+    deleteProfile: (id: string) => call<void>("connection_delete_profile", { id }),
+    connect: (profileId: string) => call<ConnectionSummary>("connection_connect", { profileId }),
+    disconnect: (connectionId: string) => call<void>("connection_disconnect", { connectionId }),
+    list: () => call<ListConnectionsResponse>("connection_list"),
+    getStatus: (connectionId: string) =>
+      call<ConnectionStatusDto | null>("connection_get_status", { connectionId }),
   },
 };
+
+/**
+ * Subscribe to the single ambient event channel bridged from the Rust event bus
+ * (`ns://event`). Returns an unlisten function. Each `AppEvent` carries its own
+ * `topic`; consumers switch on `payload`.
+ */
+export function onAppEvent(handler: (event: AppEvent) => void): Promise<UnlistenFn> {
+  return listen<AppEvent>("ns://event", (msg) => handler(msg.payload));
+}
 
 export { Channel };

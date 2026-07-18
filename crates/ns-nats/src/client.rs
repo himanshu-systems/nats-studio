@@ -287,4 +287,20 @@ mod tests {
         assert!(dto.jetstream);
         assert_eq!(dto.client_id, Some(7));
     }
+
+    /// End-to-end: dial a real server. Ignored by default; run with a local
+    /// `nats-server` on 127.0.0.1:4222 via `cargo test -p ns-nats -- --ignored`.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "requires a local nats-server on 127.0.0.1:4222"]
+    async fn live_connect_to_local_server() {
+        let client = AsyncNatsFactory
+            .connect(&spec_with(ResolvedAuth::None, None))
+            .await
+            .expect("connect to local nats-server");
+        let info = client.server_info().await.expect("server info");
+        assert!(!info.version.is_empty(), "server reported a version");
+        let rtt = client.rtt().await.expect("rtt");
+        assert!(rtt.as_millis() < 5_000, "rtt is sane");
+        client.drain().await.expect("drain");
+    }
 }
