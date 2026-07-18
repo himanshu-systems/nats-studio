@@ -8,8 +8,17 @@ import { errorMessage, fmtBytes, MessageMeta, PayloadView } from "./message";
 const MAX_MESSAGES = 1000;
 
 interface ActiveSub {
+  /** Server-side subscription id (for unsubscribe). */
   id: string;
+  /** Client-side id used to tag this subscription's messages. */
+  cid: string;
   subject: string;
+}
+
+/** A received message tagged with the client-side id of the subscription it came from. */
+interface Tagged {
+  cid: string;
+  view: MessageView;
 }
 
 export function LiveTailView(): JSX.Element {
@@ -20,22 +29,27 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
   const [subject, setSubject] = useState("demo.>");
   const [queueGroup, setQueueGroup] = useState("");
   const [subs, setSubs] = useState<ActiveSub[]>([]);
-  const [messages, setMessages] = useState<MessageView[]>([]);
+  const [messages, setMessages] = useState<Tagged[]>([]);
   const [selected, setSelected] = useState<MessageView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [paused, setPaused] = useState(false);
+  // null = show all subscriptions; otherwise a subscription's client id.
+  const [filter, setFilter] = useState<string | null>(null);
 
   const pausedRef = useRef(false);
   pausedRef.current = paused;
   const subsRef = useRef<ActiveSub[]>([]);
   subsRef.current = subs;
 
-  // Auto-select the newest message when nothing is selected, so the formatted
-  // payload + format tabs are visible immediately (no click needed).
+  const shown = filter === null ? messages : messages.filter((m) => m.cid === filter);
+  const countFor = (cid: string): number => messages.reduce((n, m) => n + (m.cid === cid ? 1 : 0), 0);
+
+  // Auto-select the newest visible message when nothing is selected.
   useEffect(() => {
-    setSelected((cur) => cur ?? messages[0] ?? null);
-  }, [messages]);
+    setSelected((cur) => cur ?? shown[0]?.view ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, filter]);
 
   // Tear down every subscription when leaving the view / switching connection.
   useEffect(
@@ -45,26 +59,29 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
     [],
   );
 
-  const onEvent = (event: SubStreamEvent): void => {
-    if (event.kind === "message") {
-      if (pausedRef.current) return;
-      setMessages((prev) => [event.data, ...prev].slice(0, MAX_MESSAGES));
-    } else if (event.kind === "error") {
-      setError(`${event.data.code}: ${event.data.message}`);
-    }
-  };
+  const makeOnEvent =
+    (cid: string) =>
+    (event: SubStreamEvent): void => {
+      if (event.kind === "message") {
+        if (pausedRef.current) return;
+        setMessages((prev) => [{ cid, view: event.data }, ...prev].slice(0, MAX_MESSAGES));
+      } else if (event.kind === "error") {
+        setError(`${event.data.code}: ${event.data.message}`);
+      }
+    };
 
   const startSub = async (): Promise<void> => {
     const subj = subject.trim();
     if (subj === "") return;
     setError(null);
     setStarting(true);
+    const cid = crypto.randomUUID();
     try {
       const handle = await ipc.pubsub.subscribe(
         { connectionId: connId, subject: subj, queueGroup: queueGroup.trim() || undefined },
-        onEvent,
+        makeOnEvent(cid),
       );
-      setSubs((prev) => [...prev, { id: handle.subscriptionId, subject: subj }]);
+      setSubs((prev) => [...prev, { id: handle.subscriptionId, cid, subject: subj }]);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -72,9 +89,10 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
     }
   };
 
-  const stopSub = (id: string): void => {
-    void ipc.pubsub.unsubscribe(id);
-    setSubs((prev) => prev.filter((s) => s.id !== id));
+  const stopSub = (sub: ActiveSub): void => {
+    void ipc.pubsub.unsubscribe(sub.id);
+    setSubs((prev) => prev.filter((s) => s.id !== sub.id));
+    setFilter((f) => (f === sub.cid ? null : f));
   };
 
   return (
@@ -100,18 +118,20 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
         </div>
         {error && <p className="text-xs text-danger">{error}</p>}
         {subs.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-0.5">
+          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+            <FilterChip active={filter === null} count={messages.length} onClick={() => setFilter(null)}>
+              All
+            </FilterChip>
             {subs.map((s) => (
-              <span
-                key={s.id}
-                className="inline-flex items-center gap-1.5 rounded-full border border-accent/25 bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent"
+              <FilterChip
+                key={s.cid}
+                active={filter === s.cid}
+                count={countFor(s.cid)}
+                onClick={() => setFilter(s.cid)}
+                onClose={() => stopSub(s)}
               >
-                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
                 {s.subject}
-                <button type="button" onClick={() => stopSub(s.id)} aria-label={`Unsubscribe ${s.subject}`} className="opacity-70 hover:opacity-100">
-                  <Icon name="x" size={12} />
-                </button>
-              </span>
+              </FilterChip>
             ))}
           </div>
         )}
@@ -119,8 +139,8 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
 
       <div className="flex items-center justify-between border-b border-border px-4 py-1.5">
         <div className="flex items-center gap-2">
-          <SectionLabel>Live messages</SectionLabel>
-          <Badge tone={paused ? "warning" : "positive"}>{messages.length}</Badge>
+          <SectionLabel>{filter === null ? "Live messages" : `Filtered: ${subs.find((s) => s.cid === filter)?.subject ?? ""}`}</SectionLabel>
+          <Badge tone={paused ? "warning" : "positive"}>{shown.length}</Badge>
         </div>
         <div className="flex items-center gap-1">
           <Button size="sm" variant="ghost" icon={paused ? "signal" : "clock"} onClick={() => setPaused((p) => !p)}>
@@ -143,29 +163,31 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
 
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] divide-x divide-border">
         <ul className="min-h-0 overflow-auto">
-          {messages.length === 0 && (
+          {shown.length === 0 && (
             <li className="p-4 text-xs text-muted">
-              Waiting for messages… publish to a matching subject to see them arrive live.
+              {messages.length === 0
+                ? "Waiting for messages… publish to a matching subject to see them arrive live."
+                : "No messages for this subscription yet."}
             </li>
           )}
-          {messages.map((m) => (
-            <li key={`${m.subject}-${m.seq}-${m.ts}`}>
+          {shown.map((m, i) => (
+            <li key={`${m.cid}-${m.view.seq}-${m.view.ts}-${i}`}>
               <button
                 type="button"
-                onClick={() => setSelected(m)}
+                onClick={() => setSelected(m.view)}
                 className={cx(
                   "block w-full border-b border-border/60 px-4 py-2 text-left transition-colors hover:bg-surface-2",
-                  selected === m && "bg-surface-2",
+                  selected === m.view && "bg-surface-2",
                 )}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm font-medium text-content">{m.subject}</span>
+                  <span className="truncate text-sm font-medium text-content">{m.view.subject}</span>
                   <span className="flex shrink-0 items-center gap-2 text-[10px] text-faint">
-                    <span className="tabular-nums">{fmtBytes(m.size)}</span>
-                    <span className="uppercase">{m.format}</span>
+                    <span className="tabular-nums">{fmtBytes(m.view.size)}</span>
+                    <span className="uppercase">{m.view.format}</span>
                   </span>
                 </div>
-                <div className="truncate font-mono text-xs text-muted">{m.preview.slice(0, 100)}</div>
+                <div className="truncate font-mono text-xs text-muted">{m.view.preview.slice(0, 100)}</div>
               </button>
             </li>
           ))}
@@ -185,5 +207,40 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
         </div>
       </div>
     </div>
+  );
+}
+
+function FilterChip({
+  active,
+  count,
+  onClick,
+  onClose,
+  children,
+}: {
+  active: boolean;
+  count: number;
+  onClick: () => void;
+  onClose?: () => void;
+  children: React.ReactNode;
+}): JSX.Element {
+  return (
+    <span
+      className={cx(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors",
+        active
+          ? "border-accent bg-accent text-accent-content"
+          : "border-border bg-surface-2 text-muted hover:text-content",
+      )}
+    >
+      <button type="button" onClick={onClick} className="flex items-center gap-1.5">
+        <span className="truncate max-w-[180px]">{children}</span>
+        <span className={cx("rounded-full px-1 tabular-nums", active ? "bg-black/15" : "bg-border/60")}>{count}</span>
+      </button>
+      {onClose && (
+        <button type="button" onClick={onClose} aria-label="Unsubscribe" className="opacity-70 hover:opacity-100">
+          <Icon name="x" size={12} />
+        </button>
+      )}
+    </span>
   );
 }
