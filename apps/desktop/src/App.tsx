@@ -1,7 +1,9 @@
+import { useEffect, useState } from "react";
 import { useUiStore } from "@/lib/uiStore";
 import { useActiveConnection } from "@/lib/activeConnection";
 import { useLiveEvents } from "@/lib/liveEvents";
 import { findNavItem } from "@/nav";
+import { cx } from "@/components/ui";
 import { Sidebar } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
 import { ComingSoon } from "@/components/ComingSoon";
@@ -58,28 +60,47 @@ function renderView(view: string): JSX.Element {
   }
 }
 
+/** Instance key for a view: connection-scoped views get their own instance per
+ *  connection (isolation); global views are shared. */
+function instanceKey(id: string, activeId: string | null): string {
+  return findNavItem(id)?.requiresConnection ? `${id}::${activeId ?? "none"}` : id;
+}
+
 /**
  * Application shell: sidebar navigation + top bar + the active feature view.
- * Connection-scoped views are keyed by the active connection id, so switching
- * connections gives each one its own fresh, isolated view state.
+ *
+ * Views are kept alive: once visited, each (view × connection) instance stays
+ * mounted and is merely hidden when inactive, so state persists across tab
+ * navigation — Dead Letters keeps listening, Live Tail keeps its messages,
+ * forms keep their input. Switching the active connection still gives
+ * connection-scoped views their own isolated instance.
  */
 export default function App(): JSX.Element {
   useLiveEvents();
   const view = useUiStore((s) => s.view);
   const { activeId } = useActiveConnection();
-  const item = findNavItem(view);
-  const scoped = item?.requiresConnection ?? false;
-  const contentKey = scoped ? `${view}:${activeId ?? "none"}` : view;
+  const activeKey = instanceKey(view, activeId);
+
+  // Remember every instance we've shown, so it stays mounted (hidden) afterward.
+  const [mounted, setMounted] = useState<Record<string, string>>({ [activeKey]: view });
+  useEffect(() => {
+    setMounted((m) => (m[activeKey] ? m : { ...m, [activeKey]: view }));
+  }, [activeKey, view]);
 
   return (
     <div className="flex h-full">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar />
-        <main className="min-h-0 flex-1 overflow-hidden">
-          <div key={contentKey} className="h-full animate-fade-in">
-            {renderView(view)}
-          </div>
+        <main className="relative min-h-0 flex-1 overflow-hidden">
+          {Object.entries(mounted).map(([key, id]) => (
+            <div
+              key={key}
+              className={cx("absolute inset-0", key === activeKey ? "animate-fade-in" : "hidden")}
+            >
+              {renderView(id)}
+            </div>
+          ))}
         </main>
       </div>
     </div>
