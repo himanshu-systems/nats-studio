@@ -5,6 +5,7 @@ import type { StoredMessageDto } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../components/ui";
 import { Icon } from "../../components/Icon";
+import { Select } from "../../components/Select";
 import { errorMessage } from "../messaging/message";
 
 const PAGE = 50;
@@ -79,22 +80,17 @@ function Browser({ connId }: { connId: string }): JSX.Element {
           {stream && lastSeq > 0 ? ` (seq ${firstSeq}–${lastSeq})` : ""}
         </SectionLabel>
         <div className="flex items-center gap-2">
-          <select
-            className="field h-8 max-w-[220px] text-xs"
+          <Select
+            className="max-w-[220px]"
             value={stream ?? ""}
-            onChange={(e) => {
-              setPickedStream(e.target.value);
+            onChange={(v) => {
+              setPickedStream(v);
               resetTo(1);
             }}
+            options={streamNames.map((n) => ({ value: n, label: n }))}
             disabled={streamNames.length === 0}
-          >
-            {streamNames.length === 0 && <option value="">No streams</option>}
-            {streamNames.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
+            placeholder="No streams"
+          />
           <Button
             size="sm"
             variant="outline"

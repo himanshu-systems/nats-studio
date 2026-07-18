@@ -4,6 +4,7 @@ import { ipc, PayloadEncoding } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../components/ui";
 import { Icon } from "../../components/Icon";
+import { Select } from "../../components/Select";
 import { errorMessage } from "./message";
 
 const PAGE = 100;
@@ -138,18 +139,12 @@ function Replay({ connId }: { connId: string }): JSX.Element {
         <div className="grid grid-cols-3 gap-3">
           <label className="col-span-3 block space-y-1.5 sm:col-span-1">
             <span className="text-[11px] text-muted">Stream</span>
-            <select
-              className="field"
+            <Select
               value={stream ?? ""}
-              onChange={(e) => setPickedStream(e.target.value)}
+              onChange={(v) => setPickedStream(v)}
+              options={streamNames.map((n) => ({ value: n, label: n }))}
               disabled={running || streamNames.length === 0}
-            >
-              {streamNames.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
+            />
           </label>
           <label className="block space-y-1.5">
             <span className="text-[11px] text-muted">Start seq</span>

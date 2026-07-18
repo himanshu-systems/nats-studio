@@ -3,6 +3,7 @@ import { ipc, PayloadEncoding } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Button, Panel, SectionLabel } from "../../components/ui";
 import { Icon } from "../../components/Icon";
+import { Select } from "../../components/Select";
 import { errorMessage, parseHeaders } from "./message";
 
 interface Var {
@@ -119,10 +120,14 @@ function Publisher({ connId }: { connId: string }): JSX.Element {
           <div className="grid grid-cols-3 gap-3">
             <label className="block space-y-1.5">
               <SectionLabel>Encoding</SectionLabel>
-              <select className="field" value={encoding} onChange={(e) => setEncoding(e.target.value as PayloadEncoding)}>
-                <option value={PayloadEncoding.Utf8}>UTF-8</option>
-                <option value={PayloadEncoding.Base64}>Base64</option>
-              </select>
+              <Select
+                value={encoding}
+                onChange={(v) => setEncoding(v as PayloadEncoding)}
+                options={[
+                  { value: PayloadEncoding.Utf8, label: "UTF-8" },
+                  { value: PayloadEncoding.Base64, label: "Base64" },
+                ]}
+              />
             </label>
             <label className="block space-y-1.5">
               <SectionLabel>Reply-to</SectionLabel>

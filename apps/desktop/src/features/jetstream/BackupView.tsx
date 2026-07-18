@@ -5,6 +5,7 @@ import type { MessageHeader } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../components/ui";
 import { Icon } from "../../components/Icon";
+import { Select } from "../../components/Select";
 import { errorMessage } from "../messaging/message";
 
 const PAGE = 100;
@@ -188,19 +189,14 @@ function Backup({ connId }: { connId: string }): JSX.Element {
           Page through a stream and download every message as a JSON file.
         </p>
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            className="field h-8 max-w-[220px] text-xs"
+          <Select
+            className="max-w-[220px]"
             value={stream ?? ""}
-            onChange={(e) => setPickedStream(e.target.value)}
+            onChange={(v) => setPickedStream(v)}
+            options={streamNames.map((n) => ({ value: n, label: n }))}
             disabled={streamNames.length === 0 || exporting}
-          >
-            {streamNames.length === 0 && <option value="">No streams</option>}
-            {streamNames.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
+            placeholder="No streams"
+          />
           <Button
             size="sm"
             icon="archive"

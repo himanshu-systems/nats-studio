@@ -4,6 +4,7 @@ import { ipc } from "@bindings";
 import type { ObjectInfoDto } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../components/ui";
+import { Select } from "../../components/Select";
 import { errorMessage } from "../messaging/message";
 
 const bucketsKey = (connId: string): [string, string] => ["objBuckets", connId];
@@ -72,22 +73,17 @@ function ObjectStore({ connId }: { connId: string }): JSX.Element {
           Object Store{bucket ? ` — ${bucket} (${objectList.length})` : ""}
         </SectionLabel>
         <div className="flex items-center gap-2">
-          <select
-            className="field h-8 max-w-[220px] text-xs"
+          <Select
+            className="max-w-[220px]"
             value={bucket ?? ""}
-            onChange={(e) => {
-              setPickedBucket(e.target.value);
+            onChange={(v) => {
+              setPickedBucket(v);
               setSelected(null);
             }}
+            options={bucketNames.map((n) => ({ value: n, label: n }))}
             disabled={bucketNames.length === 0}
-          >
-            {bucketNames.length === 0 && <option value="">No buckets</option>}
-            {bucketNames.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
+            placeholder="No buckets"
+          />
           <Button
             size="sm"
             variant="outline"

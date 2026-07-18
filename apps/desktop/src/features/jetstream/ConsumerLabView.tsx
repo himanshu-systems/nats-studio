@@ -4,6 +4,7 @@ import { ipc, PayloadEncoding } from "@bindings";
 import type { FetchedMessageDto, MessageView } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel } from "../../components/ui";
+import { Select } from "../../components/Select";
 import { PayloadView, errorMessage } from "../messaging/message";
 
 const streamsKey = (connId: string): [string, string] => ["streams", connId];
@@ -108,35 +109,25 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SectionLabel>Consumer Lab{messages.length > 0 ? ` (${messages.length})` : ""}</SectionLabel>
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            className="field h-8 max-w-[180px] text-xs"
+          <Select
+            className="max-w-[180px]"
             value={stream ?? ""}
-            onChange={(e) => {
-              setPickedStream(e.target.value);
+            onChange={(v) => {
+              setPickedStream(v);
               setPickedConsumer(null);
             }}
+            options={streamNames.map((n) => ({ value: n, label: n }))}
             disabled={streamNames.length === 0}
-          >
-            {streamNames.length === 0 && <option value="">No streams</option>}
-            {streamNames.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-          <select
-            className="field h-8 max-w-[180px] text-xs"
+            placeholder="No streams"
+          />
+          <Select
+            className="max-w-[180px]"
             value={consumer ?? ""}
-            onChange={(e) => setPickedConsumer(e.target.value)}
+            onChange={(v) => setPickedConsumer(v)}
+            options={consumerNames.map((n) => ({ value: n, label: n }))}
             disabled={consumerNames.length === 0}
-          >
-            {consumerNames.length === 0 && <option value="">No consumers</option>}
-            {consumerNames.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
+            placeholder="No consumers"
+          />
           <input
             type="number"
             min={1}

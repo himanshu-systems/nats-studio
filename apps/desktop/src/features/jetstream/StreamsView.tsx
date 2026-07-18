@@ -5,6 +5,7 @@ import type { StreamConfigDto, StreamInfoDto } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SearchInput, SectionLabel, cx } from "../../components/ui";
 import { Icon } from "../../components/Icon";
+import { Select } from "../../components/Select";
 import { errorMessage } from "../messaging/message";
 
 const streamsKey = (connId: string): [string, string] => ["streams", connId];
@@ -256,26 +257,26 @@ function CreateStreamForm({ connId }: { connId: string }): JSX.Element {
       <div className="grid grid-cols-2 gap-3">
         <label className="block space-y-1.5">
           <span className="text-[11px] text-muted">Storage</span>
-          <select
-            className="field"
+          <Select
             value={storage}
-            onChange={(e) => setStorage(e.target.value as StreamStorage)}
-          >
-            <option value={StreamStorage.File}>File</option>
-            <option value={StreamStorage.Memory}>Memory</option>
-          </select>
+            onChange={(v) => setStorage(v as StreamStorage)}
+            options={[
+              { value: StreamStorage.File, label: "File" },
+              { value: StreamStorage.Memory, label: "Memory" },
+            ]}
+          />
         </label>
         <label className="block space-y-1.5">
           <span className="text-[11px] text-muted">Retention</span>
-          <select
-            className="field"
+          <Select
             value={retention}
-            onChange={(e) => setRetention(e.target.value as StreamRetention)}
-          >
-            <option value={StreamRetention.Limits}>Limits</option>
-            <option value={StreamRetention.Interest}>Interest</option>
-            <option value={StreamRetention.WorkQueue}>Work Queue</option>
-          </select>
+            onChange={(v) => setRetention(v as StreamRetention)}
+            options={[
+              { value: StreamRetention.Limits, label: "Limits" },
+              { value: StreamRetention.Interest, label: "Interest" },
+              { value: StreamRetention.WorkQueue, label: "Work Queue" },
+            ]}
+          />
         </label>
       </div>
       <div className="grid grid-cols-3 gap-3">

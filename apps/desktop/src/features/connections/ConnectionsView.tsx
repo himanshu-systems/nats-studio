@@ -11,6 +11,7 @@ import { CONNECTIONS_KEY, PROFILES_KEY } from "../../lib/liveEvents";
 import { useActiveConnection } from "../../lib/activeConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel, StatusDot, statusMeta, cx } from "../../components/ui";
 import { Icon } from "../../components/Icon";
+import { Select } from "../../components/Select";
 import { errorMessage } from "../messaging/message";
 
 type AuthKind = "none" | "userPassword" | "token";
@@ -116,11 +117,15 @@ function CreateProfileForm(props: {
       <SectionLabel>New profile</SectionLabel>
       <input className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
       <input className="field font-mono" value={server} onChange={(e) => setServer(e.target.value)} placeholder="nats://host:4222" />
-      <select className="field" value={authKind} onChange={(e) => setAuthKind(e.target.value as AuthKind)}>
-        <option value="none">No auth</option>
-        <option value="userPassword">Username / password</option>
-        <option value="token">Token</option>
-      </select>
+      <Select
+        value={authKind}
+        onChange={(v) => setAuthKind(v as AuthKind)}
+        options={[
+          { value: "none", label: "No auth" },
+          { value: "userPassword", label: "Username / password" },
+          { value: "token", label: "Token" },
+        ]}
+      />
       {authKind === "userPassword" && (
         <div className="grid grid-cols-2 gap-2">
           <input className="field" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" />

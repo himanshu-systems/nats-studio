@@ -4,6 +4,7 @@ import { ipc } from "@bindings";
 import type { ConsumerInfoDto } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SearchInput, SectionLabel } from "../../components/ui";
+import { Select } from "../../components/Select";
 import { errorMessage } from "../messaging/message";
 
 const streamsKey = (connId: string): [string, string] => ["streams", connId];
@@ -59,19 +60,14 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
           Consumers{stream ? ` — ${stream} (${filtered.length}${needle ? ` / ${items.length}` : ""})` : ""}
         </SectionLabel>
         <div className="flex items-center gap-2">
-          <select
-            className="field h-8 max-w-[220px] text-xs"
+          <Select
+            className="max-w-[220px]"
             value={stream ?? ""}
-            onChange={(e) => setPicked(e.target.value)}
+            onChange={(v) => setPicked(v)}
+            options={streamNames.map((n) => ({ value: n, label: n }))}
             disabled={streamNames.length === 0}
-          >
-            {streamNames.length === 0 && <option value="">No streams</option>}
-            {streamNames.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
+            placeholder="No streams"
+          />
           <Button
             size="sm"
             variant="outline"
