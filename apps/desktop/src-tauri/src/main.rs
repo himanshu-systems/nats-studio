@@ -1,44 +1,52 @@
 //! nats-studio — the desktop application (composition root).
 //!
-//! Phase 0: registers the `app_info` command and opens the main window. The full
-//! `AppState` service registry, the `EventBridge`, and the subsystem commands
-//! land in Phase 1 (see docs/architecture/implementation-roadmap.md).
+//! Boots telemetry, builds the `AppState` service registry (adapters injected
+//! into services), starts the bus->WebView `EventBridge`, and registers the
+//! command surface. See docs/architecture/implementation-roadmap.md (Phase 1).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// The gnu (MinGW) dev toolchain emits a benign ".rsrc merge failure: multiple
+// non-default manifests" linker warning (tauri embeds a manifest + MinGW's
+// default). It does not occur under the MSVC target used for release bundles.
+#![allow(linker_messages)]
 
-use ns_types::{AppInfo, IpcError};
-use tracing_subscriber::EnvFilter;
+mod commands;
+mod state;
 
-/// The first real IPC round-trip. Returns the superset `AppInfo` DTO (README section 8).
-#[tauri::command]
-fn app_info() -> Result<AppInfo, IpcError> {
-    Ok(AppInfo {
-        version: env!("CARGO_PKG_VERSION").to_string(),
-        app_schema_version: ns_types::APP_SCHEMA_VERSION,
-        plugin_api_version: "0.1.0".to_string(),
-        storage_schema_version: 0, // no migrations applied yet (ns-storage lands next)
-        os: std::env::consts::OS.to_string(),
-        arch: std::env::consts::ARCH.to_string(),
-        build_channel: if cfg!(debug_assertions) {
-            "dev"
-        } else {
-            "stable"
-        }
-        .to_string(),
-    })
-}
+use tauri::Manager;
 
 fn main() {
-    // Minimal tracing for Phase 0; the layered subscriber lands in ns-telemetry (Phase 1).
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::try_from_env("NS_LOG").unwrap_or_else(|_| EnvFilter::new("info")),
-        )
-        .init();
-
-    tracing::info!("starting NATS Studio");
-
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![app_info])
+        .setup(|app| {
+            // Layered tracing + in-app log ring (installs the global subscriber).
+            let log_store = ns_telemetry::init_telemetry(10_000).map_err(|e| e.to_string())?;
+            tracing::info!("starting NATS Studio");
+
+            // Composition root: build the service registry (opens the DB, etc.).
+            let handle = app.handle().clone();
+            let app_state = tauri::async_runtime::block_on(state::build_state(&handle, log_store))
+                .map_err(|e| e.to_string())?;
+
+            // Start the only bus->Tauri translator, then hand state to Tauri.
+            let bus = app_state.events.clone();
+            app.manage(app_state);
+            ns_ipc::start_event_bridge(handle, &bus);
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::app_info,
+            commands::app_health,
+            commands::settings_get,
+            commands::settings_update,
+            commands::log_query,
+            commands::connection_list_profiles,
+            commands::connection_create_profile,
+            commands::connection_update_profile,
+            commands::connection_delete_profile,
+            commands::connection_connect,
+            commands::connection_disconnect,
+            commands::connection_list,
+            commands::connection_get_status,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running the NATS Studio application");
 }

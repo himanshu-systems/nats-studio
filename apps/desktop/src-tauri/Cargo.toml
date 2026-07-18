@@ -15,10 +15,16 @@ path = "src/main.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
-serde = { workspace = true }
-serde_json = { workspace = true }
+tauri = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
 ns-types = { workspace = true }
 ns-core = { workspace = true }
+ns-event = { workspace = true }
+ns-storage = { workspace = true }
+ns-security = { workspace = true }
+ns-nats = { workspace = true }
+ns-connection = { workspace = true }
+ns-telemetry = { workspace = true }
+ns-ipc = { workspace = true }

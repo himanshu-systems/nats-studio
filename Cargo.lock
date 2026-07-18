@@ -1977,14 +1977,20 @@ dependencies = [
 name = "nats-studio"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "ns-connection",
  "ns-core",
+ "ns-event",
+ "ns-ipc",
+ "ns-nats",
+ "ns-security",
+ "ns-storage",
+ "ns-telemetry",
  "ns-types",
- "serde",
- "serde_json",
  "tauri",
  "tauri-build",
+ "tokio",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
