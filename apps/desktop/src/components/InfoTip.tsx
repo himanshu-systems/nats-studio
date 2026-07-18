@@ -1,24 +1,43 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "./Icon";
 
+const TIP_WIDTH = 240;
+
 /**
- * An (i) info icon that reveals help text on hover or click (click pins it open,
- * for touch / keeping it visible). Themed popover.
+ * An (i) info icon that reveals help text on hover, or click to pin it open.
+ * The tooltip is rendered in a portal with fixed, viewport-clamped positioning
+ * so it never gets clipped by scroll containers or overlaps adjacent fields.
  */
-export function InfoTip({ text, className }: { text: ReactNode; className?: string }): JSX.Element {
+export function InfoTip({ text }: { text: ReactNode }): JSX.Element {
+  const btnRef = useRef<HTMLButtonElement>(null);
   const [pinned, setPinned] = useState(false);
   const [hover, setHover] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const open = pinned || hover;
 
+  const place = (): void => {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const left = Math.max(8, Math.min(r.left + r.width / 2 - TIP_WIDTH / 2, window.innerWidth - TIP_WIDTH - 8));
+    setPos({ top: r.bottom + 6, left });
+  };
+
   return (
-    <span className={`relative inline-flex ${className ?? ""}`}>
+    <>
       <button
+        ref={btnRef}
         type="button"
         aria-label="More info"
-        onMouseEnter={() => setHover(true)}
+        onMouseEnter={() => {
+          place();
+          setHover(true);
+        }}
         onMouseLeave={() => setHover(false)}
         onClick={(e) => {
           e.preventDefault();
+          e.stopPropagation();
+          place();
           setPinned((p) => !p);
         }}
         onBlur={() => setPinned(false)}
@@ -26,15 +45,19 @@ export function InfoTip({ text, className }: { text: ReactNode; className?: stri
       >
         <Icon name="info" size={13} />
       </button>
-      {open && (
-        <span
-          role="tooltip"
-          className="absolute left-1/2 top-[calc(100%+4px)] z-50 w-56 -translate-x-1/2 rounded-lg border border-border bg-overlay p-2 text-[11px] font-normal normal-case leading-snug text-content shadow-pop"
-        >
-          {text}
-        </span>
-      )}
-    </span>
+      {open &&
+        pos &&
+        createPortal(
+          <span
+            role="tooltip"
+            style={{ position: "fixed", top: pos.top, left: pos.left, width: TIP_WIDTH }}
+            className="z-[100] rounded-lg border border-border bg-overlay p-2 text-[11px] font-normal normal-case leading-snug text-content shadow-pop"
+          >
+            {text}
+          </span>,
+          document.body,
+        )}
+    </>
   );
 }
 
