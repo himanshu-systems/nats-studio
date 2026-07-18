@@ -46,6 +46,10 @@ fn main() {
             commands::connection_disconnect,
             commands::connection_list,
             commands::connection_get_status,
+            commands::pubsub_publish,
+            commands::pubsub_request,
+            commands::pubsub_subscribe,
+            commands::pubsub_unsubscribe,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the NATS Studio application");

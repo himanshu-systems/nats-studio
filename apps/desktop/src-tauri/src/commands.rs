@@ -1,14 +1,16 @@
 //! The `#[tauri::command]` surface: thin handlers that delegate to the services
 //! and map domain errors to the wire `IpcError` via `ns_ipc::map_ipc`.
 
-use ns_core::SettingsRepo;
+use ns_core::{SettingsRepo, SubscriptionId};
 use ns_ipc::map_ipc;
 use ns_types::{
     AppInfo, ConnectRequest, ConnectionProfile, ConnectionRef, ConnectionStatusDto,
     ConnectionSummary, CreateProfileRequest, DeleteProfileRequest, HealthStatus, IpcError,
-    ListConnectionsResponse, ListProfilesResponse, LogRecordDto, Settings, UpdateProfileRequest,
-    UpdateSettingsRequest,
+    ListConnectionsResponse, ListProfilesResponse, LogRecordDto, MessageView, PublishRequest,
+    RequestRequest, Settings, SubStreamEvent, SubscribeRequest, SubscriptionHandle,
+    UnsubscribeRequest, UpdateProfileRequest, UpdateSettingsRequest,
 };
+use tauri::ipc::Channel;
 use tauri::State;
 
 use crate::state::AppState;
@@ -132,4 +134,74 @@ pub async fn connection_get_status(
     state: State<'_, AppState>,
 ) -> Result<Option<ConnectionStatusDto>, IpcError> {
     Ok(state.connections.get_status(&req.connection_id).await)
+}
+
+// --- pub/sub ----------------------------------------------------------------
+
+#[tauri::command]
+pub async fn pubsub_publish(
+    req: PublishRequest,
+    state: State<'_, AppState>,
+) -> Result<(), IpcError> {
+    map_ipc(state.pubsub.publish(req).await)
+}
+
+#[tauri::command]
+pub async fn pubsub_request(
+    req: RequestRequest,
+    state: State<'_, AppState>,
+) -> Result<MessageView, IpcError> {
+    map_ipc(state.pubsub.request(req).await)
+}
+
+/// Open a streaming subscription. Each decoded message (and a final `ended`) is
+/// delivered on `on_event` (a Tauri Channel). Cancel with `pubsub_unsubscribe`.
+#[tauri::command]
+pub async fn pubsub_subscribe(
+    req: SubscribeRequest,
+    on_event: Channel<SubStreamEvent>,
+    state: State<'_, AppState>,
+) -> Result<SubscriptionHandle, IpcError> {
+    let mut subscription = map_ipc(state.pubsub.open_subscription(&req).await)?;
+    let subscription_id = SubscriptionId::new().to_string();
+    let cancel = state.subscriptions.register(&subscription_id);
+    let pubsub = state.pubsub.clone();
+    let registry = state.subscriptions.clone();
+    let task_id = subscription_id.clone();
+
+    tauri::async_runtime::spawn(async move {
+        let mut seq: u64 = 0;
+        loop {
+            tokio::select! {
+                () = cancel.cancelled() => {
+                    let _ = subscription.unsubscribe().await;
+                    break;
+                }
+                message = subscription.next() => match message {
+                    Some(msg) => {
+                        seq += 1;
+                        if on_event.send(SubStreamEvent::Message(pubsub.view(seq, &msg))).is_err() {
+                            break; // the WebView listener went away
+                        }
+                    }
+                    None => {
+                        let _ = on_event.send(SubStreamEvent::Ended);
+                        break;
+                    }
+                }
+            }
+        }
+        registry.remove(&task_id);
+    });
+
+    Ok(SubscriptionHandle { subscription_id })
+}
+
+#[tauri::command]
+pub async fn pubsub_unsubscribe(
+    req: UnsubscribeRequest,
+    state: State<'_, AppState>,
+) -> Result<(), IpcError> {
+    state.subscriptions.cancel(&req.subscription_id);
+    Ok(())
 }

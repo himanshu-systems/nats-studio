@@ -11,7 +11,13 @@ import type {
   IpcError,
   ListConnectionsResponse,
   ListProfilesResponse,
+  MessageView,
+  PublishRequest,
+  RequestRequest,
   Settings,
+  SubStreamEvent,
+  SubscribeRequest,
+  SubscriptionHandle,
 } from "./generated/types";
 
 /**
@@ -83,6 +89,30 @@ export const ipc = {
     list: () => call<ListConnectionsResponse>("connection_list"),
     getStatus: (connectionId: string) =>
       call<ConnectionStatusDto | null>("connection_get_status", { connectionId }),
+  },
+  pubsub: {
+    publish: (req: PublishRequest) => call<void>("pubsub_publish", req),
+    request: (req: RequestRequest) => call<MessageView>("pubsub_request", req),
+    /**
+     * Open a streaming subscription. Each decoded message (and a terminal
+     * `error`/`ended`) arrives on `onEvent` via a Tauri Channel. Resolves with a
+     * `SubscriptionHandle` — pass its id to `unsubscribe` to stop the stream.
+     */
+    subscribe: (
+      req: SubscribeRequest,
+      onEvent: (event: SubStreamEvent) => void,
+    ): Promise<SubscriptionHandle> => {
+      const channel = new Channel<SubStreamEvent>();
+      channel.onmessage = onEvent;
+      return invoke<SubscriptionHandle>("pubsub_subscribe", { req, onEvent: channel }).catch(
+        (raw: unknown) => {
+          if (isIpcError(raw)) throw new NatsStudioError(raw);
+          throw raw;
+        },
+      );
+    },
+    unsubscribe: (subscriptionId: string) =>
+      call<void>("pubsub_unsubscribe", { subscriptionId }),
   },
 };
 

@@ -7,9 +7,13 @@ use std::time::Instant;
 
 use anyhow::{Context, Result};
 use ns_connection::ConnectionService;
-use ns_core::{Clock, ConnectionProfileRepo, NatsClientFactory, SecretStore, SystemClock};
+use ns_core::{
+    CancellationRegistry, Clock, ConnectionProfileRepo, NatsClientFactory, NatsClientProvider,
+    SecretStore, SystemClock,
+};
 use ns_event::EventBus;
 use ns_nats::AsyncNatsFactory;
+use ns_pubsub::PubSubService;
 use ns_security::KeyringSecretStore;
 use ns_storage::{Db, SqliteConnectionProfileRepo, SqliteSettingsRepo};
 use ns_telemetry::LogStore;
@@ -18,9 +22,12 @@ use tauri::{AppHandle, Manager, Runtime};
 /// Shared, thread-safe application state stored in Tauri's managed state.
 pub struct AppState {
     pub connections: Arc<ConnectionService>,
+    pub pubsub: Arc<PubSubService>,
     pub settings_repo: Arc<SqliteSettingsRepo>,
     pub events: EventBus,
     pub log_store: LogStore,
+    /// Cancellation tokens for active subscription streams, keyed by subscription id.
+    pub subscriptions: Arc<CancellationRegistry>,
     pub started_at: Instant,
 }
 
@@ -46,14 +53,21 @@ pub async fn build_state<R: Runtime>(app: &AppHandle<R>, log_store: LogStore) ->
         secrets,
         factory,
         Arc::new(events.clone()),
-        clock,
+        Arc::clone(&clock),
     ));
+
+    // The connection registry is also the NatsClientProvider for feature services.
+    let provider: Arc<dyn NatsClientProvider> =
+        Arc::clone(&connections) as Arc<dyn NatsClientProvider>;
+    let pubsub = Arc::new(PubSubService::new(provider, clock));
 
     Ok(AppState {
         connections,
+        pubsub,
         settings_repo,
         events,
         log_store,
+        subscriptions: Arc::new(CancellationRegistry::new()),
         started_at: Instant::now(),
     })
 }

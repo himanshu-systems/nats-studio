@@ -2000,6 +2000,7 @@ dependencies = [
  "ns-event",
  "ns-ipc",
  "ns-nats",
+ "ns-pubsub",
  "ns-security",
  "ns-storage",
  "ns-telemetry",
