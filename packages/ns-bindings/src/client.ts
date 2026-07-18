@@ -24,6 +24,7 @@ import type {
   GetStreamRequest,
   HealthStatus,
   IpcError,
+  KvCreateBucketRequest,
   KvDeleteRequest,
   KvGetRequest,
   KvGetResponse,
@@ -45,6 +46,9 @@ import type {
   ListStreamsResponse,
   MessageView,
   MonitorRequest,
+  ObjectCreateBucketRequest,
+  ObjectInfoDto,
+  ObjectPutRequest,
   PublishRequest,
   PurgeStreamRequest,
   PurgeStreamResponse,
@@ -173,6 +177,7 @@ export const ipc = {
     kvGet: (req: KvGetRequest) => call<KvGetResponse>("js_kv_get", req),
     kvPut: (req: KvPutRequest) => call<KvPutResponse>("js_kv_put", req),
     kvDelete: (req: KvDeleteRequest) => call<void>("js_kv_delete", req),
+    kvCreateBucket: (req: KvCreateBucketRequest) => call<void>("js_kv_create_bucket", req),
     getMessages: (req: GetMessagesRequest) =>
       call<GetMessagesResponse>("js_get_messages", req),
     deleteMessage: (req: DeleteMessageRequest) => call<void>("js_delete_message", req),
@@ -182,6 +187,9 @@ export const ipc = {
       call<ListObjectsResponse>("js_list_objects", req),
     getObject: (req: GetObjectRequest) => call<GetObjectResponse>("js_get_object", req),
     deleteObject: (req: DeleteObjectRequest) => call<void>("js_delete_object", req),
+    objectCreateBucket: (req: ObjectCreateBucketRequest) =>
+      call<void>("js_object_create_bucket", req),
+    objectPut: (req: ObjectPutRequest) => call<ObjectInfoDto>("js_object_put", req),
   },
   monitor: {
     varz: (req: MonitorRequest) => call<VarzDto>("monitor_varz", req),

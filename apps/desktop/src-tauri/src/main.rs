@@ -64,6 +64,7 @@ fn main() {
             commands::js_kv_get,
             commands::js_kv_put,
             commands::js_kv_delete,
+            commands::js_kv_create_bucket,
             commands::monitor_varz,
             commands::monitor_connz,
             commands::connection_ping,
@@ -73,6 +74,8 @@ fn main() {
             commands::js_list_objects,
             commands::js_get_object,
             commands::js_delete_object,
+            commands::js_object_create_bucket,
+            commands::js_object_put,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the NATS Studio application");

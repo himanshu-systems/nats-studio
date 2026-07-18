@@ -106,3 +106,17 @@ pub struct KvDeleteRequest {
     pub bucket: String,
     pub key: String,
 }
+
+/// Create a KV bucket (a JetStream stream named `KV_<bucket>`). `history` is the
+/// max revisions kept per key; `ttlSeconds` `None`/`0` = no per-key TTL; `storage`
+/// is `"file"` | `"memory"`.
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KvCreateBucketRequest {
+    pub connection_id: String,
+    pub bucket: String,
+    pub history: u8,
+    pub ttl_seconds: Option<U64>,
+    pub storage: String,
+}

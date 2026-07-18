@@ -58,7 +58,8 @@ function Kv({ connId }: { connId: string }): JSX.Element {
   const keyList = keys.data?.keys ?? [];
 
   return (
-    <div className="mx-auto grid h-full max-w-6xl grid-rows-[auto_1fr] gap-4 overflow-hidden p-4">
+    <div className="mx-auto grid h-full max-w-6xl gap-4 overflow-hidden p-4 lg:grid-cols-[1fr_320px]">
+      <div className="grid min-h-0 grid-rows-[auto_1fr] gap-4 overflow-hidden">
       <div className="flex items-center justify-between gap-3">
         <SectionLabel>Key-Value{bucket ? ` — ${bucket} (${keyList.length})` : ""}</SectionLabel>
         <div className="flex items-center gap-2">
@@ -136,7 +137,111 @@ function Kv({ connId }: { connId: string }): JSX.Element {
           </div>
         </div>
       )}
+      </div>
+
+      <CreateKvBucketForm
+        connId={connId}
+        onCreated={(b) => {
+          setPickedBucket(b);
+          setSelectedKey(null);
+        }}
+      />
     </div>
+  );
+}
+
+function CreateKvBucketForm({
+  connId,
+  onCreated,
+}: {
+  connId: string;
+  onCreated: (bucket: string) => void;
+}): JSX.Element {
+  const qc = useQueryClient();
+  const [bucket, setBucket] = useState("");
+  const [history, setHistory] = useState("1");
+  const [ttlSec, setTtlSec] = useState("");
+  const [storage, setStorage] = useState("file");
+
+  const create = useMutation({
+    mutationFn: () => {
+      const h = Number(history.trim());
+      const ttl = ttlSec.trim();
+      return ipc.jetstream.kvCreateBucket({
+        connectionId: connId,
+        bucket: bucket.trim(),
+        history: Number.isFinite(h) && h > 0 ? Math.floor(h) : 1,
+        ttlSeconds: ttl === "" ? undefined : Math.max(0, Math.floor(Number(ttl))),
+        storage,
+      });
+    },
+    onSuccess: () => {
+      const created = bucket.trim();
+      setBucket("");
+      setHistory("1");
+      setTtlSec("");
+      void qc.invalidateQueries({ queryKey: bucketsKey(connId) });
+      onCreated(created);
+    },
+  });
+
+  const canSubmit = bucket.trim() !== "" && !create.isPending;
+
+  return (
+    <Panel className="h-fit space-y-3 p-4">
+      <SectionLabel>Create bucket</SectionLabel>
+      <label className="block space-y-1.5">
+        <span className="text-[11px] text-muted">Bucket name</span>
+        <input
+          className="field font-mono"
+          value={bucket}
+          onChange={(e) => setBucket(e.target.value)}
+          placeholder="config"
+        />
+      </label>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block space-y-1.5">
+          <span className="text-[11px] text-muted">History</span>
+          <input
+            className="field tabular-nums"
+            value={history}
+            onChange={(e) => setHistory(e.target.value)}
+            placeholder="1"
+            inputMode="numeric"
+          />
+        </label>
+        <label className="block space-y-1.5">
+          <span className="text-[11px] text-muted">TTL (s)</span>
+          <input
+            className="field tabular-nums"
+            value={ttlSec}
+            onChange={(e) => setTtlSec(e.target.value)}
+            placeholder="∞"
+            inputMode="numeric"
+          />
+        </label>
+      </div>
+      <label className="block space-y-1.5">
+        <span className="text-[11px] text-muted">Storage</span>
+        <Select
+          value={storage}
+          onChange={setStorage}
+          options={[
+            { value: "file", label: "File" },
+            { value: "memory", label: "Memory" },
+          ]}
+        />
+      </label>
+      <Button
+        icon="plus"
+        className="w-full"
+        onClick={() => create.mutate()}
+        disabled={!canSubmit}
+      >
+        {create.isPending ? "Creating…" : "Create bucket"}
+      </Button>
+      {create.isError && <p className="text-xs text-danger">{errorMessage(create.error)}</p>}
+    </Panel>
   );
 }
 

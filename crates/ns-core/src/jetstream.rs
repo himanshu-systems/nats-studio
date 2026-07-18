@@ -81,6 +81,15 @@ pub trait JetStreamManager: Send + Sync {
     async fn kv_put(&self, bucket: &str, key: &str, value: Vec<u8>) -> Result<u64, CoreError>;
     /// Delete a key (writes a delete marker).
     async fn kv_delete(&self, bucket: &str, key: &str) -> Result<(), CoreError>;
+    /// Create a KV bucket. `history` `0` -> `1`; `ttl_secs` `None` -> no TTL;
+    /// `storage` is `"file"` | `"memory"`.
+    async fn kv_create_bucket(
+        &self,
+        bucket: &str,
+        history: u8,
+        ttl_secs: Option<u64>,
+        storage: &str,
+    ) -> Result<(), CoreError>;
 
     // --- Object Store ------------------------------------------------------
 
@@ -93,4 +102,19 @@ pub trait JetStreamManager: Send + Sync {
     async fn get_object(&self, bucket: &str, name: &str) -> Result<GetObjectResponse, CoreError>;
     /// Delete an object from a bucket.
     async fn delete_object(&self, bucket: &str, name: &str) -> Result<(), CoreError>;
+    /// Create an Object-Store bucket. `ttl_secs` `None` -> no TTL; `storage` is
+    /// `"file"` | `"memory"`.
+    async fn object_create_bucket(
+        &self,
+        bucket: &str,
+        ttl_secs: Option<u64>,
+        storage: &str,
+    ) -> Result<(), CoreError>;
+    /// Upload an object into a bucket; returns its stored info.
+    async fn object_put(
+        &self,
+        bucket: &str,
+        name: &str,
+        data: Vec<u8>,
+    ) -> Result<ObjectInfoDto, CoreError>;
 }

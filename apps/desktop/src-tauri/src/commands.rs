@@ -9,14 +9,15 @@ use ns_types::{
     CreateStreamRequest, DeleteConsumerRequest, DeleteMessageRequest, DeleteObjectRequest,
     DeleteProfileRequest, DeleteStreamRequest, FetchMessagesRequest, FetchMessagesResponse,
     GetMessagesRequest, GetMessagesResponse, GetObjectRequest, GetObjectResponse, GetStreamRequest,
-    HealthStatus, IpcError, KvDeleteRequest, KvGetRequest, KvGetResponse, KvPutRequest,
-    KvPutResponse, ListBucketsRequest, ListBucketsResponse, ListConnectionsResponse,
+    HealthStatus, IpcError, KvCreateBucketRequest, KvDeleteRequest, KvGetRequest, KvGetResponse,
+    KvPutRequest, KvPutResponse, ListBucketsRequest, ListBucketsResponse, ListConnectionsResponse,
     ListConsumersRequest, ListConsumersResponse, ListKeysRequest, ListKeysResponse,
     ListObjectBucketsRequest, ListObjectBucketsResponse, ListObjectsRequest, ListObjectsResponse,
     ListProfilesResponse, ListStreamsRequest, ListStreamsResponse, LogRecordDto, MessageView,
-    MonitorRequest, PublishRequest, PurgeStreamRequest, PurgeStreamResponse, RequestRequest,
-    Settings, StreamInfoDto, SubStreamEvent, SubscribeRequest, SubscriptionHandle,
-    UnsubscribeRequest, UpdateProfileRequest, UpdateSettingsRequest, VarzDto,
+    MonitorRequest, ObjectCreateBucketRequest, ObjectInfoDto, ObjectPutRequest, PublishRequest,
+    PurgeStreamRequest, PurgeStreamResponse, RequestRequest, Settings, StreamInfoDto,
+    SubStreamEvent, SubscribeRequest, SubscriptionHandle, UnsubscribeRequest, UpdateProfileRequest,
+    UpdateSettingsRequest, VarzDto,
 };
 use tauri::ipc::Channel;
 use tauri::State;
@@ -350,6 +351,14 @@ pub async fn js_kv_delete(
     map_ipc(state.jetstream.kv_delete(req).await)
 }
 
+#[tauri::command]
+pub async fn js_kv_create_bucket(
+    req: KvCreateBucketRequest,
+    state: State<'_, AppState>,
+) -> Result<(), IpcError> {
+    map_ipc(state.jetstream.kv_create_bucket(req).await)
+}
+
 // --- connection: ping (RTT) --------------------------------------------------
 
 #[tauri::command]
@@ -410,4 +419,20 @@ pub async fn js_delete_object(
     state: State<'_, AppState>,
 ) -> Result<(), IpcError> {
     map_ipc(state.jetstream.delete_object(req).await)
+}
+
+#[tauri::command]
+pub async fn js_object_create_bucket(
+    req: ObjectCreateBucketRequest,
+    state: State<'_, AppState>,
+) -> Result<(), IpcError> {
+    map_ipc(state.jetstream.object_create_bucket(req).await)
+}
+
+#[tauri::command]
+pub async fn js_object_put(
+    req: ObjectPutRequest,
+    state: State<'_, AppState>,
+) -> Result<ObjectInfoDto, IpcError> {
+    map_ipc(state.jetstream.object_put(req).await)
 }

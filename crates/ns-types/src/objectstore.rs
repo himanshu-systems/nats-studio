@@ -89,3 +89,27 @@ pub struct DeleteObjectRequest {
     pub bucket: String,
     pub name: String,
 }
+
+/// Create an Object-Store bucket (a JetStream stream named `OBJ_<bucket>`).
+/// `ttlSeconds` `None`/`0` = no object TTL; `storage` is `"file"` | `"memory"`.
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ObjectCreateBucketRequest {
+    pub connection_id: String,
+    pub bucket: String,
+    pub ttl_seconds: Option<U64>,
+    pub storage: String,
+}
+
+/// Upload an object into a bucket. `dataBase64` is the object's bytes,
+/// base64-encoded (exactly like `KvPutRequest.valueBase64`).
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ObjectPutRequest {
+    pub connection_id: String,
+    pub bucket: String,
+    pub name: String,
+    pub data_base64: String,
+}

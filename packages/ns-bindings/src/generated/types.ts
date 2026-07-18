@@ -458,6 +458,19 @@ export interface KvBucketDto {
 	bytes: number;
 }
 
+/**
+ * Create a KV bucket (a JetStream stream named `KV_<bucket>`). `history` is the
+ * max revisions kept per key; `ttlSeconds` `None`/`0` = no per-key TTL; `storage`
+ * is `"file"` | `"memory"`.
+ */
+export interface KvCreateBucketRequest {
+	connectionId: string;
+	bucket: string;
+	history: number;
+	ttlSeconds?: number;
+	storage: string;
+}
+
 export interface KvDeleteRequest {
 	connectionId: string;
 	bucket: string;
@@ -671,6 +684,28 @@ export interface NotificationDto {
 	title: string;
 	body?: string;
 	ts: string;
+}
+
+/**
+ * Create an Object-Store bucket (a JetStream stream named `OBJ_<bucket>`).
+ * `ttlSeconds` `None`/`0` = no object TTL; `storage` is `"file"` | `"memory"`.
+ */
+export interface ObjectCreateBucketRequest {
+	connectionId: string;
+	bucket: string;
+	ttlSeconds?: number;
+	storage: string;
+}
+
+/**
+ * Upload an object into a bucket. `dataBase64` is the object's bytes,
+ * base64-encoded (exactly like `KvPutRequest.valueBase64`).
+ */
+export interface ObjectPutRequest {
+	connectionId: string;
+	bucket: string;
+	name: string;
+	dataBase64: string;
 }
 
 /** How a `payload` string in a request should be interpreted into bytes. */

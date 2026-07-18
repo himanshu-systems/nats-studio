@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ipc } from "@bindings";
 import type { ObjectInfoDto } from "@bindings";
@@ -27,6 +27,19 @@ function formatBytes(n: number): string {
   return `${v.toFixed(1)} ${units[i]}`;
 }
 
+/**
+ * Encode bytes to base64 in 0x8000-byte chunks — a single
+ * `String.fromCharCode(...bytes)` blows the argument-count stack for large files.
+ */
+function chunkedBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
 /** base64 -> Blob download via a synthetic anchor. */
 function downloadBase64(name: string, b64: string): void {
   const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
@@ -47,6 +60,7 @@ export function ObjectStoreView(): JSX.Element {
 }
 
 function ObjectStore({ connId }: { connId: string }): JSX.Element {
+  const qc = useQueryClient();
   const buckets = useQuery({
     queryKey: bucketsKey(connId),
     queryFn: () => ipc.jetstream.listObjectBuckets({ connectionId: connId }),
@@ -66,13 +80,47 @@ function ObjectStore({ connId }: { connId: string }): JSX.Element {
   const objectList = objects.data?.objects ?? [];
   const selectedObject = objectList.find((o) => o.name === selected) ?? null;
 
+  const fileRef = useRef<HTMLInputElement>(null);
+  const upload = useMutation({
+    mutationFn: async (file: File) => {
+      const buf = new Uint8Array(await file.arrayBuffer());
+      const b64 = chunkedBase64(buf);
+      return ipc.jetstream.objectPut({
+        connectionId: connId,
+        bucket: bucket ?? "",
+        name: file.name,
+        dataBase64: b64,
+      });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: objectsKey(connId, bucket ?? "") }),
+  });
+
   return (
-    <div className="mx-auto grid h-full max-w-6xl grid-rows-[auto_1fr] gap-4 overflow-hidden p-4">
+    <div className="mx-auto grid h-full max-w-6xl gap-4 overflow-hidden p-4 lg:grid-cols-[1fr_320px]">
+      <div className="grid min-h-0 grid-rows-[auto_1fr] gap-4 overflow-hidden">
       <div className="flex items-center justify-between gap-3">
         <SectionLabel>
           Object Store{bucket ? ` — ${bucket} (${objectList.length})` : ""}
         </SectionLabel>
         <div className="flex items-center gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) upload.mutate(file);
+              e.target.value = "";
+            }}
+          />
+          <Button
+            size="sm"
+            icon="plus"
+            onClick={() => fileRef.current?.click()}
+            disabled={bucket === null || upload.isPending}
+          >
+            {upload.isPending ? "Uploading…" : "Upload"}
+          </Button>
           <Select
             className="max-w-[220px]"
             value={bucket ?? ""}
@@ -97,10 +145,12 @@ function ObjectStore({ connId }: { connId: string }): JSX.Element {
       </div>
 
       {buckets.isError && <p className="text-xs text-danger">{errorMessage(buckets.error)}</p>}
+      {upload.isError && <p className="text-xs text-danger">{errorMessage(upload.error)}</p>}
 
       {bucket === null && !buckets.isLoading ? (
         <EmptyState icon="cube" title="No Object-Store buckets">
-          This account has no JetStream Object-Store buckets yet.
+          This account has no JetStream Object-Store buckets yet. Create one with the form on the
+          right.
         </EmptyState>
       ) : (
         <div className="grid min-h-0 gap-4 lg:grid-cols-[280px_1fr]">
@@ -143,13 +193,101 @@ function ObjectStore({ connId }: { connId: string }): JSX.Element {
               />
             ) : (
               <EmptyState icon="cube" title="Select an object">
-                Pick an object to see its info and download it.
+                Pick an object to see its info and download it, or upload a new one.
               </EmptyState>
             )}
           </div>
         </div>
       )}
+      </div>
+
+      <CreateObjectBucketForm
+        connId={connId}
+        onCreated={(b) => {
+          setPickedBucket(b);
+          setSelected(null);
+        }}
+      />
     </div>
+  );
+}
+
+function CreateObjectBucketForm({
+  connId,
+  onCreated,
+}: {
+  connId: string;
+  onCreated: (bucket: string) => void;
+}): JSX.Element {
+  const qc = useQueryClient();
+  const [bucket, setBucket] = useState("");
+  const [ttlSec, setTtlSec] = useState("");
+  const [storage, setStorage] = useState("file");
+
+  const create = useMutation({
+    mutationFn: () => {
+      const ttl = ttlSec.trim();
+      return ipc.jetstream.objectCreateBucket({
+        connectionId: connId,
+        bucket: bucket.trim(),
+        ttlSeconds: ttl === "" ? undefined : Math.max(0, Math.floor(Number(ttl))),
+        storage,
+      });
+    },
+    onSuccess: () => {
+      const created = bucket.trim();
+      setBucket("");
+      setTtlSec("");
+      void qc.invalidateQueries({ queryKey: bucketsKey(connId) });
+      onCreated(created);
+    },
+  });
+
+  const canSubmit = bucket.trim() !== "" && !create.isPending;
+
+  return (
+    <Panel className="h-fit space-y-3 p-4">
+      <SectionLabel>Create bucket</SectionLabel>
+      <label className="block space-y-1.5">
+        <span className="text-[11px] text-muted">Bucket name</span>
+        <input
+          className="field font-mono"
+          value={bucket}
+          onChange={(e) => setBucket(e.target.value)}
+          placeholder="assets"
+        />
+      </label>
+      <label className="block space-y-1.5">
+        <span className="text-[11px] text-muted">TTL (s)</span>
+        <input
+          className="field tabular-nums"
+          value={ttlSec}
+          onChange={(e) => setTtlSec(e.target.value)}
+          placeholder="∞"
+          inputMode="numeric"
+        />
+      </label>
+      <label className="block space-y-1.5">
+        <span className="text-[11px] text-muted">Storage</span>
+        <Select
+          value={storage}
+          onChange={setStorage}
+          options={[
+            { value: "file", label: "File" },
+            { value: "memory", label: "Memory" },
+          ]}
+        />
+      </label>
+      <Button
+        icon="plus"
+        className="w-full"
+        onClick={() => create.mutate()}
+        disabled={!canSubmit}
+      >
+        {create.isPending ? "Creating…" : "Create bucket"}
+      </Button>
+      {create.isError && <p className="text-xs text-danger">{errorMessage(create.error)}</p>}
+    </Panel>
   );
 }
 
@@ -226,9 +364,6 @@ function ObjectDetail({
 
       {download.isError && <p className="text-xs text-danger">{errorMessage(download.error)}</p>}
       {remove.isError && <p className="text-xs text-danger">{errorMessage(remove.error)}</p>}
-      <p className="text-[11px] text-muted">
-        Uploads are not supported in v1 (streaming large uploads over IPC is heavy).
-      </p>
     </Panel>
   );
 }

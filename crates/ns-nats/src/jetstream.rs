@@ -329,6 +329,28 @@ impl JetStreamManager for AsyncJetStream {
         Ok(())
     }
 
+    async fn kv_create_bucket(
+        &self,
+        bucket: &str,
+        history: u8,
+        ttl_secs: Option<u64>,
+        storage: &str,
+    ) -> Result<(), CoreError> {
+        self.ctx
+            .create_key_value(kv::Config {
+                bucket: bucket.to_owned(),
+                // 0 history is rejected by the server; a bucket keeps >= 1 revision.
+                history: if history == 0 { 1 } else { history as i64 },
+                max_age: ttl_secs.map(Duration::from_secs).unwrap_or(Duration::ZERO),
+                storage: storage_type(storage),
+                num_replicas: 1,
+                ..Default::default()
+            })
+            .await
+            .map_err(|e| js_err("create kv bucket", &e, ErrorCode::Internal))?;
+        Ok(())
+    }
+
     async fn list_object_buckets(&self) -> Result<Vec<ObjectBucketDto>, CoreError> {
         // Object buckets are streams named `OBJ_<bucket>`; list streams and strip.
         let mut streams = self.ctx.streams();
@@ -419,6 +441,54 @@ impl JetStreamManager for AsyncJetStream {
             .await
             .map_err(|e| js_err("delete object", &e, ErrorCode::Internal))?;
         Ok(())
+    }
+
+    async fn object_create_bucket(
+        &self,
+        bucket: &str,
+        ttl_secs: Option<u64>,
+        storage: &str,
+    ) -> Result<(), CoreError> {
+        self.ctx
+            .create_object_store(jetstream::object_store::Config {
+                bucket: bucket.to_owned(),
+                max_age: ttl_secs.map(Duration::from_secs).unwrap_or(Duration::ZERO),
+                storage: storage_type(storage),
+                num_replicas: 1,
+                ..Default::default()
+            })
+            .await
+            .map_err(|e| js_err("create object bucket", &e, ErrorCode::Internal))?;
+        Ok(())
+    }
+
+    async fn object_put(
+        &self,
+        bucket: &str,
+        name: &str,
+        data: Vec<u8>,
+    ) -> Result<ObjectInfoDto, CoreError> {
+        let store = self
+            .ctx
+            .get_object_store(bucket)
+            .await
+            .map_err(|e| js_err("open object bucket", &e, ErrorCode::StreamNotFound))?;
+        // `put` reads from an `AsyncRead`; a `&[u8]` slice is one over the bytes.
+        let mut slice: &[u8] = &data;
+        let info = store
+            .put(name, &mut slice)
+            .await
+            .map_err(|e| js_err("put object", &e, ErrorCode::Internal))?;
+        Ok(object_to_dto(&info))
+    }
+}
+
+/// Map a wire storage tag to async-nats `StorageType`; anything but `"memory"`
+/// (incl. the empty string) is the durable `File` default.
+fn storage_type(s: &str) -> StorageType {
+    match s {
+        "memory" => StorageType::Memory,
+        _ => StorageType::File,
     }
 }
 

@@ -12,11 +12,12 @@ use ns_types::{
     ConsumerInfoDto, CreateConsumerRequest, CreateStreamRequest, DeleteConsumerRequest,
     DeleteMessageRequest, DeleteObjectRequest, DeleteStreamRequest, FetchMessagesRequest,
     FetchMessagesResponse, GetMessagesRequest, GetMessagesResponse, GetObjectRequest,
-    GetObjectResponse, GetStreamRequest, KvDeleteRequest, KvGetRequest, KvGetResponse,
-    KvPutRequest, KvPutResponse, ListBucketsRequest, ListBucketsResponse, ListConsumersRequest,
-    ListConsumersResponse, ListKeysRequest, ListKeysResponse, ListObjectBucketsRequest,
-    ListObjectBucketsResponse, ListObjectsRequest, ListObjectsResponse, ListStreamsRequest,
-    ListStreamsResponse, PurgeStreamRequest, PurgeStreamResponse, StreamInfoDto,
+    GetObjectResponse, GetStreamRequest, KvCreateBucketRequest, KvDeleteRequest, KvGetRequest,
+    KvGetResponse, KvPutRequest, KvPutResponse, ListBucketsRequest, ListBucketsResponse,
+    ListConsumersRequest, ListConsumersResponse, ListKeysRequest, ListKeysResponse,
+    ListObjectBucketsRequest, ListObjectBucketsResponse, ListObjectsRequest, ListObjectsResponse,
+    ListStreamsRequest, ListStreamsResponse, ObjectCreateBucketRequest, ObjectInfoDto,
+    ObjectPutRequest, PurgeStreamRequest, PurgeStreamResponse, StreamInfoDto,
 };
 
 use crate::error::JetStreamError;
@@ -295,6 +296,20 @@ impl JetStreamService {
         Ok(())
     }
 
+    /// Create a KV bucket.
+    pub async fn kv_create_bucket(&self, req: KvCreateBucketRequest) -> Result<(), JetStreamError> {
+        let bucket = require_arg(&req.bucket, "bucket")?;
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        js.kv_create_bucket(bucket, req.history, req.ttl_seconds, &req.storage)
+            .await?;
+        Ok(())
+    }
+
     // --- Object Store --------------------------------------------------------
 
     /// List every Object-Store bucket in the account.
@@ -357,6 +372,39 @@ impl JetStreamService {
         js.delete_object(bucket, name).await?;
         Ok(())
     }
+
+    /// Create an Object-Store bucket.
+    pub async fn object_create_bucket(
+        &self,
+        req: ObjectCreateBucketRequest,
+    ) -> Result<(), JetStreamError> {
+        let bucket = require_arg(&req.bucket, "bucket")?;
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        js.object_create_bucket(bucket, req.ttl_seconds, &req.storage)
+            .await?;
+        Ok(())
+    }
+
+    /// Upload an object (base64) into a bucket; returns its stored info.
+    pub async fn object_put(&self, req: ObjectPutRequest) -> Result<ObjectInfoDto, JetStreamError> {
+        let bucket = require_arg(&req.bucket, "bucket")?;
+        let name = require_arg(&req.name, "name")?;
+        let data = BASE64.decode(req.data_base64.trim()).map_err(|e| {
+            JetStreamError::InvalidArgument(format!("data is not valid base64: {e}"))
+        })?;
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        Ok(js.object_put(bucket, name, data).await?)
+    }
 }
 
 /// Validate a stream name is non-empty, returning the trimmed borrow.
@@ -392,9 +440,9 @@ mod tests {
     use ns_types::{
         ConsumerConfigDto, ConsumerInfoDto, CreateConsumerRequest, ErrorCode,
         FetchMessagesResponse, FetchedMessageDto, GetMessagesResponse, GetObjectResponse,
-        KvBucketDto, KvEntryDto, ObjectBucketDto, ObjectInfoDto, ServerInfoDto, StoredMessageDto,
-        StreamConfigDto, StreamDiscard, StreamInfoDto, StreamRetention, StreamStateDto,
-        StreamStorage,
+        KvBucketDto, KvCreateBucketRequest, KvEntryDto, ObjectBucketDto, ObjectCreateBucketRequest,
+        ObjectInfoDto, ObjectPutRequest, ServerInfoDto, StoredMessageDto, StreamConfigDto,
+        StreamDiscard, StreamInfoDto, StreamRetention, StreamStateDto, StreamStorage,
     };
 
     use super::*;
@@ -496,6 +544,9 @@ mod tests {
         kv_puts: Mutex<Vec<(String, String, Vec<u8>)>>,
         kv_deletes: Mutex<Vec<(String, String)>>,
         deleted_objects: Mutex<Vec<(String, String)>>,
+        kv_created_buckets: Mutex<Vec<(String, u8, Option<u64>, String)>>,
+        object_created_buckets: Mutex<Vec<(String, Option<u64>, String)>>,
+        object_puts: Mutex<Vec<(String, String, Vec<u8>)>>,
     }
 
     #[async_trait]
@@ -628,6 +679,21 @@ mod tests {
                 .push((bucket.to_owned(), key.to_owned()));
             Ok(())
         }
+        async fn kv_create_bucket(
+            &self,
+            bucket: &str,
+            history: u8,
+            ttl_secs: Option<u64>,
+            storage: &str,
+        ) -> Result<(), CoreError> {
+            self.kv_created_buckets.lock().unwrap().push((
+                bucket.to_owned(),
+                history,
+                ttl_secs,
+                storage.to_owned(),
+            ));
+            Ok(())
+        }
         async fn list_object_buckets(&self) -> Result<Vec<ObjectBucketDto>, CoreError> {
             Ok(vec![
                 sample_object_bucket("assets"),
@@ -654,6 +720,31 @@ mod tests {
                 .unwrap()
                 .push((bucket.to_owned(), name.to_owned()));
             Ok(())
+        }
+        async fn object_create_bucket(
+            &self,
+            bucket: &str,
+            ttl_secs: Option<u64>,
+            storage: &str,
+        ) -> Result<(), CoreError> {
+            self.object_created_buckets.lock().unwrap().push((
+                bucket.to_owned(),
+                ttl_secs,
+                storage.to_owned(),
+            ));
+            Ok(())
+        }
+        async fn object_put(
+            &self,
+            bucket: &str,
+            name: &str,
+            data: Vec<u8>,
+        ) -> Result<ObjectInfoDto, CoreError> {
+            self.object_puts
+                .lock()
+                .unwrap()
+                .push((bucket.to_owned(), name.to_owned(), data));
+            Ok(sample_object(name))
         }
     }
 
@@ -1082,5 +1173,81 @@ mod tests {
             js.deleted_objects.lock().unwrap().as_slice(),
             &[("assets".into(), "logo.png".into())]
         );
+    }
+
+    #[tokio::test]
+    async fn create_buckets_and_object_put_validate_then_delegate() {
+        let (svc, js) = service();
+
+        // KV + object bucket creation delegate their params to the port.
+        svc.kv_create_bucket(KvCreateBucketRequest {
+            connection_id: "c1".into(),
+            bucket: "config".into(),
+            history: 5,
+            ttl_seconds: Some(3600),
+            storage: "file".into(),
+        })
+        .await
+        .unwrap();
+        assert_eq!(
+            js.kv_created_buckets.lock().unwrap().as_slice(),
+            &[("config".into(), 5, Some(3600), "file".into())]
+        );
+
+        svc.object_create_bucket(ObjectCreateBucketRequest {
+            connection_id: "c1".into(),
+            bucket: "assets".into(),
+            ttl_seconds: None,
+            storage: "memory".into(),
+        })
+        .await
+        .unwrap();
+        assert_eq!(
+            js.object_created_buckets.lock().unwrap().as_slice(),
+            &[("assets".into(), None, "memory".into())]
+        );
+
+        // Blank name -> InvalidArgument, never reaches the port.
+        let err = svc
+            .object_put(ObjectPutRequest {
+                connection_id: "c1".into(),
+                bucket: "assets".into(),
+                name: "  ".into(),
+                data_base64: BASE64.encode(b"x"),
+            })
+            .await
+            .unwrap_err();
+        assert!(matches!(err, JetStreamError::InvalidArgument(_)));
+
+        // Bad base64 -> InvalidArgument, never reaches the port.
+        let err = svc
+            .object_put(ObjectPutRequest {
+                connection_id: "c1".into(),
+                bucket: "assets".into(),
+                name: "hello.txt".into(),
+                data_base64: "not base64!!".into(),
+            })
+            .await
+            .unwrap_err();
+        assert!(matches!(err, JetStreamError::InvalidArgument(_)));
+        assert!(js.object_puts.lock().unwrap().is_empty());
+
+        // Valid -> base64 decoded to raw bytes at the port, info returned.
+        let info = svc
+            .object_put(ObjectPutRequest {
+                connection_id: "c1".into(),
+                bucket: "assets".into(),
+                name: "hello.txt".into(),
+                data_base64: BASE64.encode(b"hello"),
+            })
+            .await
+            .unwrap();
+        assert_eq!(info.name, "hello.txt");
+
+        let puts = js.object_puts.lock().unwrap();
+        assert_eq!(puts.len(), 1);
+        assert_eq!(puts[0].0, "assets");
+        assert_eq!(puts[0].1, "hello.txt");
+        assert_eq!(puts[0].2, b"hello");
     }
 }
