@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ipc, PayloadEncoding } from "@bindings";
 import type { FetchedMessageDto, MessageView } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
@@ -49,6 +49,7 @@ export function ConsumerLabView(): JSX.Element {
 }
 
 function ConsumerLab({ connId }: { connId: string }): JSX.Element {
+  const qc = useQueryClient();
   const streams = useQuery({
     queryKey: streamsKey(connId),
     queryFn: () => ipc.jetstream.listStreams({ connectionId: connId }),
@@ -63,10 +64,16 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
     queryFn: () => ipc.jetstream.listConsumers({ connectionId: connId, streamName: stream ?? "" }),
     enabled: stream !== null,
   });
-  const consumerNames = (consumers.data?.consumers ?? []).map((c) => c.name);
+  const consumerList = consumers.data?.consumers ?? [];
+  const consumerNames = consumerList.map((c) => c.name);
 
   const [pickedConsumer, setPickedConsumer] = useState<string | null>(null);
   const consumer = pickedConsumer ?? consumerNames[0] ?? null;
+  const consumerInfo = consumerList.find((c) => c.name === consumer) ?? null;
+  const pending = consumerInfo?.numPending ?? null;
+  const refreshConsumers = (): void => {
+    void qc.invalidateQueries({ queryKey: consumersKey(connId, stream ?? "") });
+  };
 
   const [batch, setBatch] = useState(10);
   const [messages, setMessages] = useState<FetchedMessageDto[]>([]);
@@ -83,6 +90,7 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
     onSuccess: (resp) => {
       setMessages(resp.messages);
       setActed({});
+      refreshConsumers();
     },
   });
 
@@ -100,7 +108,12 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
   const act = (msg: FetchedMessageDto, action: AckAction): void => {
     publish.mutate(
       { subject: msg.ackSubject, payload: ACK_BODY[action] },
-      { onSuccess: () => setActed((a) => ({ ...a, [msg.streamSeq]: action })) },
+      {
+        onSuccess: () => {
+          setActed((a) => ({ ...a, [msg.streamSeq]: action }));
+          refreshConsumers();
+        },
+      },
     );
   };
 
@@ -121,13 +134,20 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
             placeholder="No streams"
           />
           <Select
-            className="max-w-[180px]"
+            className="max-w-[200px]"
             value={consumer ?? ""}
             onChange={(v) => setPickedConsumer(v)}
-            options={consumerNames.map((n) => ({ value: n, label: n }))}
-            disabled={consumerNames.length === 0}
+            options={consumerList.map((c) => ({
+              value: c.name,
+              label: c.name,
+              hint: `${c.numPending} pending`,
+            }))}
+            disabled={consumerList.length === 0}
             placeholder="No consumers"
           />
+          {consumer && pending != null && (
+            <Badge tone={pending > 0 ? "positive" : "neutral"}>{pending} pending</Badge>
+          )}
           <input
             type="number"
             min={1}
@@ -154,9 +174,17 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
       {publish.isError && <p className="text-xs text-danger">{errorMessage(publish.error)}</p>}
 
       {messages.length === 0 ? (
-        <EmptyState icon="beaker" title="No messages fetched">
-          Pick a pull consumer and fetch a batch. Push consumers can't be pulled.
-        </EmptyState>
+        consumer !== null && pending === 0 ? (
+          <EmptyState icon="beaker" title="No pending messages">
+            Consumer “{consumer}” has nothing waiting to pull. Publish to its stream, or pick a
+            consumer that shows a pending count.
+          </EmptyState>
+        ) : (
+          <EmptyState icon="beaker" title="No messages fetched yet">
+            Pick a pull consumer with pending messages and click Fetch. (Push consumers can't be
+            pulled.)
+          </EmptyState>
+        )
       ) : (
         <ul className="space-y-2.5">
           {messages.map((m) => (
