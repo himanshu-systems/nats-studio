@@ -48,7 +48,7 @@ export function MetricsView(): JSX.Element {
   const varz = useQuery({
     queryKey: ["monitor", "varz", url],
     queryFn: () => ipc.monitor.varz({ baseUrl: url }),
-    refetchInterval: 2000,
+    refetchInterval: 1000,
   });
 
   // Compute per-refresh rates from the delta against the previous sample.
@@ -212,7 +212,7 @@ function ChartPanel({
           Collecting samples…
         </div>
       ) : (
-        <LineChart series={series} height={130} zeroBased formatY={formatY} />
+        <LineChart series={series} height={150} zeroBased area formatY={formatY} />
       )}
     </Panel>
   );
