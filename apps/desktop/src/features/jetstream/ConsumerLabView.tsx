@@ -105,7 +105,7 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-3 overflow-auto p-4">
+    <div className="mx-auto h-full max-w-4xl space-y-3 overflow-auto p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SectionLabel>Consumer Lab{messages.length > 0 ? ` (${messages.length})` : ""}</SectionLabel>
         <div className="flex flex-wrap items-center gap-2">

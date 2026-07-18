@@ -123,7 +123,7 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 overflow-auto p-5">
+    <div className="mx-auto h-full max-w-6xl space-y-5 overflow-auto p-5">
       {/* Server + health */}
       <Panel className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
