@@ -65,6 +65,8 @@ fn main() {
             commands::monitor_varz,
             commands::monitor_connz,
             commands::connection_ping,
+            commands::js_get_messages,
+            commands::js_delete_message,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the NATS Studio application");

@@ -6,14 +6,14 @@ use ns_ipc::map_ipc;
 use ns_types::{
     AppInfo, ConnectRequest, ConnectionProfile, ConnectionRef, ConnectionStatusDto,
     ConnectionSummary, ConnzDto, CreateProfileRequest, CreateStreamRequest, DeleteConsumerRequest,
-    DeleteProfileRequest, DeleteStreamRequest, GetStreamRequest, HealthStatus, IpcError,
-    KvDeleteRequest, KvGetRequest, KvGetResponse, KvPutRequest, KvPutResponse, ListBucketsRequest,
-    ListBucketsResponse, ListConnectionsResponse, ListConsumersRequest, ListConsumersResponse,
-    ListKeysRequest, ListKeysResponse, ListProfilesResponse, ListStreamsRequest,
-    ListStreamsResponse, LogRecordDto, MessageView, MonitorRequest, PublishRequest,
-    PurgeStreamRequest, PurgeStreamResponse, RequestRequest, Settings, StreamInfoDto,
-    SubStreamEvent, SubscribeRequest, SubscriptionHandle, UnsubscribeRequest, UpdateProfileRequest,
-    UpdateSettingsRequest, VarzDto,
+    DeleteMessageRequest, DeleteProfileRequest, DeleteStreamRequest, GetMessagesRequest,
+    GetMessagesResponse, GetStreamRequest, HealthStatus, IpcError, KvDeleteRequest, KvGetRequest,
+    KvGetResponse, KvPutRequest, KvPutResponse, ListBucketsRequest, ListBucketsResponse,
+    ListConnectionsResponse, ListConsumersRequest, ListConsumersResponse, ListKeysRequest,
+    ListKeysResponse, ListProfilesResponse, ListStreamsRequest, ListStreamsResponse, LogRecordDto,
+    MessageView, MonitorRequest, PublishRequest, PurgeStreamRequest, PurgeStreamResponse,
+    RequestRequest, Settings, StreamInfoDto, SubStreamEvent, SubscribeRequest, SubscriptionHandle,
+    UnsubscribeRequest, UpdateProfileRequest, UpdateSettingsRequest, VarzDto,
 };
 use tauri::ipc::Channel;
 use tauri::State;
@@ -339,4 +339,22 @@ pub async fn connection_ping(
     state: State<'_, AppState>,
 ) -> Result<u64, IpcError> {
     map_ipc(state.connections.ping(&req.connection_id).await)
+}
+
+// --- jetstream: message browser ----------------------------------------------
+
+#[tauri::command]
+pub async fn js_get_messages(
+    req: GetMessagesRequest,
+    state: State<'_, AppState>,
+) -> Result<GetMessagesResponse, IpcError> {
+    map_ipc(state.jetstream.get_messages(req).await)
+}
+
+#[tauri::command]
+pub async fn js_delete_message(
+    req: DeleteMessageRequest,
+    state: State<'_, AppState>,
+) -> Result<(), IpcError> {
+    map_ipc(state.jetstream.delete_message(req).await)
 }

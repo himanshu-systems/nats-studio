@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 use typeshare::typeshare;
 
-use crate::U64;
+use crate::{MessageHeader, U64};
 
 /// Where a stream keeps its data. Mirrors async-nats `StorageType`.
 #[typeshare]
@@ -192,4 +192,51 @@ pub struct DeleteConsumerRequest {
     pub connection_id: String,
     pub stream_name: String,
     pub name: String,
+}
+
+// --- Message browser --------------------------------------------------------
+
+/// A single stored JetStream message, fetched by sequence for the browser.
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredMessageDto {
+    pub seq: U64,
+    pub subject: String,
+    /// RFC-3339 store timestamp.
+    pub time_rfc3339: String,
+    /// The raw payload bytes, base64-encoded.
+    pub payload_base64: String,
+    pub size: U64,
+    pub headers: Vec<MessageHeader>,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetMessagesRequest {
+    pub connection_id: String,
+    pub stream: String,
+    /// First sequence to read from (clamped up to the stream's first seq).
+    pub start_seq: U64,
+    /// Max messages to return; the adapter caps this at 200.
+    pub limit: u32,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetMessagesResponse {
+    pub messages: Vec<StoredMessageDto>,
+    pub first_seq: U64,
+    pub last_seq: U64,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteMessageRequest {
+    pub connection_id: String,
+    pub stream: String,
+    pub seq: U64,
 }

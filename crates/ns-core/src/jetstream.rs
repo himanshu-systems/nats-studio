@@ -4,7 +4,9 @@
 //! the DTOs, so it never links `async-nats` (spine single-import confinement).
 
 use async_trait::async_trait;
-use ns_types::{ConsumerInfoDto, KvBucketDto, KvEntryDto, StreamConfigDto, StreamInfoDto};
+use ns_types::{
+    ConsumerInfoDto, GetMessagesResponse, KvBucketDto, KvEntryDto, StreamConfigDto, StreamInfoDto,
+};
 
 use crate::CoreError;
 
@@ -39,6 +41,16 @@ pub trait JetStreamManager: Send + Sync {
     async fn list_consumers(&self, stream: &str) -> Result<Vec<ConsumerInfoDto>, CoreError>;
     /// Delete a consumer from a stream by name.
     async fn delete_consumer(&self, stream: &str, name: &str) -> Result<(), CoreError>;
+    /// Read up to `limit` stored messages from `start_seq`, skipping deleted gaps;
+    /// the response carries the stream's first/last sequence for pagination.
+    async fn get_messages(
+        &self,
+        stream: &str,
+        start_seq: u64,
+        limit: u32,
+    ) -> Result<GetMessagesResponse, CoreError>;
+    /// Delete a single message from a stream by sequence.
+    async fn delete_message(&self, stream: &str, seq: u64) -> Result<(), CoreError>;
 
     // --- Key-Value ---------------------------------------------------------
 

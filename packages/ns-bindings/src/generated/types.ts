@@ -250,6 +250,12 @@ export interface DeleteConsumerRequest {
 	name: string;
 }
 
+export interface DeleteMessageRequest {
+	connectionId: string;
+	stream: string;
+	seq: number;
+}
+
 export interface DeleteProfileRequest {
 	id: string;
 }
@@ -257,6 +263,38 @@ export interface DeleteProfileRequest {
 export interface DeleteStreamRequest {
 	connectionId: string;
 	name: string;
+}
+
+export interface GetMessagesRequest {
+	connectionId: string;
+	stream: string;
+	/** First sequence to read from (clamped up to the stream's first seq). */
+	startSeq: number;
+	/** Max messages to return; the adapter caps this at 200. */
+	limit: number;
+}
+
+export interface MessageHeader {
+	name: string;
+	value: string;
+}
+
+/** A single stored JetStream message, fetched by sequence for the browser. */
+export interface StoredMessageDto {
+	seq: number;
+	subject: string;
+	/** RFC-3339 store timestamp. */
+	timeRfc3339: string;
+	/** The raw payload bytes, base64-encoded. */
+	payloadBase64: string;
+	size: number;
+	headers: MessageHeader[];
+}
+
+export interface GetMessagesResponse {
+	messages: StoredMessageDto[];
+	firstSeq: number;
+	lastSeq: number;
 }
 
 export interface GetProfileRequest {
@@ -462,11 +500,6 @@ export interface LogRecordDto {
 	message: string;
 	connectionId?: string;
 	correlationId?: string;
-}
-
-export interface MessageHeader {
-	name: string;
-	value: string;
 }
 
 /** A decoded message delivered to the UI (from a subscription or a reply). */

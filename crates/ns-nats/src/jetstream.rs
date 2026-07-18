@@ -19,8 +19,9 @@ use base64::Engine as _;
 use futures::TryStreamExt;
 use ns_core::{CoreError, JetStreamManager, PurgeSpec};
 use ns_types::{
-    ConsumerInfoDto, ErrorCode, KvBucketDto, KvEntryDto, StreamConfigDto, StreamDiscard,
-    StreamInfoDto, StreamRetention, StreamStateDto, StreamStorage,
+    ConsumerInfoDto, ErrorCode, GetMessagesResponse, KvBucketDto, KvEntryDto, MessageHeader,
+    StoredMessageDto, StreamConfigDto, StreamDiscard, StreamInfoDto, StreamRetention,
+    StreamStateDto, StreamStorage,
 };
 use time::format_description::well_known::Rfc3339;
 
@@ -154,6 +155,52 @@ impl JetStreamManager for AsyncJetStream {
         Ok(())
     }
 
+    async fn get_messages(
+        &self,
+        stream: &str,
+        start_seq: u64,
+        limit: u32,
+    ) -> Result<GetMessagesResponse, CoreError> {
+        let s = self
+            .ctx
+            .get_stream(stream)
+            .await
+            .map_err(|e| js_err("get stream", &e, ErrorCode::StreamNotFound))?;
+        let state = s
+            .get_info()
+            .await
+            .map_err(|e| js_err("stream info", &e, ErrorCode::Internal))?
+            .state;
+        let (first, last) = (state.first_sequence, state.last_sequence);
+        let cap = (limit as usize).min(200);
+        let mut messages = Vec::new();
+        let mut seq = start_seq.max(first);
+        while seq <= last && messages.len() < cap {
+            // Deleted/purged sequences return an error; skip the gap and advance.
+            if let Ok(msg) = s.get_raw_message(seq).await {
+                messages.push(stored_to_dto(&msg));
+            }
+            seq += 1;
+        }
+        Ok(GetMessagesResponse {
+            messages,
+            first_seq: first,
+            last_seq: last,
+        })
+    }
+
+    async fn delete_message(&self, stream: &str, seq: u64) -> Result<(), CoreError> {
+        let s = self
+            .ctx
+            .get_stream(stream)
+            .await
+            .map_err(|e| js_err("get stream", &e, ErrorCode::StreamNotFound))?;
+        s.delete_message(seq)
+            .await
+            .map_err(|e| js_err("delete message", &e, ErrorCode::Internal))?;
+        Ok(())
+    }
+
     async fn list_buckets(&self) -> Result<Vec<KvBucketDto>, CoreError> {
         // KV buckets are streams named `KV_<bucket>`; list streams and strip.
         let mut streams = self.ctx.streams();
@@ -245,6 +292,27 @@ fn entry_to_dto(entry: &kv::Entry) -> KvEntryDto {
         value_base64: BASE64.encode(&entry.value),
         revision: entry.revision,
         is_deleted: matches!(entry.operation, Operation::Delete | Operation::Purge),
+    }
+}
+
+fn stored_to_dto(msg: &jetstream::message::StreamMessage) -> StoredMessageDto {
+    let headers = msg
+        .headers
+        .iter()
+        .flat_map(|(name, values)| {
+            values.iter().map(move |v| MessageHeader {
+                name: name.to_string(),
+                value: v.to_string(),
+            })
+        })
+        .collect();
+    StoredMessageDto {
+        seq: msg.sequence,
+        subject: msg.subject.to_string(),
+        time_rfc3339: msg.time.format(&Rfc3339).unwrap_or_default(),
+        payload_base64: BASE64.encode(&msg.payload),
+        size: msg.payload.len() as u64,
+        headers,
     }
 }
 

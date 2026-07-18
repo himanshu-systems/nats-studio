@@ -9,11 +9,12 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
 use ns_core::{NatsClientProvider, PurgeSpec};
 use ns_types::{
-    CreateStreamRequest, DeleteConsumerRequest, DeleteStreamRequest, GetStreamRequest,
-    KvDeleteRequest, KvGetRequest, KvGetResponse, KvPutRequest, KvPutResponse, ListBucketsRequest,
-    ListBucketsResponse, ListConsumersRequest, ListConsumersResponse, ListKeysRequest,
-    ListKeysResponse, ListStreamsRequest, ListStreamsResponse, PurgeStreamRequest,
-    PurgeStreamResponse, StreamInfoDto,
+    CreateStreamRequest, DeleteConsumerRequest, DeleteMessageRequest, DeleteStreamRequest,
+    GetMessagesRequest, GetMessagesResponse, GetStreamRequest, KvDeleteRequest, KvGetRequest,
+    KvGetResponse, KvPutRequest, KvPutResponse, ListBucketsRequest, ListBucketsResponse,
+    ListConsumersRequest, ListConsumersResponse, ListKeysRequest, ListKeysResponse,
+    ListStreamsRequest, ListStreamsResponse, PurgeStreamRequest, PurgeStreamResponse,
+    StreamInfoDto,
 };
 
 use crate::error::JetStreamError;
@@ -145,6 +146,36 @@ impl JetStreamService {
         Ok(())
     }
 
+    // --- Message browser -----------------------------------------------------
+
+    /// Read a page of stored messages from a stream, starting at `start_seq`.
+    pub async fn get_messages(
+        &self,
+        req: GetMessagesRequest,
+    ) -> Result<GetMessagesResponse, JetStreamError> {
+        let stream = require_name(&req.stream)?;
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        Ok(js.get_messages(stream, req.start_seq, req.limit).await?)
+    }
+
+    /// Delete a single message from a stream by sequence.
+    pub async fn delete_message(&self, req: DeleteMessageRequest) -> Result<(), JetStreamError> {
+        let stream = require_name(&req.stream)?;
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        js.delete_message(stream, req.seq).await?;
+        Ok(())
+    }
+
     // --- Key-Value -----------------------------------------------------------
 
     /// List every KV bucket in the account.
@@ -252,8 +283,9 @@ mod tests {
         OutgoingMessage, PurgeSpec, Subscription,
     };
     use ns_types::{
-        ConsumerInfoDto, ErrorCode, KvBucketDto, KvEntryDto, ServerInfoDto, StreamConfigDto,
-        StreamDiscard, StreamInfoDto, StreamRetention, StreamStateDto, StreamStorage,
+        ConsumerInfoDto, ErrorCode, GetMessagesResponse, KvBucketDto, KvEntryDto, ServerInfoDto,
+        StoredMessageDto, StreamConfigDto, StreamDiscard, StreamInfoDto, StreamRetention,
+        StreamStateDto, StreamStorage,
     };
 
     use super::*;
@@ -321,6 +353,7 @@ mod tests {
         purged: Mutex<Vec<(String, PurgeSpec)>>,
         deleted: Mutex<Vec<String>>,
         deleted_consumers: Mutex<Vec<(String, String)>>,
+        deleted_messages: Mutex<Vec<(String, u64)>>,
         kv_puts: Mutex<Vec<(String, String, Vec<u8>)>>,
         kv_deletes: Mutex<Vec<(String, String)>>,
     }
@@ -363,6 +396,36 @@ mod tests {
                 .lock()
                 .unwrap()
                 .push((stream.to_owned(), name.to_owned()));
+            Ok(())
+        }
+        async fn get_messages(
+            &self,
+            _stream: &str,
+            start_seq: u64,
+            limit: u32,
+        ) -> Result<GetMessagesResponse, CoreError> {
+            let n = (limit as u64).min(2);
+            let messages = (0..n)
+                .map(|i| StoredMessageDto {
+                    seq: start_seq + i,
+                    subject: "orders.new".to_owned(),
+                    time_rfc3339: "2024-01-01T00:00:00Z".to_owned(),
+                    payload_base64: BASE64.encode(b"hi"),
+                    size: 2,
+                    headers: vec![],
+                })
+                .collect();
+            Ok(GetMessagesResponse {
+                messages,
+                first_seq: 1,
+                last_seq: 10,
+            })
+        }
+        async fn delete_message(&self, stream: &str, seq: u64) -> Result<(), CoreError> {
+            self.deleted_messages
+                .lock()
+                .unwrap()
+                .push((stream.to_owned(), seq));
             Ok(())
         }
         async fn list_buckets(&self) -> Result<Vec<KvBucketDto>, CoreError> {
@@ -594,6 +657,50 @@ mod tests {
         .unwrap();
         let deleted = js.deleted_consumers.lock().unwrap();
         assert_eq!(deleted.as_slice(), &[("orders".into(), "worker".into())]);
+    }
+
+    #[tokio::test]
+    async fn get_messages_requires_stream_then_delegates() {
+        let (svc, js) = service();
+
+        // Blank stream name -> InvalidName, never reaches the port.
+        let err = svc
+            .get_messages(GetMessagesRequest {
+                connection_id: "c1".into(),
+                stream: "  ".into(),
+                start_seq: 1,
+                limit: 50,
+            })
+            .await
+            .unwrap_err();
+        assert!(matches!(err, JetStreamError::InvalidName(_)));
+
+        // Valid -> returns a page plus the stream's first/last bounds.
+        let resp = svc
+            .get_messages(GetMessagesRequest {
+                connection_id: "c1".into(),
+                stream: "orders".into(),
+                start_seq: 5,
+                limit: 50,
+            })
+            .await
+            .unwrap();
+        assert_eq!(resp.messages.len(), 2);
+        assert_eq!(resp.messages[0].seq, 5);
+        assert_eq!(resp.last_seq, 10);
+
+        // Delete delegates the (stream, seq) pair to the port.
+        svc.delete_message(DeleteMessageRequest {
+            connection_id: "c1".into(),
+            stream: "orders".into(),
+            seq: 7,
+        })
+        .await
+        .unwrap();
+        assert_eq!(
+            js.deleted_messages.lock().unwrap().as_slice(),
+            &[("orders".into(), 7)]
+        );
     }
 
     #[tokio::test]

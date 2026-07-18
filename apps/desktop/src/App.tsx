@@ -13,10 +13,13 @@ import { LiveTailView } from "@/features/messaging/LiveTailView";
 import { StreamsView } from "@/features/jetstream/StreamsView";
 import { ConsumersView } from "@/features/jetstream/ConsumersView";
 import { KvView } from "@/features/jetstream/KvView";
+import { MessageBrowserView } from "@/features/jetstream/MessageBrowserView";
 import { MetricsView } from "@/features/monitoring/MetricsView";
 import { AccountsView } from "@/features/monitoring/AccountsView";
 import { LatencyView } from "@/features/monitoring/LatencyView";
 import { HealthView } from "@/features/health/HealthView";
+import { ServicesView } from "@/features/services/ServicesView";
+import { DlqView } from "@/features/admin/DlqView";
 
 /** Render the feature view for the active nav id (falling back to a scaffold). */
 function renderView(view: string): JSX.Element {
@@ -37,6 +40,8 @@ function renderView(view: string): JSX.Element {
       return <ConsumersView />;
     case "kv":
       return <KvView />;
+    case "browser":
+      return <MessageBrowserView />;
     case "metrics":
       return <MetricsView />;
     case "accounts":
@@ -45,6 +50,10 @@ function renderView(view: string): JSX.Element {
       return <LatencyView />;
     case "health":
       return <HealthView />;
+    case "services":
+      return <ServicesView />;
+    case "dlq":
+      return <DlqView />;
     default: {
       const item = findNavItem(view);
       return item ? <ComingSoon item={item} /> : <OverviewView />;

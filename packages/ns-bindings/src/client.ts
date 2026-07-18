@@ -10,7 +10,10 @@ import type {
   ConnzDto,
   CreateStreamRequest,
   DeleteConsumerRequest,
+  DeleteMessageRequest,
   DeleteStreamRequest,
+  GetMessagesRequest,
+  GetMessagesResponse,
   GetStreamRequest,
   HealthStatus,
   IpcError,
@@ -155,6 +158,9 @@ export const ipc = {
     kvGet: (req: KvGetRequest) => call<KvGetResponse>("js_kv_get", req),
     kvPut: (req: KvPutRequest) => call<KvPutResponse>("js_kv_put", req),
     kvDelete: (req: KvDeleteRequest) => call<void>("js_kv_delete", req),
+    getMessages: (req: GetMessagesRequest) =>
+      call<GetMessagesResponse>("js_get_messages", req),
+    deleteMessage: (req: DeleteMessageRequest) => call<void>("js_delete_message", req),
   },
   monitor: {
     varz: (req: MonitorRequest) => call<VarzDto>("monitor_varz", req),
