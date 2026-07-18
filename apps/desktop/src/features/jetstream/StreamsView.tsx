@@ -6,6 +6,7 @@ import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SearchInput, SectionLabel, cx } from "../../components/ui";
 import { Icon } from "../../components/Icon";
 import { Select } from "../../components/Select";
+import { TipLabel } from "../../components/InfoTip";
 import { errorMessage } from "../messaging/message";
 
 const streamsKey = (connId: string): [string, string] => ["streams", connId];
@@ -236,7 +237,9 @@ function CreateStreamForm({ connId }: { connId: string }): JSX.Element {
     <Panel className="h-fit space-y-3 p-4">
       <SectionLabel>Create stream</SectionLabel>
       <label className="block space-y-1.5">
-        <span className="text-[11px] text-muted">Name</span>
+        <TipLabel tip="Unique stream name. Letters, digits, dash or underscore; no spaces or dots.">
+          Name
+        </TipLabel>
         <input
           className="field"
           value={name}
@@ -244,12 +247,18 @@ function CreateStreamForm({ connId }: { connId: string }): JSX.Element {
           placeholder="ORDERS"
         />
       </label>
-      <label className="block space-y-1">
-        <span className="text-[11px] text-muted">Subjects (comma or newline separated)</span>
-        <span className="block text-[11px] leading-tight text-faint">
-          Which subjects this stream captures. Wildcards: <code className="font-mono">*</code> = one
-          token, <code className="font-mono">&gt;</code> = the rest (e.g. <code className="font-mono">orders.&gt;</code>).
-        </span>
+      <label className="block space-y-1.5">
+        <TipLabel
+          tip={
+            <>
+              Which subjects this stream captures. Wildcards: <code className="font-mono">*</code> =
+              one token, <code className="font-mono">&gt;</code> = the rest (e.g.{" "}
+              <code className="font-mono">orders.&gt;</code>).
+            </>
+          }
+        >
+          Subjects (comma or newline separated)
+        </TipLabel>
         <textarea
           className="field-mono min-h-[64px]"
           value={subjectsRaw}
@@ -260,7 +269,9 @@ function CreateStreamForm({ connId }: { connId: string }): JSX.Element {
       </label>
       <div className="grid grid-cols-2 gap-3">
         <label className="block space-y-1.5">
-          <span className="text-[11px] text-muted">Storage</span>
+          <TipLabel tip="File = messages persist on disk (durable). Memory = kept in RAM only (fast, but cleared when the server restarts).">
+            Storage
+          </TipLabel>
           <Select
             value={storage}
             onChange={(v) => setStorage(v as StreamStorage)}
@@ -271,7 +282,17 @@ function CreateStreamForm({ connId }: { connId: string }): JSX.Element {
           />
         </label>
         <label className="block space-y-1.5">
-          <span className="text-[11px] text-muted">Retention</span>
+          <TipLabel
+            tip={
+              <>
+                Limits — keep messages until a max (age / size / count) is hit. Interest — keep only
+                while a consumer is subscribed. Work Queue — each message is delivered to exactly one
+                consumer, then removed.
+              </>
+            }
+          >
+            Retention
+          </TipLabel>
           <Select
             value={retention}
             onChange={(v) => setRetention(v as StreamRetention)}
@@ -283,20 +304,11 @@ function CreateStreamForm({ connId }: { connId: string }): JSX.Element {
           />
         </label>
       </div>
-      <ul className="space-y-1 rounded-lg border border-border bg-surface-2 p-2.5 text-[11px] leading-tight text-muted">
-        <li>
-          <span className="font-medium text-content">Storage</span> — File: durable on disk · Memory:
-          fast, cleared on server restart.
-        </li>
-        <li>
-          <span className="font-medium text-content">Retention</span> — Limits: keep until a max
-          below is hit · Interest: keep only while a consumer is subscribed · Work Queue: each message
-          goes to exactly one consumer, then is removed.
-        </li>
-      </ul>
       <div className="grid grid-cols-3 gap-3">
         <label className="block space-y-1.5">
-          <span className="text-[11px] text-muted">Max msgs</span>
+          <TipLabel tip="Max number of messages to keep. When exceeded, the oldest are discarded. Blank = unlimited (∞).">
+            Max msgs
+          </TipLabel>
           <input
             className="field tabular-nums"
             value={maxMessages}
@@ -306,7 +318,9 @@ function CreateStreamForm({ connId }: { connId: string }): JSX.Element {
           />
         </label>
         <label className="block space-y-1.5">
-          <span className="text-[11px] text-muted">Max bytes</span>
+          <TipLabel tip="Max total size (bytes) the stream may use. Oldest messages are discarded past this. Blank = unlimited (∞).">
+            Max bytes
+          </TipLabel>
           <input
             className="field tabular-nums"
             value={maxBytes}
@@ -316,7 +330,9 @@ function CreateStreamForm({ connId }: { connId: string }): JSX.Element {
           />
         </label>
         <label className="block space-y-1.5">
-          <span className="text-[11px] text-muted">Max age (s)</span>
+          <TipLabel tip="Delete messages older than this many seconds (message TTL). Blank = keep forever (∞).">
+            Max age (s)
+          </TipLabel>
           <input
             className="field tabular-nums"
             value={maxAgeSec}

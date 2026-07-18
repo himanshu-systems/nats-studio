@@ -175,6 +175,13 @@ const ICONS: Record<string, ReactNode> = {
   "chevron-down": <path d="M6 9 L12 15 L18 9" />,
   "chevron-right": <path d="M9 6 L15 12 L9 18" />,
   dot: <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />,
+  info: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11 v5" />
+      <circle cx="12" cy="8" r="0.7" fill="currentColor" stroke="none" />
+    </>
+  ),
   network: (
     <>
       <circle cx="5" cy="6" r="2.2" />

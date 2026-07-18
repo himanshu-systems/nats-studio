@@ -5,6 +5,7 @@ import type { ConsumerConfigDto, ConsumerInfoDto } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SearchInput, SectionLabel } from "../../components/ui";
 import { Select } from "../../components/Select";
+import { TipLabel } from "../../components/InfoTip";
 import { errorMessage } from "../messaging/message";
 
 const streamsKey = (connId: string): [string, string] => ["streams", connId];
@@ -175,7 +176,9 @@ function CreateConsumerForm({
     <Panel className="h-fit space-y-3 p-4">
       <SectionLabel>Create consumer{stream ? ` — ${stream}` : ""}</SectionLabel>
       <label className="block space-y-1.5">
-        <span className="text-[11px] text-muted">Durable name</span>
+        <TipLabel tip="Durable name — a persistent consumer that survives restarts and remembers its position. Pull it from Consumer Lab by this name.">
+          Durable name
+        </TipLabel>
         <input
           className="field"
           value={durableName}
@@ -184,7 +187,9 @@ function CreateConsumerForm({
         />
       </label>
       <label className="block space-y-1.5">
-        <span className="text-[11px] text-muted">Filter subject (optional)</span>
+        <TipLabel tip="Only receive messages whose subject matches this filter (a subset of the stream's subjects). Blank = all subjects in the stream. Wildcards * and > allowed.">
+          Filter subject (optional)
+        </TipLabel>
         <input
           className="field font-mono"
           value={filterSubject}
@@ -194,7 +199,9 @@ function CreateConsumerForm({
       </label>
       <div className="grid grid-cols-2 gap-3">
         <label className="block space-y-1.5">
-          <span className="text-[11px] text-muted">Ack policy</span>
+          <TipLabel tip="How messages must be acknowledged. Explicit = ack each one (needed for retries/redelivery). All = an ack confirms all prior. None = no acks (fire-and-forget).">
+            Ack policy
+          </TipLabel>
           <Select
             value={ackPolicy}
             onChange={setAckPolicy}
@@ -206,7 +213,9 @@ function CreateConsumerForm({
           />
         </label>
         <label className="block space-y-1.5">
-          <span className="text-[11px] text-muted">Deliver policy</span>
+          <TipLabel tip="Where delivery starts. All = from the first message. New = only messages arriving from now. Last = start at the last message. Last per subject = the newest message of each subject.">
+            Deliver policy
+          </TipLabel>
           <Select
             value={deliverPolicy}
             onChange={setDeliverPolicy}
@@ -221,7 +230,9 @@ function CreateConsumerForm({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <label className="block space-y-1.5">
-          <span className="text-[11px] text-muted">Max deliver</span>
+          <TipLabel tip="Max redelivery attempts before a message is considered failed (and a poison advisory fires — see Dead Letters). Blank = unlimited (∞).">
+            Max deliver
+          </TipLabel>
           <input
             className="field tabular-nums"
             value={maxDeliver}
@@ -231,7 +242,9 @@ function CreateConsumerForm({
           />
         </label>
         <label className="block space-y-1.5">
-          <span className="text-[11px] text-muted">Ack wait (s)</span>
+          <TipLabel tip="How long the server waits for an ack before redelivering the message (seconds). Blank = server default (30s).">
+            Ack wait (s)
+          </TipLabel>
           <input
             className="field tabular-nums"
             value={ackWaitSec}
