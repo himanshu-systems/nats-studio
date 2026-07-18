@@ -104,7 +104,7 @@ export function Select({
         <>
           <button type="button" aria-label="Close" className="fixed inset-0 z-40 cursor-default" onClick={() => setOpen(false)} />
           <div
-            className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 animate-fade-in overflow-hidden rounded-xl border border-border bg-overlay shadow-pop"
+            className="absolute left-0 top-[calc(100%+4px)] z-50 w-max min-w-full max-w-[min(28rem,80vw)] animate-fade-in overflow-hidden rounded-xl border border-border bg-overlay shadow-pop"
             onKeyDown={onKeyDown}
           >
             {searchable && (
@@ -140,7 +140,7 @@ export function Select({
                       o.value === value ? "text-accent" : "text-content",
                     )}
                   >
-                    <span className="min-w-0 flex-1 truncate">
+                    <span className="min-w-0 flex-1 break-words">
                       {o.label}
                       {o.hint && <span className="ml-2 text-xs text-muted">{o.hint}</span>}
                     </span>
