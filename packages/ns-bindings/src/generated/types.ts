@@ -271,6 +271,39 @@ export interface DeleteStreamRequest {
 	name: string;
 }
 
+export interface FetchMessagesRequest {
+	connectionId: string;
+	stream: string;
+	consumer: string;
+	/** Number of messages to pull; the adapter caps this at 100. */
+	batch: number;
+}
+
+export interface MessageHeader {
+	name: string;
+	value: string;
+}
+
+/**
+ * A single message pulled from a pull consumer, left un-acked. The UI acks by
+ * publishing `+ACK` / `-NAK` / `+TERM` to `ackSubject` (the ACK reply subject).
+ */
+export interface FetchedMessageDto {
+	streamSeq: number;
+	numDelivered: number;
+	subject: string;
+	/** The raw payload bytes, base64-encoded. */
+	payloadBase64: string;
+	size: number;
+	/** The message's ACK reply subject; publish `+ACK`/`-NAK`/`+TERM` here. */
+	ackSubject: string;
+	headers: MessageHeader[];
+}
+
+export interface FetchMessagesResponse {
+	messages: FetchedMessageDto[];
+}
+
 export interface GetMessagesRequest {
 	connectionId: string;
 	stream: string;
@@ -278,11 +311,6 @@ export interface GetMessagesRequest {
 	startSeq: number;
 	/** Max messages to return; the adapter caps this at 200. */
 	limit: number;
-}
-
-export interface MessageHeader {
-	name: string;
-	value: string;
 }
 
 /** A single stored JetStream message, fetched by sequence for the browser. */

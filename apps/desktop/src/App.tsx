@@ -17,6 +17,7 @@ import { KvView } from "@/features/jetstream/KvView";
 import { ObjectStoreView } from "@/features/jetstream/ObjectStoreView";
 import { MessageBrowserView } from "@/features/jetstream/MessageBrowserView";
 import { BackupView } from "@/features/jetstream/BackupView";
+import { ConsumerLabView } from "@/features/jetstream/ConsumerLabView";
 import { MetricsView } from "@/features/monitoring/MetricsView";
 import { AccountsView } from "@/features/monitoring/AccountsView";
 import { LatencyView } from "@/features/monitoring/LatencyView";
@@ -51,6 +52,8 @@ function renderView(view: string): JSX.Element {
       return <BackupView />;
     case "replay":
       return <ReplayView />;
+    case "consumerlab":
+      return <ConsumerLabView />;
     case "metrics":
       return <MetricsView />;
     case "accounts":

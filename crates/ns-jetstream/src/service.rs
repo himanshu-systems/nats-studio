@@ -10,12 +10,13 @@ use base64::Engine as _;
 use ns_core::{NatsClientProvider, PurgeSpec};
 use ns_types::{
     CreateStreamRequest, DeleteConsumerRequest, DeleteMessageRequest, DeleteObjectRequest,
-    DeleteStreamRequest, GetMessagesRequest, GetMessagesResponse, GetObjectRequest,
-    GetObjectResponse, GetStreamRequest, KvDeleteRequest, KvGetRequest, KvGetResponse,
-    KvPutRequest, KvPutResponse, ListBucketsRequest, ListBucketsResponse, ListConsumersRequest,
-    ListConsumersResponse, ListKeysRequest, ListKeysResponse, ListObjectBucketsRequest,
-    ListObjectBucketsResponse, ListObjectsRequest, ListObjectsResponse, ListStreamsRequest,
-    ListStreamsResponse, PurgeStreamRequest, PurgeStreamResponse, StreamInfoDto,
+    DeleteStreamRequest, FetchMessagesRequest, FetchMessagesResponse, GetMessagesRequest,
+    GetMessagesResponse, GetObjectRequest, GetObjectResponse, GetStreamRequest, KvDeleteRequest,
+    KvGetRequest, KvGetResponse, KvPutRequest, KvPutResponse, ListBucketsRequest,
+    ListBucketsResponse, ListConsumersRequest, ListConsumersResponse, ListKeysRequest,
+    ListKeysResponse, ListObjectBucketsRequest, ListObjectBucketsResponse, ListObjectsRequest,
+    ListObjectsResponse, ListStreamsRequest, ListStreamsResponse, PurgeStreamRequest,
+    PurgeStreamResponse, StreamInfoDto,
 };
 
 use crate::error::JetStreamError;
@@ -145,6 +146,28 @@ impl JetStreamService {
             .await?;
         js.delete_consumer(stream, name).await?;
         Ok(())
+    }
+
+    /// Pull a batch of messages from a pull consumer, left un-acked so the caller
+    /// can ack / nak / term each via its ACK reply subject.
+    pub async fn fetch_messages(
+        &self,
+        req: FetchMessagesRequest,
+    ) -> Result<FetchMessagesResponse, JetStreamError> {
+        let stream = require_name(&req.stream)?;
+        let consumer = req.consumer.trim();
+        if consumer.is_empty() {
+            return Err(JetStreamError::InvalidName(
+                "consumer name is empty".to_owned(),
+            ));
+        }
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        Ok(js.fetch_messages(stream, consumer, req.batch).await?)
     }
 
     // --- Message browser -----------------------------------------------------
@@ -347,10 +370,10 @@ mod tests {
         OutgoingMessage, PurgeSpec, Subscription,
     };
     use ns_types::{
-        ConsumerInfoDto, ErrorCode, GetMessagesResponse, GetObjectResponse, KvBucketDto,
-        KvEntryDto, ObjectBucketDto, ObjectInfoDto, ServerInfoDto, StoredMessageDto,
-        StreamConfigDto, StreamDiscard, StreamInfoDto, StreamRetention, StreamStateDto,
-        StreamStorage,
+        ConsumerInfoDto, ErrorCode, FetchMessagesResponse, FetchedMessageDto, GetMessagesResponse,
+        GetObjectResponse, KvBucketDto, KvEntryDto, ObjectBucketDto, ObjectInfoDto, ServerInfoDto,
+        StoredMessageDto, StreamConfigDto, StreamDiscard, StreamInfoDto, StreamRetention,
+        StreamStateDto, StreamStorage,
     };
 
     use super::*;
@@ -481,6 +504,26 @@ mod tests {
                 .unwrap()
                 .push((stream.to_owned(), name.to_owned()));
             Ok(())
+        }
+        async fn fetch_messages(
+            &self,
+            _stream: &str,
+            _consumer: &str,
+            batch: u32,
+        ) -> Result<FetchMessagesResponse, CoreError> {
+            let n = (batch as u64).min(2);
+            let messages = (0..n)
+                .map(|i| FetchedMessageDto {
+                    stream_seq: i + 1,
+                    num_delivered: 1,
+                    subject: "orders.new".to_owned(),
+                    payload_base64: BASE64.encode(b"hi"),
+                    size: 2,
+                    ack_subject: format!("$JS.ACK.orders.worker.1.{}.1.0.0", i + 1),
+                    headers: vec![],
+                })
+                .collect();
+            Ok(FetchMessagesResponse { messages })
         }
         async fn get_messages(
             &self,
@@ -812,6 +855,37 @@ mod tests {
             js.deleted_messages.lock().unwrap().as_slice(),
             &[("orders".into(), 7)]
         );
+    }
+
+    #[tokio::test]
+    async fn fetch_messages_validates_stream_and_consumer_then_delegates() {
+        let (svc, _) = service();
+
+        // Blank consumer -> InvalidName, never reaches the port.
+        let err = svc
+            .fetch_messages(FetchMessagesRequest {
+                connection_id: "c1".into(),
+                stream: "orders".into(),
+                consumer: "  ".into(),
+                batch: 10,
+            })
+            .await
+            .unwrap_err();
+        assert!(matches!(err, JetStreamError::InvalidName(_)));
+
+        // Valid -> returns a batch of un-acked messages carrying their ack subjects.
+        let resp = svc
+            .fetch_messages(FetchMessagesRequest {
+                connection_id: "c1".into(),
+                stream: "orders".into(),
+                consumer: "worker".into(),
+                batch: 10,
+            })
+            .await
+            .unwrap();
+        assert_eq!(resp.messages.len(), 2);
+        assert_eq!(resp.messages[0].stream_seq, 1);
+        assert!(resp.messages[0].ack_subject.starts_with("$JS.ACK."));
     }
 
     #[tokio::test]

@@ -13,6 +13,8 @@ import type {
   DeleteMessageRequest,
   DeleteObjectRequest,
   DeleteStreamRequest,
+  FetchMessagesRequest,
+  FetchMessagesResponse,
   GetMessagesRequest,
   GetMessagesResponse,
   GetObjectRequest,
@@ -159,6 +161,8 @@ export const ipc = {
     listConsumers: (req: ListConsumersRequest) =>
       call<ListConsumersResponse>("js_list_consumers", req),
     deleteConsumer: (req: DeleteConsumerRequest) => call<void>("js_delete_consumer", req),
+    fetchMessages: (req: FetchMessagesRequest) =>
+      call<FetchMessagesResponse>("js_fetch_messages", req),
     listBuckets: (req: ListBucketsRequest) =>
       call<ListBucketsResponse>("js_list_buckets", req),
     listKeys: (req: ListKeysRequest) => call<ListKeysResponse>("js_kv_keys", req),

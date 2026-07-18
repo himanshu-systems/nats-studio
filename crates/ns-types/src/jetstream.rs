@@ -240,3 +240,40 @@ pub struct DeleteMessageRequest {
     pub stream: String,
     pub seq: U64,
 }
+
+// --- Consumer Lab (pull fetch) ----------------------------------------------
+
+/// A single message pulled from a pull consumer, left un-acked. The UI acks by
+/// publishing `+ACK` / `-NAK` / `+TERM` to `ackSubject` (the ACK reply subject).
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FetchedMessageDto {
+    pub stream_seq: U64,
+    pub num_delivered: U64,
+    pub subject: String,
+    /// The raw payload bytes, base64-encoded.
+    pub payload_base64: String,
+    pub size: U64,
+    /// The message's ACK reply subject; publish `+ACK`/`-NAK`/`+TERM` here.
+    pub ack_subject: String,
+    pub headers: Vec<MessageHeader>,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FetchMessagesRequest {
+    pub connection_id: String,
+    pub stream: String,
+    pub consumer: String,
+    /// Number of messages to pull; the adapter caps this at 100.
+    pub batch: u32,
+}
+
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FetchMessagesResponse {
+    pub messages: Vec<FetchedMessageDto>,
+}

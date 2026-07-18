@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use async_nats::jetstream::{
     self,
-    consumer::{self, AckPolicy, DeliverPolicy},
+    consumer::{self, AckPolicy, DeliverPolicy, PullConsumer},
     kv::{self, Operation},
     object_store::ObjectInfo,
     stream::{Config, DiscardPolicy, Info, RetentionPolicy, State, StorageType},
@@ -17,12 +17,13 @@ use async_nats::jetstream::{
 use async_trait::async_trait;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
-use futures::TryStreamExt;
+use futures::{StreamExt as _, TryStreamExt};
 use ns_core::{CoreError, JetStreamManager, PurgeSpec};
 use ns_types::{
-    ConsumerInfoDto, ErrorCode, GetMessagesResponse, GetObjectResponse, KvBucketDto, KvEntryDto,
-    MessageHeader, ObjectBucketDto, ObjectInfoDto, StoredMessageDto, StreamConfigDto,
-    StreamDiscard, StreamInfoDto, StreamRetention, StreamStateDto, StreamStorage,
+    ConsumerInfoDto, ErrorCode, FetchMessagesResponse, FetchedMessageDto, GetMessagesResponse,
+    GetObjectResponse, KvBucketDto, KvEntryDto, MessageHeader, ObjectBucketDto, ObjectInfoDto,
+    StoredMessageDto, StreamConfigDto, StreamDiscard, StreamInfoDto, StreamRetention,
+    StreamStateDto, StreamStorage,
 };
 use time::format_description::well_known::Rfc3339;
 use tokio::io::AsyncReadExt as _;
@@ -158,6 +159,39 @@ impl JetStreamManager for AsyncJetStream {
             .await
             .map_err(|e| js_err("delete consumer", &e, ErrorCode::ConsumerNotFound))?;
         Ok(())
+    }
+
+    async fn fetch_messages(
+        &self,
+        stream: &str,
+        consumer: &str,
+        batch: u32,
+    ) -> Result<FetchMessagesResponse, CoreError> {
+        let stream_h = self
+            .ctx
+            .get_stream(stream)
+            .await
+            .map_err(|e| js_err("get stream", &e, ErrorCode::StreamNotFound))?;
+        // Bind as a PULL consumer; a push consumer's config fails the pull cast.
+        let consumer: PullConsumer = stream_h
+            .get_consumer(consumer)
+            .await
+            .map_err(|e| js_err("not a pull consumer", &e, ErrorCode::ConsumerNotFound))?;
+        // `expires` bounds the wait so we return promptly with whatever is
+        // available (fewer than `batch`); messages are left pending / un-acked.
+        let cap = (batch as usize).clamp(1, 100);
+        let mut msgs = consumer
+            .batch()
+            .max_messages(cap)
+            .expires(Duration::from_secs(2))
+            .messages()
+            .await
+            .map_err(|e| js_err("fetch messages", &e, ErrorCode::Internal))?;
+        let mut out = Vec::new();
+        while let Some(Ok(msg)) = msgs.next().await {
+            out.push(fetched_to_dto(&msg));
+        }
+        Ok(FetchMessagesResponse { messages: out })
     }
 
     async fn get_messages(
@@ -422,6 +456,39 @@ fn stored_to_dto(msg: &jetstream::message::StreamMessage) -> StoredMessageDto {
         time_rfc3339: msg.time.format(&Rfc3339).unwrap_or_default(),
         payload_base64: BASE64.encode(&msg.payload),
         size: msg.payload.len() as u64,
+        headers,
+    }
+}
+
+fn fetched_to_dto(msg: &jetstream::Message) -> FetchedMessageDto {
+    // `info()` parses the `$JS.ACK` reply subject; a fetched message always has
+    // one, but degrade to zeros rather than drop the message if it's missing.
+    let info = msg.info().ok();
+    let headers = msg
+        .headers
+        .as_ref()
+        .map(|h| {
+            h.iter()
+                .flat_map(|(name, values)| {
+                    values.iter().map(move |v| MessageHeader {
+                        name: name.to_string(),
+                        value: v.to_string(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    FetchedMessageDto {
+        stream_seq: info.as_ref().map_or(0, |i| i.stream_sequence),
+        num_delivered: info.as_ref().map_or(0, |i| i.delivered.max(0) as u64),
+        subject: msg.subject.to_string(),
+        payload_base64: BASE64.encode(&msg.payload),
+        size: msg.payload.len() as u64,
+        ack_subject: msg
+            .reply
+            .as_ref()
+            .map(ToString::to_string)
+            .unwrap_or_default(),
         headers,
     }
 }

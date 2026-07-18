@@ -183,7 +183,7 @@ export const NAV: NavSection[] = [
         id: "consumerlab",
         label: "Consumer Lab",
         icon: "beaker",
-        phase: "Phase 3",
+        live: true,
         requiresConnection: true,
         blurb: "Pull-fetch messages and debug ack / nak / term interactively.",
       },

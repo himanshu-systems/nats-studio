@@ -5,8 +5,8 @@
 
 use async_trait::async_trait;
 use ns_types::{
-    ConsumerInfoDto, GetMessagesResponse, GetObjectResponse, KvBucketDto, KvEntryDto,
-    ObjectBucketDto, ObjectInfoDto, StreamConfigDto, StreamInfoDto,
+    ConsumerInfoDto, FetchMessagesResponse, GetMessagesResponse, GetObjectResponse, KvBucketDto,
+    KvEntryDto, ObjectBucketDto, ObjectInfoDto, StreamConfigDto, StreamInfoDto,
 };
 
 use crate::CoreError;
@@ -42,6 +42,15 @@ pub trait JetStreamManager: Send + Sync {
     async fn list_consumers(&self, stream: &str) -> Result<Vec<ConsumerInfoDto>, CoreError>;
     /// Delete a consumer from a stream by name.
     async fn delete_consumer(&self, stream: &str, name: &str) -> Result<(), CoreError>;
+    /// Pull up to `batch` messages from a pull consumer WITHOUT acking them, so the
+    /// caller can ack/nak/term each via its ACK reply subject. Errors if the named
+    /// consumer is not a pull consumer.
+    async fn fetch_messages(
+        &self,
+        stream: &str,
+        consumer: &str,
+        batch: u32,
+    ) -> Result<FetchMessagesResponse, CoreError>;
     /// Read up to `limit` stored messages from `start_seq`, skipping deleted gaps;
     /// the response carries the stream's first/last sequence for pagination.
     async fn get_messages(

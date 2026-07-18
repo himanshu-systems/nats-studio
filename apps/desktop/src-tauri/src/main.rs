@@ -57,6 +57,7 @@ fn main() {
             commands::js_purge_stream,
             commands::js_list_consumers,
             commands::js_delete_consumer,
+            commands::js_fetch_messages,
             commands::js_list_buckets,
             commands::js_kv_keys,
             commands::js_kv_get,
