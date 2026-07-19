@@ -4,7 +4,7 @@
 
 # NATS Studio
 
-**The desktop GUI for [NATS](https://nats.io) — connect, publish, subscribe, and manage JetStream, all in one native app.**
+**The desktop GUI for [NATS](https://nats.io). Connect, publish, subscribe, and manage JetStream in one native app.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-informational)
@@ -19,41 +19,41 @@
 
 ## What is it?
 
-NATS Studio is a fast, native desktop application for working with [NATS](https://nats.io) and JetStream — the kind of tool RedisInsight is for Redis or pgAdmin is for Postgres. Instead of stringing together `nats` CLI commands, you get a live, clickable UI to inspect messages, browse streams, debug consumers, and watch your server in real time.
+NATS Studio is a fast, native desktop app for working with [NATS](https://nats.io) and JetStream. It's similar to what RedisInsight is for Redis or pgAdmin is for Postgres. Instead of connecting a series of `nats` CLI commands, you get a live, clickable interface to check messages, browse streams, debug consumers, and monitor your server in real time.
 
-Built with **Rust + Tauri v2** (tiny, secure, no Electron) and **React + TypeScript**. Ships as a single native binary for Windows, macOS, and Linux.
+It’s built with **Rust + Tauri v2** (small, secure, no Electron) and **React + TypeScript**. It comes as a single native binary for Windows, macOS, and Linux.
 
 ## Features
 
 **Connections**
-- Manage multiple connection profiles (user/password, token, and more); credentials stored in the OS keychain.
-- Per-connection isolation — every workspace is scoped to the active connection, and state is preserved as you switch tabs.
+- Manage multiple connection profiles, including user/password and token. Credentials are stored in the OS keychain.
+- Each connection is isolated. Every workspace is linked to the active connection, and the state is saved as you switch tabs.
 
 **Overview**
-- Server identity, JetStream status, live round-trip latency, health checks, data stored/processed graphs, streams↔subjects map, and connected-client table — one dashboard.
+- The dashboard features server identity, JetStream status, live round-trip latency, health checks, graphs of stored/processed data, a streams↔subjects map, and a table of connected clients.
 
 **Messages**
-- **Live Tail** — subscribe to subjects and watch messages stream in live, with per-subscription filtering.
-- **Publisher** — templates with `{{uuid}}`/`{{seq}}`/`{{timestamp}}` variables, JSON validate + prettify, hex/base64 bodies, headers, and burst mode.
-- **Request–Reply** console.
-- **Message Browser** — page through stored JetStream messages and inspect them.
-- **Consumer Lab** — pull-fetch a batch and debug ack / nak / term interactively.
-- **Dead Letters** — live poison-message advisory monitor.
-- **Multi-format payload viewer** — JSON (pretty), Text, Hex dump, **Protobuf** (schema-less field decode), **MessagePack**, and Base64.
+- **Live Tail** allows you to subscribe to subjects and watch messages stream in real-time, with filtering for each subscription.
+- **Publisher** offers templates with `{{uuid}}`, `{{seq}}`, and `{{timestamp}}` variables, JSON validation and formatting, hex/base64 bodies, headers, and burst mode.
+- **Request-Reply** console.
+- **Message Browser** lets you page through stored JetStream messages and inspect them.
+- **Consumer Lab** enables you to pull-fetch a batch and debug ack/nak/term interactively.
+- **Dead Letters** provides a live monitor for poison messages.
+- **Multi-format payload viewer** supports JSON (pretty), Text, Hex dump, **Protobuf** (schema-less field decode), **MessagePack**, and Base64.
 
 **JetStream**
-- **Streams** — create / edit / delete / purge (all, by-subject, keep-N, up-to-seq), with inline help on every option.
-- **Consumers** — create durable pull consumers and inspect config/pending/ack state.
-- **Key-Value** — create buckets, get / put / delete keys.
-- **Object Store** — create buckets, list / download / upload / delete objects.
+- **Streams** lets you create, edit, delete, and purge streams (all, by subject, keep-N, up-to-seq) with inline help for every option.
+- **Consumers** allow you to create durable pull consumers and check their config, pending, and ack state.
+- **Key-Value** supports creating buckets and getting, putting, or deleting keys.
+- **Object Store** enables creating buckets and listing, downloading, uploading, or deleting objects.
 
 **Monitoring**
-- **Metrics** — live throughput dashboard (msgs & bytes / sec) from the server monitoring endpoint.
-- **Services** — NATS micro-service discovery via `$SRV.PING`.
+- **Metrics** gives you a live throughput dashboard (msgs & bytes/sec) from the server monitoring endpoint.
+- **Services** include NATS micro-service discovery via `$SRV.PING`.
 
 **Polish**
-- Light **and** dark themes on the NATS brand.
-- Searchable dropdowns, tooltips, smooth charts, keyboard-friendly.
+- Offers light and dark themes that match the NATS brand.
+- Features searchable dropdowns, tooltips, smooth charts, and keyboard-friendly controls.
 
 ## Screenshots
 
@@ -64,12 +64,12 @@ Built with **Rust + Tauri v2** (tiny, secure, no Electron) and **React + TypeScr
 ## Install
 
 ### Download (recommended)
-Grab the latest installer for your OS from the [**Releases**](https://github.com/himanshu-systems/nats-studio/releases) page.
+Download the latest installer for your OS from the [**Releases**](https://github.com/himanshu-systems/nats-studio/releases) page.
 
-> Binaries are not yet code-signed, so Windows SmartScreen / macOS Gatekeeper may warn on first launch (More info → Run anyway / right-click → Open). Signing is on the roadmap.
+> Binaries are not yet code-signed, so Windows SmartScreen or macOS Gatekeeper might warn you on first launch. (More info → Run anyway or right-click → Open). Signing is planned for the future.
 
 ### Build from source
-Prerequisites: [Rust](https://rustup.rs), [Node 20+](https://nodejs.org), [pnpm](https://pnpm.io), and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your OS (WebView2 on Windows, `webkit2gtk` on Linux).
+Prerequisites: [Rust](https://rustup.rs), [Node 20+](https://nodejs.org), [pnpm](https://pnpm.io), and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your OS (WebView2 for Windows, `webkit2gtk` for Linux).
 
 ```bash
 git clone https://github.com/himanshu-systems/nats-studio.git nats-studio
@@ -79,7 +79,7 @@ cd apps/desktop && pnpm tauri build   # or `pnpm tauri dev` to run locally
 ```
 
 ### Need a NATS server to try it?
-A ready-to-run broker with JetStream + monitoring is included:
+A ready-to-use broker with JetStream and monitoring is included:
 
 ```bash
 docker compose -f deploy/nats/docker-compose.yml up -d   # nats://127.0.0.1:4222
@@ -87,19 +87,19 @@ docker compose -f deploy/nats/docker-compose.yml up -d   # nats://127.0.0.1:4222
 
 ## Architecture
 
-A layered, dependency-inverted Rust workspace (18 crates): typed wire contract (`ns-types`) → domain ports (`ns-core`) → adapters (`ns-nats`, `ns-storage`, `ns-security`, `ns-monitor`, …) → services (`ns-pubsub`, `ns-jetstream`, `ns-connection`) → the Tauri binary as the single composition root. Each heavyweight dependency is confined to one crate; the frontend talks to the backend over a typed IPC surface generated from Rust via [typeshare](https://github.com/1Password/typeshare).
+This is a layered Rust workspace that inverts dependencies (18 crates): typed wire contract (`ns-types`), domain ports (`ns-core`), adapters (`ns-nats`, `ns-storage`, `ns-security`, `ns-monitor`, …), services (`ns-pubsub`, `ns-jetstream`, `ns-connection`), and the Tauri binary as the sole composition root. Each major dependency is limited to one crate, and the front end communicates with the back end over a typed IPC surface generated from Rust via [typeshare](https://github.com/1Password/typeshare).
 
 ## Roadmap
 
-- Code-signed installers + auto-update
-- Object Store streaming upload/download for large objects
-- Dead Letters: redeliver / purge actions
-- Services: per-endpoint stats & schema
-- TLS / mTLS connection profiles in the UI
+- Code-signed installers and auto-update
+- Object Store streaming upload and download for large objects
+- Dead Letters: redeliver and purge actions
+- Services: per-endpoint stats and schema
+- TLS and mTLS connection profiles in the UI
 
 ## Contributing
 
-Issues and PRs welcome. If you use NATS and something's missing or awkward, tell me — that feedback shapes what gets built next.
+Issues and pull requests are welcome. If you use NATS and discover something that's missing or doesn't work well, let me know. Your feedback will help shape future developments.
 
 ## License
 
