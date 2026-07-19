@@ -13,9 +13,11 @@
 
 ### [🌐 Website](https://himanshu-systems.github.io/nats-studio/) · [⬇️ Download](https://github.com/himanshu-systems/nats-studio/releases/latest)
 
-<!-- Add a 15s demo GIF (connect → Live Tail → Streams) at docs/media/demo.gif, then uncomment:
-<img src="docs/media/demo.gif" width="820" alt="NATS Studio demo" />
--->
+<a href="https://www.youtube.com/watch?v=GK0JdRYYx60" title="Watch the NATS Studio demo">
+  <img src="https://img.youtube.com/vi/GK0JdRYYx60/maxresdefault.jpg" width="820" alt="Watch the NATS Studio demo on YouTube" />
+</a>
+
+<sub>▶︎ Watch the demo</sub>
 
 </div>
 
