@@ -351,8 +351,22 @@ export function PayloadView({ view, className }: { view: MessageView; className?
       return false;
     }
   };
+  // A Content-Type header (set by our Publisher, or any well-behaved producer)
+  // pins the format so JSON opens as JSON and Protobuf as Protobuf, rather than
+  // being guessed from the bytes.
+  const contentType = view.headers.find((h) => h.name.toLowerCase() === "content-type")?.value.toLowerCase() ?? "";
+  const modeFromCt: Mode | null = contentType.includes("json")
+    ? "json"
+    : contentType.includes("proto")
+      ? "proto"
+      : contentType.includes("msgpack")
+        ? "msgpack"
+        : contentType.includes("text/")
+          ? "text"
+          : null;
   const defaultMode: Mode =
-    view.format === "json" ? "json" : view.format === "binary" ? (looksMsgpack(bytes) ? "msgpack" : "hex") : "text";
+    modeFromCt ??
+    (view.format === "json" ? "json" : view.format === "binary" ? (looksMsgpack(bytes) ? "msgpack" : "hex") : "text");
   const [mode, setMode] = useState<Mode>(defaultMode);
 
   const rendered = useMemo((): string => {
