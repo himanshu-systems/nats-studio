@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ConnectionStatus, ipc, type VarzDto } from "@bindings";
 import { useActiveConnection } from "../../lib/activeConnection";
+import { useMonitorUrl } from "../../lib/monitorUrl";
 import { useUiStore } from "../../lib/uiStore";
 import { Badge, Button, EmptyState, Panel, SearchInput, SectionLabel, StatusDot, statusMeta } from "../../components/ui";
 import { Icon } from "../../components/Icon";
 import { LineChart } from "../../components/Chart";
 import { RequireConnection } from "../../components/RequireConnection";
 
-const DEFAULT_URL = "http://127.0.0.1:8222";
 const ACCENT = "rgb(var(--c-accent))";
 const TEAL = "#27c6a0";
 const fmtNum = (n: number): string => n.toLocaleString();
@@ -58,13 +58,14 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
   const connected = active?.status === ConnectionStatus.Connected;
   const meta = statusMeta(active?.status ?? ConnectionStatus.Disconnected);
 
-  const [url, setUrl] = useState(DEFAULT_URL);
+  const { url, setUrl } = useMonitorUrl();
   const [q, setQ] = useState("");
   const [rtt, setRtt] = useState<number[]>([]);
   const prevVarz = useRef<{ t: number; inBytes: number; outBytes: number } | null>(null);
   const [proc, setProc] = useState<{ rate: number; history: number[] }>({ rate: 0, history: [] });
 
-  const streams = useQuery({ queryKey: ["streams", connId], queryFn: () => ipc.jetstream.listStreams({ connectionId: connId }) });
+  // Poll streams so "Data stored" / "Streams" reflect publishes & new streams.
+  const streams = useQuery({ queryKey: ["streams", connId], queryFn: () => ipc.jetstream.listStreams({ connectionId: connId }), refetchInterval: 3000 });
   const varz = useQuery({ queryKey: ["monitor", "varz", url], queryFn: () => ipc.monitor.varz({ baseUrl: url }), refetchInterval: 1000 });
   const connz = useQuery({ queryKey: ["monitor", "connz", url], queryFn: () => ipc.monitor.connz({ baseUrl: url }), refetchInterval: 3000 });
   const v: VarzDto | undefined = varz.data;
@@ -197,7 +198,7 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
 
       {/* Stats + latency */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Subscribers" value={v ? fmtNum(v.subscriptions) : "—"} icon="signal" />
+        <Stat label="Subscriptions" value={v ? fmtNum(v.subscriptions) : "—"} icon="signal" />
         <Stat label="Connections" value={v ? fmtNum(v.connections) : "—"} icon="users" />
         <Stat label="Streams" value={fmtNum(items.length)} icon="database" />
         <Panel className="p-4">

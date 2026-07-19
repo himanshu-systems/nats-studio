@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ipc } from "@bindings";
 import { Badge, Button, EmptyState, Panel, SectionLabel } from "../../components/ui";
 import { LineChart } from "../../components/Chart";
+import { useMonitorUrl } from "../../lib/monitorUrl";
 
 const TEAL = "#27c6a0";
 const ACCENT = "rgb(var(--c-accent))";
@@ -40,7 +41,7 @@ interface Rates {
 }
 
 export function MetricsView(): JSX.Element {
-  const [url, setUrl] = useState(DEFAULT_URL);
+  const { url, setUrl } = useMonitorUrl();
   const prev = useRef<Sample | null>(null);
   const [rates, setRates] = useState<Rates | null>(null);
   const [history, setHistory] = useState<Rates[]>([]);
