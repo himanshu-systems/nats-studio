@@ -1,6 +1,16 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "./Icon";
 import { cx } from "./ui";
+
+interface PopoverPos {
+  left: number;
+  minWidth: number;
+  maxWidth: number;
+  maxHeight: number;
+  top?: number;
+  bottom?: number;
+}
 
 export interface Option {
   value: string;
@@ -33,9 +43,44 @@ export function Select({
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  const btnRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
+  const [pos, setPos] = useState<PopoverPos | null>(null);
+
+  // Fixed, viewport-clamped position so the popover (rendered in a portal) is
+  // never clipped by a scroll/overflow ancestor. Flips above the trigger when
+  // there isn't room below. Mirrors the pattern in InfoTip.
+  const place = (): void => {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const maxW = Math.min(448, window.innerWidth * 0.8);
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - Math.min(maxW, Math.max(r.width, 160)) - 8));
+    const spaceBelow = window.innerHeight - r.bottom - 8;
+    const spaceAbove = r.top - 8;
+    const openUp = spaceBelow < 240 && spaceAbove > spaceBelow;
+    setPos({
+      left,
+      minWidth: r.width,
+      maxWidth: Math.min(maxW, window.innerWidth - left - 8),
+      maxHeight: Math.max(160, (openUp ? spaceAbove : spaceBelow) - 4),
+      top: openUp ? undefined : r.bottom + 4,
+      bottom: openUp ? window.innerHeight - r.top + 4 : undefined,
+    });
+  };
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    place();
+    const reposition = (): void => place();
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [open]);
 
   const selected = options.find((o) => o.value === value);
   const needle = q.trim().toLowerCase();
@@ -86,6 +131,7 @@ export function Select({
   return (
     <div className={cx("relative", className)}>
       <button
+        ref={btnRef}
         type="button"
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
@@ -100,15 +146,26 @@ export function Select({
         <Icon name="chevron-down" size={15} className={cx("shrink-0 text-faint transition-transform", open && "rotate-180")} />
       </button>
 
-      {open && (
-        <>
-          <button type="button" aria-label="Close" className="fixed inset-0 z-40 cursor-default" onClick={() => setOpen(false)} />
-          <div
-            className="absolute left-0 top-[calc(100%+4px)] z-50 w-max min-w-full max-w-[min(28rem,80vw)] animate-fade-in overflow-hidden rounded-xl border border-border bg-overlay shadow-pop"
-            onKeyDown={onKeyDown}
-          >
+      {open &&
+        pos &&
+        createPortal(
+          <>
+            <button type="button" aria-label="Close" className="fixed inset-0 z-[80] cursor-default" onClick={() => setOpen(false)} />
+            <div
+              style={{
+                position: "fixed",
+                left: pos.left,
+                top: pos.top,
+                bottom: pos.bottom,
+                minWidth: pos.minWidth,
+                maxWidth: pos.maxWidth,
+                maxHeight: pos.maxHeight,
+              }}
+              className="z-[81] flex w-max animate-fade-in flex-col overflow-hidden rounded-xl border border-border bg-overlay shadow-pop"
+              onKeyDown={onKeyDown}
+            >
             {searchable && (
-              <div className="border-b border-border p-1.5">
+              <div className="shrink-0 border-b border-border p-1.5">
                 <div className="relative">
                   <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-faint">
                     <Icon name="search" size={14} />
@@ -124,7 +181,7 @@ export function Select({
                 </div>
               </div>
             )}
-            <div ref={listRef} className="max-h-64 overflow-y-auto p-1">
+            <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto p-1">
               {filtered.length === 0 ? (
                 <div className="px-2.5 py-3 text-center text-xs text-muted">No matches</div>
               ) : (
@@ -149,9 +206,10 @@ export function Select({
                 ))
               )}
             </div>
-          </div>
-        </>
-      )}
+            </div>
+          </>,
+          document.body,
+        )}
     </div>
   );
 }

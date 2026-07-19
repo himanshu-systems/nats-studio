@@ -226,6 +226,116 @@ function decodeMsgpack(bytes: Uint8Array): unknown {
   return result;
 }
 
+// --- payload encoding (Publisher) -------------------------------------------
+// Symmetric with the decoders above so the Publisher can compose every format
+// the viewer can render.
+
+/** Base64-encode raw bytes (btoa over a binary string). */
+export function bytesToBase64(bytes: Uint8Array): string {
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+
+/** Encode a JSON-compatible value to MessagePack bytes (common subset). Throws
+ *  on values it can't represent. Inverse of `decodeMsgpack`. */
+export function encodeMsgpack(value: unknown): Uint8Array {
+  const out: number[] = [];
+  const te = new TextEncoder();
+  const u16 = (n: number): void => void out.push((n >> 8) & 0xff, n & 0xff);
+  const u32 = (n: number): void => void out.push((n >>> 24) & 0xff, (n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff);
+  const bytes = (b: Uint8Array): void => {
+    for (const x of b) out.push(x);
+  };
+  const write = (v: unknown): void => {
+    if (v === null || v === undefined) return void out.push(0xc0);
+    if (v === true) return void out.push(0xc3);
+    if (v === false) return void out.push(0xc2);
+    if (typeof v === "number") {
+      if (Number.isInteger(v) && Math.abs(v) <= 0xffffffff) {
+        if (v >= 0) {
+          if (v <= 0x7f) out.push(v);
+          else if (v <= 0xff) out.push(0xcc, v);
+          else if (v <= 0xffff) (out.push(0xcd), u16(v));
+          else (out.push(0xce), u32(v));
+        } else if (v >= -32) out.push(v & 0xff);
+        else if (v >= -128) out.push(0xd0, v & 0xff);
+        else if (v >= -32768) (out.push(0xd1), u16(v & 0xffff));
+        else (out.push(0xd2), u32(v >>> 0));
+      } else {
+        const b = new Uint8Array(8);
+        new DataView(b.buffer).setFloat64(0, v);
+        out.push(0xcb);
+        bytes(b);
+      }
+      return;
+    }
+    if (typeof v === "string") {
+      const b = te.encode(v);
+      if (b.length <= 0x1f) out.push(0xa0 | b.length);
+      else if (b.length <= 0xff) out.push(0xd9, b.length);
+      else if (b.length <= 0xffff) (out.push(0xda), u16(b.length));
+      else (out.push(0xdb), u32(b.length));
+      bytes(b);
+      return;
+    }
+    if (Array.isArray(v)) {
+      if (v.length <= 0x0f) out.push(0x90 | v.length);
+      else if (v.length <= 0xffff) (out.push(0xdc), u16(v.length));
+      else (out.push(0xdd), u32(v.length));
+      for (const item of v) write(item);
+      return;
+    }
+    if (typeof v === "object") {
+      const entries = Object.entries(v as Record<string, unknown>);
+      if (entries.length <= 0x0f) out.push(0x80 | entries.length);
+      else if (entries.length <= 0xffff) (out.push(0xde), u16(entries.length));
+      else (out.push(0xdf), u32(entries.length));
+      for (const [k, val] of entries) (write(k), write(val));
+      return;
+    }
+    throw new Error(`cannot encode ${typeof v} to MessagePack`);
+  };
+  write(value);
+  return new Uint8Array(out);
+}
+
+/** Encode a flat `{ "<fieldNumber>": value }` object to protobuf wire bytes:
+ *  integer→varint, boolean→varint(0/1), string→length-delimited. Schema-less,
+ *  inverse of `decodeProto`. Throws on unsupported values / field numbers. */
+export function encodeProtoWire(obj: Record<string, unknown>): Uint8Array {
+  const out: number[] = [];
+  const te = new TextEncoder();
+  const varint = (value: bigint): void => {
+    let v = value & ((1n << 64n) - 1n);
+    do {
+      let byte = Number(v & 0x7fn);
+      v >>= 7n;
+      if (v !== 0n) byte |= 0x80;
+      out.push(byte);
+    } while (v !== 0n);
+  };
+  for (const [key, val] of Object.entries(obj)) {
+    const field = Number(key);
+    if (!Number.isInteger(field) || field < 1) throw new Error(`invalid field number "${key}" (use positive integers)`);
+    if (typeof val === "boolean") {
+      varint(BigInt(field * 8));
+      varint(val ? 1n : 0n);
+    } else if (typeof val === "number" && Number.isInteger(val)) {
+      varint(BigInt(field * 8));
+      varint(BigInt(val));
+    } else if (typeof val === "string") {
+      const b = te.encode(val);
+      varint(BigInt(field * 8 + 2));
+      varint(BigInt(b.length));
+      for (const x of b) out.push(x);
+    } else {
+      throw new Error(`field ${field}: unsupported value (use integer, boolean, or string)`);
+    }
+  }
+  return new Uint8Array(out);
+}
+
 /** Payload viewer: format tabs (JSON / Text / Hex / Protobuf / MessagePack / Base64) + copy. */
 export function PayloadView({ view, className }: { view: MessageView; className?: string }): JSX.Element {
   const bytes = useMemo(() => b64ToBytes(view.payloadBase64), [view.payloadBase64]);
