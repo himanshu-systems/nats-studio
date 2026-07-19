@@ -5,287 +5,215 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>NATS Studio — the desktop GUI for NATS</title>
 <meta name="description" content="A fast, native, cross-platform desktop GUI for NATS. Connect, publish/subscribe, and manage JetStream, Key-Value, and Object Store in one open-source app for Windows, macOS, and Linux." />
-<meta name="theme-color" content="#08090c" />
+<meta name="theme-color" content="#fafaff" />
 <link rel="icon" type="image/png" href="favicon.png" />
 
 <meta property="og:type" content="website" />
 <meta property="og:title" content="NATS Studio — the desktop GUI for NATS" />
 <meta property="og:description" content="Connect, publish/subscribe, and manage JetStream, KV, and Object Store in one native, open-source app for Windows, macOS, and Linux." />
-<meta property="og:image" content="https://himanshu-systems.github.io/nats-studio/logo.png" />
+<meta property="og:image" content="https://himanshu-systems.github.io/nats-studio/app-overview.png" />
 <meta property="og:url" content="https://himanshu-systems.github.io/nats-studio/" />
 <meta name="twitter:card" content="summary_large_image" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600&display=swap" rel="stylesheet" />
 
 <style>
   :root{
-    --bg:#08090c; --bg-2:#0b0d12;
-    --card:#0e1116; --card-2:#12151c; --card-hi:rgba(255,255,255,.045);
-    --line:rgba(255,255,255,.07); --line-2:rgba(255,255,255,.11);
-    --text:#f3f5f9; --muted:#98a2b2; --faint:#5c6472;
-    --teal:#2fd0a5; --blue:#4b9ff9; --brand2:#2e8de8;
-    --grad:linear-gradient(100deg,#4b9ff9,#2fd0a5);
-    --r:18px; --maxw:1140px;
+    --bg:#fafaff;
+    --surface:rgba(255,255,255,.6);
+    --surface-strong:rgba(255,255,255,.85);
+    --text:#0f0f14;
+    --muted:#5a5a68;
+    --faint:#8b8b98;
+    --border:rgba(255,255,255,.5);
+    --border-alt:rgba(15,15,20,.08);
+    --accent:#8b5cf6;
+    --accent-soft:#c4b5fd;
+    --accent-2:#6d9eff;
+    --shadow:0 8px 32px rgba(15,15,20,.08);
+    --shadow-lg:0 30px 80px -24px rgba(15,15,20,.24);
+    --hi:inset 0 1px 0 rgba(255,255,255,.6);
+    --blur:blur(20px) saturate(160%);
+    --maxw:1200px;
   }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth; -webkit-text-size-adjust:100%}
   body{
-    margin:0; background:var(--bg); color:var(--text); overflow-x:hidden;
-    font-family:"Inter",system-ui,-apple-system,sans-serif; font-weight:450;
-    line-height:1.6; letter-spacing:-.005em; -webkit-font-smoothing:antialiased;
+    margin:0; color:var(--text); background:var(--bg);
+    font-family:"Inter",system-ui,-apple-system,sans-serif; font-weight:400; font-size:16px;
+    line-height:1.6; letter-spacing:-.006em; -webkit-font-smoothing:antialiased; overflow-x:hidden;
   }
-  /* grain */
+  /* fixed pastel gradient field */
   body::before{
-    content:""; position:fixed; inset:0; z-index:1; pointer-events:none; opacity:.035;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:
+      radial-gradient(at 20% 0%, #ffe0f0 0%, transparent 50%),
+      radial-gradient(at 80% 30%, #d4e4ff 0%, transparent 50%),
+      radial-gradient(at 50% 100%, #e0d4ff 0%, transparent 50%);
   }
   a{color:inherit; text-decoration:none}
-  h1,h2,h3{font-family:"Space Grotesk",sans-serif; margin:0; letter-spacing:-.03em; line-height:1.04; font-weight:600}
-  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 24px; position:relative; z-index:2}
-  .mono{font-family:"JetBrains Mono",monospace}
-  .gt{background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent}
+  h1,h2,h3{margin:0; font-weight:500; letter-spacing:-.02em; line-height:1.08}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 32px}
+
+  /* glass primitive */
+  .glass{background:var(--surface); border:1px solid var(--border); box-shadow:var(--shadow),var(--hi); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur)}
+  @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+    .glass,.nav,.btn-2{background:rgba(255,255,255,.9)}
+  }
 
   /* buttons */
-  .btn{display:inline-flex; align-items:center; gap:8px; font-weight:550; font-size:14px; padding:10px 17px; border-radius:11px; border:1px solid transparent; cursor:pointer; transition:.18s ease}
-  .btn svg{width:16px;height:16px}
-  .btn-primary{background:var(--text); color:#0a0c10; border-color:var(--text)}
-  .btn-primary:hover{background:#fff; transform:translateY(-1px)}
-  .btn-ghost{color:var(--text); border-color:var(--line-2); background:rgba(255,255,255,.02)}
-  .btn-ghost:hover{border-color:rgba(255,255,255,.28); background:rgba(255,255,255,.05)}
+  .btn{display:inline-flex; align-items:center; gap:8px; font-weight:500; font-size:15px; padding:11px 20px; border-radius:12px; border:1px solid transparent; cursor:pointer; transition:.18s ease; white-space:nowrap}
+  .btn svg{width:17px;height:17px}
+  .btn-1{background:var(--accent); color:#fff; box-shadow:0 6px 18px -4px rgba(139,92,246,.5), inset 0 1px 0 rgba(255,255,255,.28)}
+  .btn-1:hover{background:#7c4ef4; transform:translateY(-2px); box-shadow:0 12px 26px -6px rgba(139,92,246,.55), inset 0 1px 0 rgba(255,255,255,.3)}
+  .btn-2{color:var(--text); border-color:var(--border); background:var(--surface); box-shadow:var(--hi); -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px)}
+  .btn-2:hover{transform:translateY(-2px); border-color:rgba(139,92,246,.4)}
 
-  /* nav */
-  header{position:sticky; top:0; z-index:40; transition:.3s}
-  header.on{background:rgba(8,9,12,.72); backdrop-filter:blur(14px); border-bottom:1px solid var(--line)}
-  nav{display:flex; align-items:center; justify-content:space-between; height:64px}
-  .brand{display:flex; align-items:center; gap:9px; font-family:"Space Grotesk"; font-weight:600; font-size:16.5px; letter-spacing:-.02em}
-  .brand img{width:26px; height:26px; border-radius:7px}
-  .nl{display:flex; align-items:center; gap:30px}
-  .nl a.lk{color:var(--muted); font-size:14px; transition:.2s}
-  .nl a.lk:hover{color:var(--text)}
+  /* floating pill nav */
+  .nav{position:fixed; z-index:50; top:18px; left:50%; transform:translateX(-50%); width:calc(100% - 40px); max-width:960px;
+    display:flex; align-items:center; justify-content:space-between; padding:9px 9px 9px 18px; border-radius:999px;
+    background:var(--surface-strong); border:1px solid var(--border); box-shadow:0 4px 16px rgba(15,15,20,.08),var(--hi); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur)}
+  .brand{display:flex; align-items:center; gap:9px; font-weight:600; font-size:16px; letter-spacing:-.02em}
+  .brand img{width:26px;height:26px;border-radius:7px}
+  .nlinks{display:flex; align-items:center; gap:26px}
+  .nlinks a.lk{color:var(--muted); font-size:14.5px; font-weight:450; transition:.2s}
+  .nlinks a.lk:hover{color:var(--text)}
+  .nav .btn{padding:9px 18px; font-size:14px}
 
   /* hero */
-  .hero{position:relative; text-align:center; padding:90px 0 0}
-  .hero-glow{position:absolute; z-index:0; left:50%; top:-40px; transform:translateX(-50%); width:900px; height:520px; pointer-events:none;
-    background:radial-gradient(50% 60% at 50% 40%, rgba(47,208,165,.16), transparent 70%), radial-gradient(46% 55% at 62% 42%, rgba(75,159,249,.14), transparent 70%);
-    filter:blur(10px)}
-  .badge{display:inline-flex; align-items:center; gap:9px; font-size:12.5px; font-weight:500; color:var(--muted); border:1px solid var(--line); background:rgba(255,255,255,.025); padding:6px 13px 6px 8px; border-radius:999px; margin-bottom:26px}
-  .badge b{display:inline-flex; align-items:center; gap:6px; color:var(--teal); font-weight:600}
-  .badge .dot{width:6px;height:6px;border-radius:50%;background:var(--teal); box-shadow:0 0 0 3px rgba(47,208,165,.2)}
-  h1.title{font-size:clamp(42px,6.4vw,76px); font-weight:600}
-  .sub{color:var(--muted); font-size:clamp(16px,2vw,19px); max-width:560px; margin:24px auto 34px; font-weight:450}
-  .hero-cta{display:flex; gap:12px; justify-content:center; flex-wrap:wrap}
-  .trust{margin-top:20px; color:var(--faint); font-size:12.5px; letter-spacing:.02em}
-  .trust b{color:var(--muted); font-weight:500}
+  .hero{text-align:center; padding:150px 0 0}
+  .pill{display:inline-flex; align-items:center; gap:9px; font-size:13px; font-weight:450; color:var(--muted); padding:7px 15px 7px 9px; border-radius:999px; margin-bottom:28px}
+  .pill b{display:inline-flex; align-items:center; gap:6px; color:var(--accent); font-weight:600}
+  .pill .dot{width:6px;height:6px;border-radius:50%;background:var(--accent); box-shadow:0 0 0 4px rgba(139,92,246,.16)}
+  h1.title{font-size:clamp(44px,7vw,72px); font-weight:500; letter-spacing:-.035em}
+  h1.title .g{background:linear-gradient(100deg,var(--accent),var(--accent-2)); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .sub{color:var(--muted); font-size:clamp(17px,2.1vw,20px); max-width:568px; margin:26px auto 36px}
+  .cta{display:flex; gap:13px; justify-content:center; flex-wrap:wrap}
+  .meta{margin-top:22px; color:var(--faint); font-size:13px}
+  .meta b{color:var(--muted); font-weight:500}
 
-  /* product mockup */
-  .shot{position:relative; margin:64px auto 0; max-width:1000px; z-index:2;
-    -webkit-mask-image:linear-gradient(180deg,#000 78%,transparent); mask-image:linear-gradient(180deg,#000 78%,transparent)}
-  .win{border:1px solid var(--line-2); border-radius:14px; overflow:hidden; background:linear-gradient(180deg,#0f1218,#0a0c11);
-    box-shadow:0 60px 120px -40px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.02) inset}
-  .tbar{display:flex; align-items:center; gap:8px; padding:11px 14px; border-bottom:1px solid var(--line); background:rgba(255,255,255,.02)}
-  .tbar i{width:11px;height:11px;border-radius:50%;display:block;background:#2a2f3a}
-  .tbar .tt{margin-left:10px; display:flex; align-items:center; gap:7px; font-size:12px; color:var(--faint)}
-  .tbar .tt img{width:14px;height:14px;border-radius:4px}
-  .tbar .conn{margin-left:auto; display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); font-family:"JetBrains Mono"}
-  .tbar .conn .g{width:6px;height:6px;border-radius:50%;background:var(--teal); box-shadow:0 0 6px var(--teal)}
-  .app{display:grid; grid-template-columns:180px 1fr; min-height:400px}
-  .sb{border-right:1px solid var(--line); padding:14px 12px; background:rgba(0,0,0,.22); display:flex; flex-direction:column; gap:3px}
-  .sb .cap{font-size:9.5px; text-transform:uppercase; letter-spacing:.16em; color:var(--faint); margin:12px 8px 5px; font-weight:600}
-  .sb .cap:first-child{margin-top:2px}
-  .it{display:flex; align-items:center; gap:9px; font-size:12.5px; color:var(--muted); padding:6.5px 9px; border-radius:8px}
-  .it svg{width:14px;height:14px;opacity:.7;stroke:currentColor;fill:none;stroke-width:1.7}
-  .it.on{background:linear-gradient(90deg,rgba(75,159,249,.14),rgba(47,208,165,.06)); color:#dbe6f5}
-  .it.on svg{opacity:1;stroke:var(--teal)}
-  .main{padding:18px 20px}
-  .mhead{display:flex; align-items:center; gap:10px; margin-bottom:16px}
-  .mhead h4{font-family:"Space Grotesk"; font-size:16px; font-weight:600; margin:0}
-  .chips{display:flex; gap:6px; margin-left:auto}
-  .chip{font-size:10.5px; padding:3px 9px; border-radius:7px; border:1px solid var(--line); color:var(--muted)}
-  .chip.a{background:rgba(75,159,249,.12); border-color:transparent; color:#8fc0fb}
-  .panel{border:1px solid var(--line); border-radius:12px; background:var(--card-2); padding:14px 15px; margin-bottom:13px}
-  .prow{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px}
-  .prow small{font-size:10px; text-transform:uppercase; letter-spacing:.12em; color:var(--faint)}
-  .tag{font-size:10px; font-weight:600; padding:2px 8px; border-radius:6px}
-  .tag.live{background:rgba(47,208,165,.14); color:#57dcb6}
-  .tag.json{background:rgba(75,159,249,.14); color:#8fc0fb}
-  .tag.pb{background:rgba(168,130,255,.16); color:#c1a8ff}
-  .spark{height:60px;width:100%;display:block}
-  .msg{display:flex; align-items:center; gap:11px; font-family:"JetBrains Mono"; font-size:11.5px; padding:8px 0; border-top:1px solid rgba(255,255,255,.045); color:var(--muted)}
-  .msg:first-child{border-top:0}
-  .msg .s{color:#a9cdf6}
-  .msg .n{margin-left:auto; color:var(--faint); font-size:10.5px}
-
-  /* tech strip */
-  .strip{border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:var(--bg-2); margin-top:-60px; padding-top:60px}
-  .strip .in{display:flex; flex-wrap:wrap; gap:14px 38px; justify-content:center; padding:20px 24px; color:var(--faint); font-size:13px; font-weight:500}
-  .strip .in span{display:inline-flex; align-items:center; gap:8px}
-  .strip .in svg{width:15px;height:15px;stroke:var(--teal);fill:none;stroke-width:1.8;opacity:.9}
+  /* hero screenshot in glass frame */
+  .shot{position:relative; margin:66px auto 0; max-width:1040px; padding:0 6px}
+  .shot .halo{position:absolute; inset:-6% 8% auto 8%; height:70%; z-index:-1; filter:blur(46px); opacity:.7;
+    background:radial-gradient(60% 100% at 30% 0%, #ffd6ec, transparent 70%), radial-gradient(60% 100% at 75% 20%, #c9dcff, transparent 70%)}
+  .frame{border-radius:20px; overflow:hidden; border:1px solid var(--border); box-shadow:var(--shadow-lg),var(--hi); background:var(--surface-strong); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); padding:8px}
+  .frame img{display:block; width:100%; height:auto; border-radius:13px; border:1px solid var(--border-alt)}
 
   /* sections */
-  section.s{padding:118px 0}
-  .lab{color:var(--teal); font-weight:600; font-size:12.5px; letter-spacing:.15em; text-transform:uppercase}
-  .h2{font-size:clamp(30px,4vw,46px); font-weight:600; margin-top:14px; max-width:640px}
-  .p{color:var(--muted); font-size:17px; max-width:560px; margin-top:16px}
-  .shead{margin-bottom:52px}
+  section.s{padding:130px 0}
+  .lab{color:var(--accent); font-weight:600; font-size:13px; letter-spacing:.14em; text-transform:uppercase}
+  .h2{font-size:clamp(30px,4.4vw,52px); font-weight:500; margin-top:14px; max-width:640px; letter-spacing:-.03em}
+  .p{color:var(--muted); font-size:18px; max-width:560px; margin-top:16px}
+  .shead{margin-bottom:56px}
 
-  /* bento */
-  .bento{display:grid; grid-template-columns:repeat(12,1fr); gap:16px}
-  .tile{position:relative; border:1px solid var(--line); border-radius:var(--r); background:
-      linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,0)) , var(--card);
-    padding:26px; overflow:hidden; transition:border-color .25s, transform .25s}
-  .tile:hover{border-color:var(--line-2); transform:translateY(-3px)}
-  .tile::after{content:""; position:absolute; inset:0 0 auto 0; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent)}
-  .tile h3{font-size:18.5px; font-weight:600; margin-bottom:8px}
-  .tile p{color:var(--muted); font-size:14.5px; margin:0}
-  .ico{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;margin-bottom:16px;background:rgba(47,208,165,.09);border:1px solid rgba(47,208,165,.2)}
-  .ico svg{width:19px;height:19px;stroke:var(--teal);fill:none;stroke-width:1.8}
-  .t7{grid-column:span 7} .t5{grid-column:span 5} .t4{grid-column:span 4} .t6{grid-column:span 6}
+  /* bento features */
+  .bento{display:grid; grid-template-columns:repeat(12,1fr); gap:18px}
+  .tile{border-radius:20px; padding:28px; transition:transform .25s, box-shadow .25s}
+  .tile:hover{transform:translateY(-4px); box-shadow:var(--shadow-lg),var(--hi)}
+  .tile h3{font-size:20px; font-weight:500; margin-bottom:9px; letter-spacing:-.02em}
+  .tile p{color:var(--muted); font-size:15px; margin:0}
+  .ico{width:44px;height:44px;border-radius:13px; display:grid; place-items:center; margin-bottom:18px;
+    background:linear-gradient(150deg, rgba(139,92,246,.16), rgba(109,158,255,.14)); border:1px solid rgba(139,92,246,.2); box-shadow:var(--hi)}
+  .ico svg{width:21px;height:21px;stroke:var(--accent);fill:none;stroke-width:1.8}
+  .t7{grid-column:span 7} .t5{grid-column:span 5} .t4{grid-column:span 4}
 
-  /* mini visuals inside tiles */
-  .stream{margin-top:20px; border-top:1px solid var(--line); padding-top:14px; display:flex; flex-direction:column; gap:9px}
-  .stream .r{display:flex; align-items:center; gap:10px; font-family:"JetBrains Mono"; font-size:11.5px; color:var(--muted)}
-  .stream .r .s{color:#a9cdf6}
-  .stream .r .b{margin-left:auto; font-size:9.5px; padding:2px 7px; border-radius:5px}
-  .fmt{display:flex; flex-wrap:wrap; gap:8px; margin-top:20px}
-  .fmt span{font-size:12px; font-family:"JetBrains Mono"; padding:6px 11px; border-radius:9px; border:1px solid var(--line); color:var(--muted); background:rgba(255,255,255,.02)}
-  .fmt span.hot{border-color:transparent; background:rgba(75,159,249,.14); color:#8fc0fb}
-  .kv{margin-top:18px; display:flex; flex-direction:column; gap:8px}
-  .kv .r{display:flex; justify-content:space-between; font-family:"JetBrains Mono"; font-size:11.5px; padding:7px 11px; border:1px solid var(--line); border-radius:8px; background:rgba(255,255,255,.02)}
-  .kv .r b{color:var(--teal); font-weight:500}
+  .stream{margin-top:20px; padding-top:16px; border-top:1px solid var(--border-alt); display:flex; flex-direction:column; gap:9px}
+  .stream .r{display:flex; align-items:center; gap:10px; font-family:ui-monospace,"SFMono-Regular",Menlo,monospace; font-size:12.5px; color:var(--muted)}
+  .stream .r .s{color:var(--accent)}
+  .stream .r .b{margin-left:auto; font-size:10px; font-weight:600; padding:2px 8px; border-radius:6px}
+  .b-json{background:rgba(109,158,255,.16); color:#3f6fd6}
+  .b-pb{background:rgba(139,92,246,.16); color:#7c4ef4}
+  .b-mp{background:rgba(236,72,153,.14); color:#d1348a}
+  .fmt{display:flex; flex-wrap:wrap; gap:9px; margin-top:20px}
+  .fmt span{font-size:13px; font-family:ui-monospace,Menlo,monospace; padding:7px 12px; border-radius:10px; border:1px solid var(--border-alt); color:var(--muted); background:rgba(255,255,255,.4)}
+  .fmt span.hot{border-color:transparent; background:rgba(139,92,246,.14); color:#6d3fd4}
+  .kv{margin-top:18px; display:flex; flex-direction:column; gap:9px}
+  .kv .r{display:flex; justify-content:space-between; font-family:ui-monospace,Menlo,monospace; font-size:12.5px; padding:8px 12px; border-radius:10px; border:1px solid var(--border-alt); background:rgba(255,255,255,.4)}
+  .kv .r b{color:var(--accent); font-weight:500}
 
   /* download */
-  .dl{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:8px}
-  .os{border:1px solid var(--line); border-radius:var(--r); background:var(--card); padding:28px 24px; transition:.25s; display:block}
-  .os:hover{border-color:var(--line-2); transform:translateY(-3px)}
-  .os svg{width:34px;height:34px;stroke:var(--text);fill:none;stroke-width:1.4;opacity:.92}
-  .os h3{font-size:17px; margin:16px 0 4px}
-  .os .sm{color:var(--muted); font-size:13px}
-  .os .fl{margin-top:16px; padding-top:14px; border-top:1px solid var(--line); font-family:"JetBrains Mono"; font-size:11px; color:var(--faint)}
-  .os .go{margin-top:12px; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:550; color:var(--teal)}
-  .fine{color:var(--faint); font-size:13px; margin-top:26px; text-align:center; max-width:640px; margin-left:auto; margin-right:auto}
+  .dl{display:grid; grid-template-columns:repeat(3,1fr); gap:18px}
+  .os{border-radius:20px; padding:30px 26px; transition:transform .25s, box-shadow .25s; display:block}
+  .os:hover{transform:translateY(-4px); box-shadow:var(--shadow-lg),var(--hi)}
+  .os .osi{width:40px;height:40px;stroke:var(--text);fill:none;stroke-width:1.4;opacity:.85}
+  .os h3{font-size:19px; margin:16px 0 4px; font-weight:500}
+  .os .sm{color:var(--muted); font-size:14px}
+  .os .fl{margin-top:16px; padding-top:15px; border-top:1px solid var(--border-alt); font-family:ui-monospace,Menlo,monospace; font-size:12px; color:var(--faint)}
+  .os .go{margin-top:14px; display:inline-flex; align-items:center; gap:6px; font-size:14px; font-weight:500; color:var(--accent)}
+  .fine{color:var(--faint); font-size:13.5px; margin-top:28px; text-align:center; max-width:660px; margin-left:auto; margin-right:auto}
+  .fine code{background:rgba(15,15,20,.06); padding:2px 6px; border-radius:6px; font-size:12.5px}
 
   /* cta */
-  .band{position:relative; overflow:hidden; border:1px solid var(--line-2); border-radius:24px; text-align:center; padding:66px 32px;
-    background:radial-gradient(120% 120% at 50% 0%, rgba(47,208,165,.1), transparent 55%), var(--card)}
-  .band h2{font-size:clamp(28px,3.6vw,42px); margin:0 auto; max-width:560px}
-  .band p{color:var(--muted); margin:16px auto 28px; max-width:460px; font-size:16px}
-  .band .hero-cta{justify-content:center}
+  .band{border-radius:26px; text-align:center; padding:72px 32px; position:relative; overflow:hidden}
+  .band::before{content:""; position:absolute; inset:0; z-index:0; background:radial-gradient(80% 120% at 50% -10%, rgba(139,92,246,.18), transparent 60%)}
+  .band>*{position:relative; z-index:1}
+  .band h2{font-size:clamp(28px,3.8vw,44px); margin:0 auto; max-width:560px; font-weight:500; letter-spacing:-.03em}
+  .band p{color:var(--muted); margin:16px auto 30px; max-width:460px; font-size:17px}
+  .band .cta{justify-content:center}
 
   /* footer */
-  footer{border-top:1px solid var(--line); background:var(--bg-2); margin-top:40px}
-  .foot{display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:28px; padding:56px 0 30px}
+  footer{margin-top:40px; border-top:1px solid var(--border-alt)}
+  .foot{display:grid; grid-template-columns:1.5fr 1fr 1fr 1fr; gap:30px; padding:60px 0 30px}
   .foot .brand{margin-bottom:14px}
-  .foot .desc{color:var(--muted); font-size:14px; max-width:300px}
-  .fc{display:flex; flex-direction:column; gap:11px}
-  .fc strong{font-size:11.5px; text-transform:uppercase; letter-spacing:.13em; color:var(--faint); font-weight:600; margin-bottom:2px}
-  .fc a{color:var(--muted); font-size:14px; width:fit-content; transition:.2s}
-  .fc a:hover{color:var(--teal)}
-  .legal{border-top:1px solid var(--line); padding:20px 0; text-align:center; color:var(--faint); font-size:12px}
+  .foot .desc{color:var(--muted); font-size:14.5px; max-width:300px}
+  .fc{display:flex; flex-direction:column; gap:12px}
+  .fc strong{font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:var(--faint); font-weight:600; margin-bottom:2px}
+  .fc a{color:var(--muted); font-size:14.5px; width:fit-content; transition:.2s}
+  .fc a:hover{color:var(--accent)}
+  .legal{border-top:1px solid var(--border-alt); padding:22px 0; text-align:center; color:var(--faint); font-size:12.5px}
 
-  .reveal{opacity:0; transform:translateY(16px); transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1)}
+  .reveal{opacity:0; transform:translateY(18px); transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1)}
   .reveal.in{opacity:1; transform:none}
 
-  @media (max-width:920px){
-    .app{grid-template-columns:1fr} .sb{display:none}
-    .t7,.t5,.t4,.t6{grid-column:span 12}
+  @media (max-width:768px){
+    body::before{background:radial-gradient(at 15% 0%, #ffe0f0 0%, transparent 55%), radial-gradient(at 85% 60%, #e0d4ff 0%, transparent 55%)}
+    :root{--blur:blur(8px) saturate(150%)}
+    .hero{padding:120px 0 0}
+    .t7,.t5,.t4{grid-column:span 12}
     .dl{grid-template-columns:1fr}
-    .foot{grid-template-columns:1fr 1fr; gap:32px}
-    .nl a.lk{display:none}
+    .foot{grid-template-columns:1fr 1fr}
+    /* nav collapses to a bottom bar */
+    .nav{top:auto; bottom:16px; max-width:calc(100% - 24px)}
+    .nlinks a.lk{display:none}
   }
 </style>
 </head>
 <body>
 
-<header id="hdr">
-  <div class="wrap">
-    <nav>
-      <a class="brand" href="#top"><img src="logo.png" alt="" /> NATS&nbsp;Studio</a>
-      <div class="nl">
-        <a class="lk" href="#features">Features</a>
-        <a class="lk" href="#download">Download</a>
-        <a class="lk" href="https://github.com/himanshu-systems/nats-studio">GitHub</a>
-        <a class="btn btn-ghost" href="https://github.com/himanshu-systems/nats-studio/releases/latest">Download</a>
-      </div>
-    </nav>
+<nav class="nav">
+  <a class="brand" href="#top"><img src="logo.png" alt="" /> NATS&nbsp;Studio</a>
+  <div class="nlinks">
+    <a class="lk" href="#features">Features</a>
+    <a class="lk" href="#download">Download</a>
+    <a class="lk" href="https://github.com/himanshu-systems/nats-studio">GitHub</a>
+    <a class="btn btn-1" href="https://github.com/himanshu-systems/nats-studio/releases/latest">Download</a>
   </div>
-</header>
+</nav>
 
 <a id="top"></a>
 <section class="hero">
-  <div class="hero-glow"></div>
   <div class="wrap">
-    <div class="badge reveal in"><b><span class="dot"></span>v0.1</b> Open source &amp; free forever</div>
-    <h1 class="title reveal in">The desktop client<br/><span class="gt">NATS deserves.</span></h1>
-    <p class="sub reveal in">Connect, publish, subscribe, and manage JetStream, Key-Value &amp; Object Store — in one fast, native app. No CLI juggling, no browser tab.</p>
-    <div class="hero-cta reveal in">
-      <a class="btn btn-primary" href="https://github.com/himanshu-systems/nats-studio/releases/latest">
+    <div class="pill glass"><b><span class="dot"></span>v0.1</b> Open source &amp; free forever</div>
+    <h1 class="title">The desktop client<br/><span class="g">NATS deserves.</span></h1>
+    <p class="sub">Connect, publish, subscribe, and manage JetStream, Key-Value &amp; Object Store — in one fast, native app. No CLI juggling, no browser tab.</p>
+    <div class="cta">
+      <a class="btn btn-1" href="https://github.com/himanshu-systems/nats-studio/releases/latest">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/></svg> Download free
       </a>
-      <a class="btn btn-ghost" href="https://github.com/himanshu-systems/nats-studio">
+      <a class="btn btn-2" href="https://github.com/himanshu-systems/nats-studio">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.09.68-.22.68-.49v-1.7c-2.78.62-3.37-1.22-3.37-1.22-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.62.07-.62 1 .07 1.53 1.05 1.53 1.05.9 1.57 2.36 1.12 2.94.85.09-.66.35-1.12.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.3 9.3 0 015 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9v2.82c0 .27.18.59.69.49A10.27 10.27 0 0022 12.25C22 6.58 17.52 2 12 2z"/></svg> Star on GitHub
       </a>
     </div>
-    <p class="trust reveal in"><b>Windows · macOS · Linux</b> &nbsp;·&nbsp; Rust + Tauri &nbsp;·&nbsp; Zero telemetry</p>
+    <p class="meta"><b>Windows · macOS · Linux</b> &nbsp;·&nbsp; Rust + Tauri &nbsp;·&nbsp; Zero telemetry</p>
   </div>
 
-  <div class="shot reveal">
-    <div class="win">
-      <div class="tbar">
-        <i></i><i></i><i></i>
-        <span class="tt"><img src="logo.png" alt=""/> NATS Studio</span>
-        <span class="conn"><span class="g"></span> Connected · localhost:4222</span>
-      </div>
-      <div class="app">
-        <div class="sb">
-          <div class="cap">Workspace</div>
-          <div class="it"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg> Overview</div>
-          <div class="it on"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h12M4 17h8"/></svg> Live Tail</div>
-          <div class="it"><svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg> Publisher</div>
-          <div class="cap">JetStream</div>
-          <div class="it"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="12" width="18" height="8" rx="1.5"/></svg> Streams</div>
-          <div class="it"><svg viewBox="0 0 24 24"><path d="M4 7l8-4 8 4-8 4-8-4zM4 12l8 4 8-4"/></svg> Object Store</div>
-          <div class="cap">Monitor</div>
-          <div class="it"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M7 14l3-3 3 3 5-6"/></svg> Metrics</div>
-        </div>
-        <div class="main">
-          <div class="mhead">
-            <h4>Live Tail</h4>
-            <div class="chips"><span class="chip a">orders.&gt;</span><span class="chip">events.&gt;</span></div>
-          </div>
-          <div class="panel">
-            <div class="prow"><small>Throughput · msgs/sec</small><span class="tag live">● live</span></div>
-            <svg class="spark" viewBox="0 0 340 60" preserveAspectRatio="none">
-              <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2fd0a5" stop-opacity=".4"/><stop offset="1" stop-color="#2fd0a5" stop-opacity="0"/></linearGradient></defs>
-              <path d="M0 44 L34 40 L68 43 L102 28 L136 33 L170 18 L204 24 L238 12 L272 20 L306 8 L340 15 L340 60 L0 60Z" fill="url(#g)"/>
-              <path d="M0 44 L34 40 L68 43 L102 28 L136 33 L170 18 L204 24 L238 12 L272 20 L306 8 L340 15" fill="none" stroke="#2fd0a5" stroke-width="2"/>
-            </svg>
-          </div>
-          <div class="panel">
-            <div class="prow"><small>Stream · incoming</small><span class="tag json">JSON</span></div>
-            <div class="msg"><span class="s">orders.created</span> {"id":"a91f",…} <span class="n">2.1 KB · now</span></div>
-            <div class="msg"><span class="s">orders.paid</span> {"id":"a91f",…} <span class="n">1.8 KB · 0s</span></div>
-            <div class="msg"><span class="s">payments.settled</span> {"amt":48.0,…} <span class="n">0.9 KB · 1s</span></div>
-            <div class="msg"><span class="s">orders.shipped</span> {"id":"a91f",…} <span class="n">1.2 KB · 2s</span></div>
-          </div>
-        </div>
-      </div>
-    </div>
+  <div class="shot reveal in">
+    <div class="halo"></div>
+    <div class="frame"><img src="app-overview.png" alt="NATS Studio — Overview dashboard with server health, live throughput and round-trip charts" /></div>
   </div>
 </section>
-
-<div class="strip">
-  <div class="wrap in">
-    <div class="in" style="display:flex">
-      <span><svg viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4L18 20l-6-4-6 4 1.5-7L2 9h7z"/></svg> Rust + Tauri</span>
-      <span><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg> Native desktop</span>
-      <span><svg viewBox="0 0 24 24"><path d="M4 7l8-4 8 4-8 4-8-4zM4 12l8 4 8-4"/></svg> JetStream · KV · Object</span>
-      <span><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg> Keychain + TLS</span>
-      <span><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-6.2-8.5M21 4v5h-5"/></svg> Auto-update</span>
-    </div>
-  </div>
-</div>
 
 <section class="s" id="features">
   <div class="wrap">
@@ -294,34 +222,34 @@
       <h2 class="h2 reveal">Built for how you actually work with NATS.</h2>
     </div>
     <div class="bento">
-      <div class="tile t7 reveal">
+      <div class="tile glass t7 reveal">
         <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h12M4 17h8"/></svg></div>
         <h3>Live Tail, with real filtering</h3>
-        <p>Subscribe to any subject and watch messages stream in — each subscription filtered on its own tab, with instant search.</p>
+        <p>Subscribe to any subject and watch messages stream in — each subscription filtered on its own tab, with instant search and a multi-format payload viewer.</p>
         <div class="stream">
-          <div class="r"><span class="s">orders.created</span> {"id":"a91f"…} <span class="b tag json">JSON</span></div>
-          <div class="r"><span class="s">metrics.cpu</span> \x9f\x01… <span class="b tag pb">Protobuf</span></div>
-          <div class="r"><span class="s">cache.set</span> \x82\xa3id… <span class="b" style="background:rgba(47,208,165,.14);color:#57dcb6">MsgPack</span></div>
+          <div class="r"><span class="s">orders.created</span> {"id":"a91f"…} <span class="b b-json">JSON</span></div>
+          <div class="r"><span class="s">metrics.cpu</span> \x9f\x01… <span class="b b-pb">Protobuf</span></div>
+          <div class="r"><span class="s">cache.set</span> \x82\xa3id… <span class="b b-mp">MsgPack</span></div>
         </div>
       </div>
-      <div class="tile t5 reveal">
+      <div class="tile glass t5 reveal">
         <div class="ico"><svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg></div>
         <h3>Publish any format</h3>
         <p>Compose and send in the format your services speak — with templates, variables, and burst mode.</p>
         <div class="fmt"><span class="hot">JSON</span><span class="hot">Protobuf</span><span class="hot">MessagePack</span><span>Text</span><span>Hex</span><span>Base64</span></div>
       </div>
-      <div class="tile t4 reveal">
+      <div class="tile glass t4 reveal">
         <div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="12" width="18" height="8" rx="1.5"/></svg></div>
         <h3>JetStream, visually</h3>
         <p>Create streams &amp; consumers, browse stored messages, purge and redeliver — no CLI.</p>
       </div>
-      <div class="tile t4 reveal">
+      <div class="tile glass t4 reveal">
         <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 7l8-4 8 4-8 4-8-4zM4 12l8 4 8-4M4 17l8 4 8-4"/></svg></div>
         <h3>KV &amp; Object Store</h3>
         <p>Read and write buckets; stream large objects to and from disk with live progress.</p>
         <div class="kv"><div class="r"><span>config.region</span><b>eu-west-1</b></div><div class="r"><span>flags.beta</span><b>true</b></div></div>
       </div>
-      <div class="tile t4 reveal">
+      <div class="tile glass t4 reveal">
         <div class="ico"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg></div>
         <h3>Secure by default</h3>
         <p>TLS &amp; mTLS profiles, credentials in the OS keychain, and zero telemetry. Your data stays yours.</p>
@@ -338,37 +266,34 @@
       <p class="p reveal">Free, open source, and one native binary per OS.</p>
     </div>
     <div class="dl">
-      <a class="os reveal" href="https://github.com/himanshu-systems/nats-studio/releases/latest">
-        <svg viewBox="0 0 24 24"><path d="M3 5.5l8-1.2v7.2H3zM11 4.1l10-1.5v9.1H11zM3 12.5h8v7.2l-8-1.2zM11 12.5h10v9.1l-10-1.5z"/></svg>
+      <a class="os glass reveal" href="https://github.com/himanshu-systems/nats-studio/releases/latest">
+        <svg class="osi" viewBox="0 0 24 24"><path d="M3 5.5l8-1.2v7.2H3zM11 4.1l10-1.5v9.1H11zM3 12.5h8v7.2l-8-1.2zM11 12.5h10v9.1l-10-1.5z"/></svg>
         <h3>Windows</h3><div class="sm">Windows 10 / 11</div>
-        <div class="fl">.msi · .exe setup</div>
-        <span class="go">Download →</span>
+        <div class="fl">.msi · .exe setup</div><span class="go">Download →</span>
       </a>
-      <a class="os reveal" href="https://github.com/himanshu-systems/nats-studio/releases/latest">
-        <svg viewBox="0 0 24 24"><path d="M16 3c-.5 1.6-1.8 2.9-3.3 3 .2-1.6 1.6-3 3.3-3z"/><path d="M19 16c-.6 1.9-2 4-3.6 4-1 0-1.5-.6-2.7-.6s-1.8.6-2.7.6C7.8 20.1 5 15.9 5 12.3 5 9 7.2 7.3 9.2 7.3c1.1 0 2 .7 2.8.7.7 0 1.9-.8 3.1-.7 1.4.1 2.5.7 3.2 1.8-2.8 1.7-2.3 5.6.7 6.6z"/></svg>
+      <a class="os glass reveal" href="https://github.com/himanshu-systems/nats-studio/releases/latest">
+        <svg class="osi" viewBox="0 0 24 24"><path d="M16 3c-.5 1.6-1.8 2.9-3.3 3 .2-1.6 1.6-3 3.3-3z"/><path d="M19 16c-.6 1.9-2 4-3.6 4-1 0-1.5-.6-2.7-.6s-1.8.6-2.7.6C7.8 20.1 5 15.9 5 12.3 5 9 7.2 7.3 9.2 7.3c1.1 0 2 .7 2.8.7.7 0 1.9-.8 3.1-.7 1.4.1 2.5.7 3.2 1.8-2.8 1.7-2.3 5.6.7 6.6z"/></svg>
         <h3>macOS</h3><div class="sm">Apple Silicon &amp; Intel</div>
-        <div class="fl">.dmg (arm64 · x64)</div>
-        <span class="go">Download →</span>
+        <div class="fl">.dmg (arm64 · x64)</div><span class="go">Download →</span>
       </a>
-      <a class="os reveal" href="https://github.com/himanshu-systems/nats-studio/releases/latest">
-        <svg viewBox="0 0 24 24"><path d="M9 4c-1 1-1 3-1 4 0 2-2 4-2 7 0 3 2 4 6 4s6-1 6-4c0-3-2-5-2-7 0-1 0-3-1-4-1.2-1.3-4.8-1.3-6 0z"/><path d="M10 9h.01M14 9h.01"/></svg>
+      <a class="os glass reveal" href="https://github.com/himanshu-systems/nats-studio/releases/latest">
+        <svg class="osi" viewBox="0 0 24 24"><path d="M9 4c-1 1-1 3-1 4 0 2-2 4-2 7 0 3 2 4 6 4s6-1 6-4c0-3-2-5-2-7 0-1 0-3-1-4-1.2-1.3-4.8-1.3-6 0z"/><path d="M10 9h.01M14 9h.01"/></svg>
         <h3>Linux</h3><div class="sm">Most distributions</div>
-        <div class="fl">.AppImage · .deb · .rpm</div>
-        <span class="go">Download →</span>
+        <div class="fl">.AppImage · .deb · .rpm</div><span class="go">Download →</span>
       </a>
     </div>
-    <p class="fine">Builds aren't code-signed yet — Windows SmartScreen / macOS Gatekeeper may warn on first launch (one-time). You'll need a NATS server to connect to; <span class="mono">nats-server -js</span> runs one locally.</p>
+    <p class="fine">Builds aren't code-signed yet — Windows SmartScreen / macOS Gatekeeper may warn on first launch (one-time). You'll need a NATS server to connect to; <code>nats-server -js</code> runs one locally.</p>
   </div>
 </section>
 
 <section class="s" style="padding-top:0">
   <div class="wrap">
-    <div class="band reveal">
+    <div class="band glass reveal">
       <h2>Give NATS the client it deserves.</h2>
       <p>Open source, MIT licensed, shaped by the people who use it. Try it, star it, tell us what to build next.</p>
-      <div class="hero-cta">
-        <a class="btn btn-primary" href="https://github.com/himanshu-systems/nats-studio/releases/latest">Download free</a>
-        <a class="btn btn-ghost" href="https://github.com/himanshu-systems/nats-studio">View source</a>
+      <div class="cta">
+        <a class="btn btn-1" href="https://github.com/himanshu-systems/nats-studio/releases/latest">Download free</a>
+        <a class="btn btn-2" href="https://github.com/himanshu-systems/nats-studio">View source</a>
       </div>
     </div>
   </div>
@@ -390,8 +315,6 @@
 </footer>
 
 <script>
-  const h = document.getElementById('hdr');
-  addEventListener('scroll', () => h.classList.toggle('on', scrollY > 6), {passive:true});
   const io = new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.14});
   document.querySelectorAll('.reveal:not(.in)').forEach(el=>io.observe(el));
   document.getElementById('yr').textContent=new Date().getFullYear();
