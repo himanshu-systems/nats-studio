@@ -25,6 +25,9 @@ tauri-build = { version = "2", features = [] }
 tauri = { workspace = true }
 # generate_context!() expands to serde_json refs once plugin config is present.
 serde_json = { workspace = true }
+# reqwest 0.13 + rustls 0.23 need a process-wide crypto provider installed at
+# startup (ADR-0004: ring). Without it the HTTP monitor client panics on boot.
+rustls = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }

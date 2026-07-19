@@ -2462,6 +2462,7 @@ dependencies = [
  "ns-storage",
  "ns-telemetry",
  "ns-types",
+ "rustls",
  "serde_json",
  "tauri",
  "tauri-build",

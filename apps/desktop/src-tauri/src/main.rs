@@ -15,6 +15,11 @@ mod state;
 use tauri::Manager;
 
 fn main() {
+    // reqwest 0.13 / rustls 0.23 require a process-wide crypto provider to be
+    // installed before any TLS client is built (ADR-0004 mandates ring). Do this
+    // first — the HTTP monitor client (ns-monitor) otherwise panics on startup.
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
