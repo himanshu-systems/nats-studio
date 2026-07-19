@@ -94,15 +94,30 @@ This is a layered Rust workspace that inverts dependencies (18 crates): typed wi
 
 ## Roadmap
 
-- Code-signed installers and auto-update
-- Object Store streaming upload and download for large objects
-- Dead Letters: redeliver and purge actions
-- Services: per-endpoint stats and schema
-- TLS and mTLS connection profiles in the UI
+Recently shipped:
+
+- ✅ Auto-update with a signed update manifest
+- ✅ Object Store streaming upload/download for large objects
+- ✅ Dead Letters: redeliver and purge actions
+- ✅ Services: per-endpoint stats and schema
+- ✅ TLS and mTLS connection profiles in the UI
+
+Planned:
+
+- Code-signed installers (Apple Developer ID + Windows Authenticode)
+
+Have an idea? Open an issue with what you'd like to see next.
 
 ## Contributing
 
 Issues and pull requests are welcome. If you use NATS and discover something that's missing or doesn't work well, let me know. Your feedback will help shape future developments.
+
+## Connect
+
+Built by **Himanshu Chavda**.
+
+- LinkedIn — [himanshuchavda](https://www.linkedin.com/in/himanshuchavda/)
+- Email — himanshu.tech.profile@gmail.com
 
 ## License
 
