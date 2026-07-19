@@ -114,8 +114,6 @@ Issues and pull requests are welcome. If you use NATS and discover something tha
 
 ## Connect
 
-Built by **Himanshu Chavda**.
-
 - LinkedIn — [himanshuchavda](https://www.linkedin.com/in/himanshuchavda/)
 - Email — himanshu.tech.profile@gmail.com
 
