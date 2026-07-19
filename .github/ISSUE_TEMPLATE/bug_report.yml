@@ -1,0 +1,48 @@
+name: Bug report
+description: Something isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to file a bug! Please fill out the details below.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to '...'
+        2. Click '...'
+        3. See error
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: "e.g. Windows 11 / macOS 14 (Apple Silicon) / Ubuntu 24.04"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: NATS Studio version
+      placeholder: "e.g. v0.1.0 (see the app header)"
+    validations:
+      required: true
+  - type: input
+    id: server
+    attributes:
+      label: NATS server version
+      placeholder: "e.g. nats-server 2.10.29 (JetStream enabled)"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Any error text or a screenshot/GIF. (Never paste real credentials.)

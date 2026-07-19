@@ -1,0 +1,20 @@
+name: Feature request
+description: Suggest an idea or improvement
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What are you trying to do with NATS that's hard or missing today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you like it to work? Screenshots/sketches welcome.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered

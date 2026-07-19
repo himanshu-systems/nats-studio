@@ -1,0 +1,89 @@
+name: Release
+
+# Builds installers for every platform and attaches them to a GitHub Release.
+# Trigger by pushing a version tag, e.g.:  git tag v0.1.0 && git push origin v0.1.0
+# (or run manually from the Actions tab). A DRAFT release is created for you to
+# review and publish.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest # Apple Silicon (.dmg / .app)
+            args: --target aarch64-apple-darwin
+          - platform: macos-latest # Intel (.dmg / .app)
+            args: --target x86_64-apple-darwin
+          - platform: ubuntu-22.04 # .AppImage + .deb (22.04 for broad glibc compat)
+            args: ""
+          - platform: windows-latest # .msi + NSIS .exe setup
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.platform }}-${{ matrix.args }}
+
+      - name: Install Linux system deps
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev patchelf libayatana-appindicator3-dev
+
+      - name: Install frontend deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Build + bundle + attach to release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # --- Optional code signing (leave unset to ship unsigned) ---
+          # macOS notarization:
+          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: apps/desktop
+          tagName: v__VERSION__ # __VERSION__ is read from tauri.conf.json
+          releaseName: "NATS Studio v__VERSION__"
+          releaseDraft: true
+          prerelease: false
+          releaseBody: |
+            Cross-platform desktop GUI for NATS + JetStream.
+
+            **Downloads below** — pick your OS:
+            - Windows: `.msi` or the NSIS `.exe` setup
+            - macOS: `.dmg` (Apple Silicon and Intel builds)
+            - Linux: `.AppImage` (portable) or `.deb`
+
+            > Builds are not code-signed yet, so Windows SmartScreen / macOS Gatekeeper
+            > may warn on first launch. See the README for the one-time workaround.
+          args: ${{ matrix.args }}
