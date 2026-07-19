@@ -6,13 +6,12 @@
 //! auto-reconnect is disabled (`max_reconnects(0)`): a dropped connection surfaces
 //! as an event and our state machine decides whether/when to redial.
 //!
-//! TLS uses async-nats's native options (CA file + client cert/key file). The
-//! `ring` crypto provider is selected via async-nats's default features (aws-lc-rs
-//! is not pulled in). `insecure_skip_verify` is a dev-only escape hatch not yet
-//! wired here (it needs a custom rustls config); it returns a clear error rather
-//! than silently verifying.
+//! TLS is applied via a `rustls::ClientConfig` produced by a builder INJECTED at
+//! the composition root (`tls_client_config`). Keeping the builder out of this
+//! crate preserves the layering rule — `ns-nats` must not depend on `ns-security`,
+//! which owns the `ring`-based rustls config (CA roots, mTLS client cert/key, and
+//! the `insecure_skip_verify` opt-in). All three modes flow through the one seam.
 
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -206,14 +205,30 @@ fn map_request_error(err: async_nats::client::RequestError) -> CoreError {
     }
 }
 
+/// Builds a [`rustls::ClientConfig`] from resolved TLS material. Injected from the
+/// composition root so `ns-nats` needn't depend on `ns-security` (the layering
+/// rule) — the concrete builder is `ns_security::client_config`.
+pub type TlsConfigBuilder =
+    Arc<dyn Fn(&ResolvedTls) -> Result<rustls::ClientConfig, CoreError> + Send + Sync>;
+
 /// Establishes `async-nats` connections from a [`ConnectSpec`].
-#[derive(Debug, Default, Clone, Copy)]
-pub struct AsyncNatsFactory;
+#[derive(Clone)]
+pub struct AsyncNatsFactory {
+    tls_config_builder: TlsConfigBuilder,
+}
+
+impl AsyncNatsFactory {
+    /// Create a factory with the injected TLS `ClientConfig` builder.
+    #[must_use]
+    pub fn new(tls_config_builder: TlsConfigBuilder) -> Self {
+        Self { tls_config_builder }
+    }
+}
 
 #[async_trait]
 impl NatsClientFactory for AsyncNatsFactory {
     async fn connect(&self, spec: &ConnectSpec) -> Result<Arc<dyn NatsClient>, CoreError> {
-        let options = build_options(spec)?;
+        let options = build_options(spec, &self.tls_config_builder)?;
         let addrs = parse_servers(&spec.servers)?;
         let client = options
             .connect(addrs)
@@ -241,7 +256,10 @@ fn parse_servers(servers: &[String]) -> Result<Vec<ServerAddr>, NatsError> {
 
 /// Map a [`ConnectSpec`] onto `async-nats` [`ConnectOptions`]. Pure (no IO except
 /// reading a `.creds` file), so the auth/TLS wiring is unit-testable.
-fn build_options(spec: &ConnectSpec) -> Result<ConnectOptions, CoreError> {
+fn build_options(
+    spec: &ConnectSpec,
+    tls_builder: &TlsConfigBuilder,
+) -> Result<ConnectOptions, CoreError> {
     let mut opts = ConnectOptions::new()
         // Our supervisor owns reconnection.
         .max_reconnects(0)
@@ -258,7 +276,7 @@ fn build_options(spec: &ConnectSpec) -> Result<ConnectOptions, CoreError> {
     opts = apply_auth(opts, &spec.auth)?;
 
     if let Some(tls) = &spec.tls {
-        opts = apply_tls(opts, tls)?;
+        opts = apply_tls(opts, tls, tls_builder)?;
     }
 
     Ok(opts)
@@ -292,20 +310,16 @@ fn apply_auth(opts: ConnectOptions, auth: &ResolvedAuth) -> Result<ConnectOption
     Ok(opts)
 }
 
-fn apply_tls(opts: ConnectOptions, tls: &ResolvedTls) -> Result<ConnectOptions, NatsError> {
-    if tls.insecure_skip_verify {
-        return Err(NatsError::Unsupported(
-            "insecure_skip_verify is not yet wired in ns-nats; use a CA certificate".to_owned(),
-        ));
-    }
-    let mut opts = opts.require_tls(true);
-    if let Some(ca) = &tls.ca_cert_path {
-        opts = opts.add_root_certificates(PathBuf::from(ca));
-    }
-    if let (Some(cert), Some(key)) = (&tls.client_cert_path, &tls.client_key_path) {
-        opts = opts.add_client_certificate(PathBuf::from(cert), PathBuf::from(key));
-    }
-    Ok(opts)
+/// Apply TLS via the injected builder. The builder's `rustls::ClientConfig` is the
+/// single path that covers CA roots, mTLS client cert/key, AND `insecure_skip_verify`
+/// (a per-connection dev opt-in resolved inside the builder, not rejected here).
+fn apply_tls(
+    opts: ConnectOptions,
+    tls: &ResolvedTls,
+    tls_builder: &TlsConfigBuilder,
+) -> Result<ConnectOptions, CoreError> {
+    let config = tls_builder(tls)?;
+    Ok(opts.require_tls(true).tls_client_config(config))
 }
 
 /// Map an `async-nats` `ServerInfo` into the wire DTO.
@@ -328,9 +342,16 @@ fn map_server_info(info: &async_nats::ServerInfo) -> ServerInfoDto {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
     use ns_core::{DomainError, SecretString};
 
     use super::*;
+
+    /// A builder that must never be invoked (used when a spec carries no TLS).
+    fn unused_tls_builder() -> TlsConfigBuilder {
+        Arc::new(|_| unreachable!("TLS builder must not be called when tls is None"))
+    }
 
     fn spec_with(auth: ResolvedAuth, tls: Option<ResolvedTls>) -> ConnectSpec {
         ConnectSpec {
@@ -362,37 +383,53 @@ mod tests {
     #[test]
     fn build_options_ok_for_each_auth_kind() {
         // None / user-pass / token / nkey all build without error.
-        build_options(&spec_with(ResolvedAuth::None, None)).expect("none");
-        build_options(&spec_with(
-            ResolvedAuth::UserPassword {
-                username: "u".into(),
-                password: SecretString::new("p"),
-            },
-            None,
-        ))
+        let b = unused_tls_builder();
+        build_options(&spec_with(ResolvedAuth::None, None), &b).expect("none");
+        build_options(
+            &spec_with(
+                ResolvedAuth::UserPassword {
+                    username: "u".into(),
+                    password: SecretString::new("p"),
+                },
+                None,
+            ),
+            &b,
+        )
         .expect("userpass");
-        build_options(&spec_with(
-            ResolvedAuth::Token(SecretString::new("tok")),
-            None,
-        ))
+        build_options(
+            &spec_with(ResolvedAuth::Token(SecretString::new("tok")), None),
+            &b,
+        )
         .expect("token");
     }
 
     #[test]
     fn jwt_with_bad_seed_errors() {
-        let err = build_options(&spec_with(
-            ResolvedAuth::Jwt {
-                jwt: "ey.fake.jwt".into(),
-                seed: SecretString::new("not-a-valid-seed"),
-            },
-            None,
-        ))
+        let err = build_options(
+            &spec_with(
+                ResolvedAuth::Jwt {
+                    jwt: "ey.fake.jwt".into(),
+                    seed: SecretString::new("not-a-valid-seed"),
+                },
+                None,
+            ),
+            &unused_tls_builder(),
+        )
         .expect_err("bad seed must error");
         assert_eq!(err.code(), ns_types::ErrorCode::AuthFailed);
     }
 
+    /// insecure_skip_verify is no longer rejected here: a present `ResolvedTls`
+    /// (even the insecure one) is routed to the injected builder, which owns the
+    /// verification decision. Proven by observing the builder gets called.
     #[test]
-    fn insecure_tls_is_rejected_for_now() {
+    fn tls_present_invokes_injected_builder() {
+        let called = Arc::new(AtomicBool::new(false));
+        let flag = Arc::clone(&called);
+        let builder: TlsConfigBuilder = Arc::new(move |_tls| {
+            flag.store(true, Ordering::SeqCst);
+            Err(NatsError::Unsupported("stub builder".to_owned()).into())
+        });
         let tls = ResolvedTls {
             ca_cert_path: None,
             client_cert_path: None,
@@ -400,9 +437,12 @@ mod tests {
             insecure_skip_verify: true,
             sni: None,
         };
-        let err = build_options(&spec_with(ResolvedAuth::None, Some(tls)))
-            .expect_err("insecure not yet supported");
-        assert_eq!(err.code(), ns_types::ErrorCode::InvalidArgument);
+        build_options(&spec_with(ResolvedAuth::None, Some(tls)), &builder)
+            .expect_err("stub builder returns an error");
+        assert!(
+            called.load(Ordering::SeqCst),
+            "the injected TLS builder must be invoked (insecure is not short-circuited)"
+        );
     }
 
     #[test]
@@ -427,7 +467,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     #[ignore = "requires a local nats-server on 127.0.0.1:4222"]
     async fn live_connect_to_local_server() {
-        let client = AsyncNatsFactory
+        let client = AsyncNatsFactory::new(unused_tls_builder())
             .connect(&spec_with(ResolvedAuth::None, None))
             .await
             .expect("connect to local nats-server");
@@ -452,7 +492,10 @@ mod tests {
             ping_interval: Duration::from_secs(30),
             no_echo: false,
         };
-        let client = AsyncNatsFactory.connect(&spec).await.expect("connect");
+        let client = AsyncNatsFactory::new(unused_tls_builder())
+            .connect(&spec)
+            .await
+            .expect("connect");
         let mut sub = client
             .subscribe("ns.studio.test", None)
             .await

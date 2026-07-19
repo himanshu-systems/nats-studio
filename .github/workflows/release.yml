@@ -64,6 +64,10 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Auto-update signing (FREE Ed25519 key from `tauri signer generate`).
+          # Set these two repo secrets to emit a signed latest.json for the updater.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # --- Optional code signing (leave unset to ship unsigned) ---
           # macOS notarization:
           # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}

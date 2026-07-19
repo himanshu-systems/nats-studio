@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ipc } from "@bindings";
 import { NAV, type NavItem } from "../nav";
@@ -5,12 +6,14 @@ import { useUiStore } from "../lib/uiStore";
 import { Logo } from "./Logo";
 import { Icon } from "./Icon";
 import { cx } from "./ui";
+import { UpdatesDialog } from "./UpdatesDialog";
 
 /** Left navigation: brand, grouped feature sections, and the app version. */
 export function Sidebar(): JSX.Element {
   const view = useUiStore((s) => s.view);
   const setView = useUiStore((s) => s.setView);
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
+  const [updatesOpen, setUpdatesOpen] = useState(false);
 
   const { data: info } = useQuery({ queryKey: ["app", "info"], queryFn: () => ipc.app.info() });
 
@@ -56,9 +59,22 @@ export function Sidebar(): JSX.Element {
       </nav>
 
       {!collapsed && info && (
-        <div className="border-t border-border px-4 py-2.5 text-[11px] text-faint">
+        <button
+          type="button"
+          onClick={() => setUpdatesOpen(true)}
+          title="About & check for updates"
+          className="border-t border-border px-4 py-2.5 text-left text-[11px] text-faint transition-colors hover:bg-surface-2 hover:text-muted"
+        >
           v{info.version} · {info.os}/{info.arch} · {info.buildChannel}
-        </div>
+        </button>
+      )}
+
+      {info && (
+        <UpdatesDialog
+          open={updatesOpen}
+          onClose={() => setUpdatesOpen(false)}
+          version={info.version}
+        />
       )}
     </aside>
   );

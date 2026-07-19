@@ -5,6 +5,8 @@
 //! JetStream API is touched (single-import confinement, spine 5.2.6).
 
 use std::fmt::Display;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 use async_nats::jetstream::{
@@ -26,7 +28,7 @@ use ns_types::{
     StreamInfoDto, StreamRetention, StreamStateDto, StreamStorage,
 };
 use time::format_description::well_known::Rfc3339;
-use tokio::io::AsyncReadExt as _;
+use tokio::io::{AsyncRead, AsyncReadExt as _, AsyncWriteExt as _, ReadBuf};
 
 /// Largest object we'll pull into memory for a preview/download over IPC.
 const MAX_OBJECT_PREVIEW: usize = 4 * 1024 * 1024;
@@ -480,6 +482,121 @@ impl JetStreamManager for AsyncJetStream {
             .await
             .map_err(|e| js_err("put object", &e, ErrorCode::Internal))?;
         Ok(object_to_dto(&info))
+    }
+
+    async fn object_put_file(
+        &self,
+        bucket: &str,
+        name: &str,
+        path: &str,
+        progress: &(dyn Fn(u64, u64) + Send + Sync),
+    ) -> Result<ObjectInfoDto, CoreError> {
+        let store = self
+            .ctx
+            .get_object_store(bucket)
+            .await
+            .map_err(|e| js_err("open object bucket", &e, ErrorCode::StreamNotFound))?;
+        let file = tokio::fs::File::open(path)
+            .await
+            .map_err(|e| CoreError::coded(ErrorCode::Io, format!("open source file: {e}"), false))?;
+        // Total from metadata so the bar has a denominator; 0 if unknown.
+        let total = file.metadata().await.map(|m| m.len()).unwrap_or(0);
+        // `put` drains an AsyncRead; the wrapper tallies bytes for progress.
+        let mut reader = ProgressReader {
+            inner: file,
+            read: 0,
+            reported: 0,
+            total,
+            progress,
+        };
+        let info = store
+            .put(name, &mut reader)
+            .await
+            .map_err(|e| js_err("put object", &e, ErrorCode::Internal))?;
+        // Final tick: the throttle may have skipped the last partial MiB.
+        progress(info.size as u64, info.size as u64);
+        Ok(object_to_dto(&info))
+    }
+
+    async fn object_get_file(
+        &self,
+        bucket: &str,
+        name: &str,
+        path: &str,
+        progress: &(dyn Fn(u64, u64) + Send + Sync),
+    ) -> Result<(), CoreError> {
+        let store = self
+            .ctx
+            .get_object_store(bucket)
+            .await
+            .map_err(|e| js_err("open object bucket", &e, ErrorCode::StreamNotFound))?;
+        // `get` resolves info (and rejects deleted objects) before bytes stream;
+        // unlike the preview path, we do NOT cap on `info.size` here.
+        let mut object = store
+            .get(name)
+            .await
+            .map_err(|e| js_err("get object", &e, ErrorCode::ObjectNotFound))?;
+        let total = object.info.size as u64;
+        let mut file = tokio::fs::File::create(path).await.map_err(|e| {
+            CoreError::coded(ErrorCode::Io, format!("create dest file: {e}"), false)
+        })?;
+        let mut buf = vec![0u8; 256 * 1024];
+        let mut written: u64 = 0;
+        loop {
+            let n = object
+                .read(&mut buf)
+                .await
+                .map_err(|e| js_err("read object", &e, ErrorCode::Internal))?;
+            if n == 0 {
+                break;
+            }
+            file.write_all(&buf[..n]).await.map_err(|e| {
+                CoreError::coded(ErrorCode::Io, format!("write dest file: {e}"), false)
+            })?;
+            written += n as u64;
+            progress(written, total);
+        }
+        file.flush()
+            .await
+            .map_err(|e| CoreError::coded(ErrorCode::Io, format!("flush dest file: {e}"), false))?;
+        // Terminal tick (also the only tick for a 0-byte object).
+        progress(written, total);
+        Ok(())
+    }
+}
+
+/// Wraps an `AsyncRead`, tallying bytes read and reporting cumulative progress
+/// as they flow. Reporting is throttled to ~every 1 MiB so a GB upload doesn't
+/// flood the IPC channel; `object_put_file` fires a final exact tick at the end.
+struct ProgressReader<'a, R> {
+    inner: R,
+    read: u64,
+    reported: u64,
+    total: u64,
+    progress: &'a (dyn Fn(u64, u64) + Send + Sync),
+}
+
+impl<R: AsyncRead + Unpin> AsyncRead for ProgressReader<'_, R> {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        let before = buf.filled().len();
+        let res = Pin::new(&mut self.inner).poll_read(cx, buf);
+        if let Poll::Ready(Ok(())) = &res {
+            let n = (buf.filled().len() - before) as u64;
+            if n > 0 {
+                self.read += n;
+                // ponytail: throttle to ~1 MiB granularity; drop the constant if
+                // per-chunk progress is ever wanted.
+                if self.read - self.reported >= 1024 * 1024 {
+                    self.reported = self.read;
+                    (self.progress)(self.read, self.total);
+                }
+            }
+        }
+        res
     }
 }
 

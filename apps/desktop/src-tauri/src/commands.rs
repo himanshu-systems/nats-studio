@@ -14,10 +14,10 @@ use ns_types::{
     ListConsumersRequest, ListConsumersResponse, ListKeysRequest, ListKeysResponse,
     ListObjectBucketsRequest, ListObjectBucketsResponse, ListObjectsRequest, ListObjectsResponse,
     ListProfilesResponse, ListStreamsRequest, ListStreamsResponse, LogRecordDto, MessageView,
-    MonitorRequest, ObjectCreateBucketRequest, ObjectInfoDto, ObjectPutRequest, PublishRequest,
-    PurgeStreamRequest, PurgeStreamResponse, RequestRequest, Settings, StreamInfoDto,
-    SubStreamEvent, SubscribeRequest, SubscriptionHandle, UnsubscribeRequest, UpdateProfileRequest,
-    UpdateSettingsRequest, VarzDto,
+    MonitorRequest, ObjectCreateBucketRequest, ObjectInfoDto, ObjectProgress, ObjectPutRequest,
+    ObjectStreamRequest, PublishRequest, PurgeStreamRequest, PurgeStreamResponse, RequestRequest,
+    Settings, StreamInfoDto, SubStreamEvent, SubscribeRequest, SubscriptionHandle,
+    UnsubscribeRequest, UpdateProfileRequest, UpdateSettingsRequest, VarzDto,
 };
 use tauri::ipc::Channel;
 use tauri::State;
@@ -435,4 +435,40 @@ pub async fn js_object_put(
     state: State<'_, AppState>,
 ) -> Result<ObjectInfoDto, IpcError> {
     map_ipc(state.jetstream.object_put(req).await)
+}
+
+/// Stream a local file into an object (uncapped). Progress ticks arrive on
+/// `on_progress` (a Tauri Channel); resolves with the stored object info.
+#[tauri::command]
+pub async fn js_object_put_file(
+    req: ObjectStreamRequest,
+    on_progress: Channel<ObjectProgress>,
+    state: State<'_, AppState>,
+) -> Result<ObjectInfoDto, IpcError> {
+    let cb = move |bytes: u64, total: u64| {
+        let _ = on_progress.send(ObjectProgress {
+            bytes,
+            total,
+            done: bytes >= total,
+        });
+    };
+    map_ipc(state.jetstream.object_put_file(req, &cb).await)
+}
+
+/// Stream an object to a local file (uncapped). Progress ticks arrive on
+/// `on_progress` (a Tauri Channel).
+#[tauri::command]
+pub async fn js_object_get_file(
+    req: ObjectStreamRequest,
+    on_progress: Channel<ObjectProgress>,
+    state: State<'_, AppState>,
+) -> Result<(), IpcError> {
+    let cb = move |bytes: u64, total: u64| {
+        let _ = on_progress.send(ObjectProgress {
+            bytes,
+            total,
+            done: bytes >= total,
+        });
+    };
+    map_ipc(state.jetstream.object_get_file(req, &cb).await)
 }

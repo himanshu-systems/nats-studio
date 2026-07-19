@@ -1,16 +1,19 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { open } from "@tauri-apps/plugin-dialog";
 import {
   ConnectionStatus,
   ipc,
   type ConnectionAuth,
   type ConnectionProfileInput,
   type ConnectionSummary,
+  type TlsConfig,
 } from "@bindings";
 import { CONNECTIONS_KEY, PROFILES_KEY } from "../../lib/liveEvents";
 import { useActiveConnection } from "../../lib/activeConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel, StatusDot, statusMeta, cx } from "../../components/ui";
 import { Icon } from "../../components/Icon";
+import { InfoTip, TipLabel } from "../../components/InfoTip";
 import { Select } from "../../components/Select";
 import { errorMessage } from "../messaging/message";
 
@@ -90,6 +93,12 @@ function CreateProfileForm(props: {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [token, setToken] = useState("");
+  const [tlsEnabled, setTlsEnabled] = useState(false);
+  const [caCertPath, setCaCertPath] = useState("");
+  const [clientCertPath, setClientCertPath] = useState("");
+  const [clientKeyPath, setClientKeyPath] = useState("");
+  const [insecureSkipVerify, setInsecureSkipVerify] = useState(false);
+  const [sni, setSni] = useState("");
 
   const buildAuth = (): ConnectionAuth => {
     if (authKind === "userPassword") return { kind: "userPassword", data: { username, password } };
@@ -97,11 +106,24 @@ function CreateProfileForm(props: {
     return { kind: "none" };
   };
 
+  const buildTls = (): TlsConfig | undefined => {
+    if (!tlsEnabled) return undefined;
+    return {
+      enabled: true,
+      caCertPath: caCertPath.trim() || undefined,
+      clientCertPath: clientCertPath.trim() || undefined,
+      clientKeyPath: clientKeyPath.trim() || undefined,
+      insecureSkipVerify,
+      sni: sni.trim() || undefined,
+    };
+  };
+
   const submit = (): void => {
     props.onCreate({
       name,
       servers: [server],
       auth: buildAuth(),
+      tls: buildTls(),
       options: { reconnectDelayMs: 2000, connectTimeoutMs: 5000, pingIntervalMs: 30000, noEcho: false },
     });
   };
@@ -135,11 +157,79 @@ function CreateProfileForm(props: {
       {authKind === "token" && (
         <input className="field" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Token" />
       )}
+      <div className="space-y-2 rounded-lg border border-border p-3">
+        <label className="flex items-center gap-2 text-xs font-medium text-content">
+          <input type="checkbox" className="accent-accent" checked={tlsEnabled} onChange={(e) => setTlsEnabled(e.target.checked)} />
+          Enable TLS
+        </label>
+        {tlsEnabled && (
+          <div className="space-y-2">
+            <PathField
+              label={<TipLabel tip="PEM file of the CA that signed the server certificate. Leave blank to trust the OS root store.">CA certificate</TipLabel>}
+              value={caCertPath}
+              onChange={setCaCertPath}
+              placeholder="ca.pem"
+            />
+            <PathField
+              label={<TipLabel tip="Client certificate (PEM) for mutual TLS. Requires the matching key below.">Client certificate (mTLS)</TipLabel>}
+              value={clientCertPath}
+              onChange={setClientCertPath}
+              placeholder="client-cert.pem"
+            />
+            <PathField
+              label={<TipLabel tip="Private key (PEM) for the client certificate above.">Client key (mTLS)</TipLabel>}
+              value={clientKeyPath}
+              onChange={setClientKeyPath}
+              placeholder="client-key.pem"
+            />
+            <div className="space-y-1">
+              <TipLabel tip="Override the hostname used for certificate verification (SNI). Leave blank to use the host from the server URL.">SNI (optional)</TipLabel>
+              <input className="field font-mono" value={sni} onChange={(e) => setSni(e.target.value)} placeholder="server.example.com" />
+            </div>
+            <label className="flex items-start gap-2 text-xs font-medium text-danger">
+              <input type="checkbox" className="mt-0.5 accent-danger" checked={insecureSkipVerify} onChange={(e) => setInsecureSkipVerify(e.target.checked)} />
+              <span className="flex items-center gap-1">
+                Skip certificate verification
+                <InfoTip text="DANGEROUS: disables authentication of the server certificate, exposing the connection to man-in-the-middle attacks. Use only for local dev with self-signed certs." />
+              </span>
+            </label>
+          </div>
+        )}
+      </div>
       {props.error && <p className="text-xs text-danger">{props.error}</p>}
       <Button type="submit" className="w-full" icon="plus" disabled={props.pending || name.trim() === "" || server.trim() === ""}>
         {props.pending ? "Creating…" : "Create profile"}
       </Button>
     </form>
+  );
+}
+
+/** A text input for a file path with a native "Browse" picker (tauri dialog). */
+function PathField(props: {
+  label: React.ReactNode;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}): JSX.Element {
+  const browse = async (): Promise<void> => {
+    const picked = await open({ multiple: false, directory: false });
+    if (typeof picked === "string") props.onChange(picked);
+  };
+  return (
+    <div className="space-y-1">
+      {props.label}
+      <div className="flex gap-2">
+        <input
+          className="field min-w-0 flex-1 font-mono"
+          value={props.value}
+          onChange={(e) => props.onChange(e.target.value)}
+          placeholder={props.placeholder}
+        />
+        <Button type="button" size="sm" variant="outline" onClick={() => void browse()}>
+          Browse
+        </Button>
+      </div>
+    </div>
   );
 }
 

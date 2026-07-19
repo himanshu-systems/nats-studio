@@ -17,7 +17,7 @@ use ns_types::{
     ListConsumersRequest, ListConsumersResponse, ListKeysRequest, ListKeysResponse,
     ListObjectBucketsRequest, ListObjectBucketsResponse, ListObjectsRequest, ListObjectsResponse,
     ListStreamsRequest, ListStreamsResponse, ObjectCreateBucketRequest, ObjectInfoDto,
-    ObjectPutRequest, PurgeStreamRequest, PurgeStreamResponse, StreamInfoDto,
+    ObjectPutRequest, ObjectStreamRequest, PurgeStreamRequest, PurgeStreamResponse, StreamInfoDto,
 };
 
 use crate::error::JetStreamError;
@@ -404,6 +404,43 @@ impl JetStreamService {
             .jetstream()
             .await?;
         Ok(js.object_put(bucket, name, data).await?)
+    }
+
+    /// Stream a local file into an object (uncapped), forwarding progress ticks.
+    pub async fn object_put_file(
+        &self,
+        req: ObjectStreamRequest,
+        progress: &(dyn Fn(u64, u64) + Send + Sync),
+    ) -> Result<ObjectInfoDto, JetStreamError> {
+        let bucket = require_arg(&req.bucket, "bucket")?;
+        let name = require_arg(&req.name, "name")?;
+        let path = require_arg(&req.path, "path")?;
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        Ok(js.object_put_file(bucket, name, path, progress).await?)
+    }
+
+    /// Stream an object to a local file (uncapped), forwarding progress ticks.
+    pub async fn object_get_file(
+        &self,
+        req: ObjectStreamRequest,
+        progress: &(dyn Fn(u64, u64) + Send + Sync),
+    ) -> Result<(), JetStreamError> {
+        let bucket = require_arg(&req.bucket, "bucket")?;
+        let name = require_arg(&req.name, "name")?;
+        let path = require_arg(&req.path, "path")?;
+        let js = self
+            .provider
+            .client(&req.connection_id)
+            .await?
+            .jetstream()
+            .await?;
+        js.object_get_file(bucket, name, path, progress).await?;
+        Ok(())
     }
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ipc, type SubStreamEvent } from "@bindings";
+import { ipc, PayloadEncoding, type SubStreamEvent } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, SectionLabel, cx } from "../../components/ui";
 
@@ -15,6 +15,7 @@ const ADVISORY_SUBJECTS = [
 type Kind = "max_deliveries" | "terminated";
 
 interface DlqRow {
+  id: string;
   ts: string;
   kind: Kind;
   stream: string;
@@ -44,8 +45,66 @@ function Dlq({ connId }: { connId: string }): JSX.Element {
   const [rows, setRows] = useState<DlqRow[]>([]);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Per-row action state, keyed by row id: which action is in-flight, an inline
+  // result notice, and which row is awaiting a purge confirm.
+  const [pending, setPending] = useState<Record<string, "redeliver" | "purge">>({});
+  const [notice, setNotice] = useState<Record<string, { tone: "positive" | "warning" | "danger"; text: string }>>({});
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   const subsRef = useRef<string[]>([]);
+
+  const clearFrom = <T,>(id: string) => (prev: Record<string, T>): Record<string, T> => {
+    const next = { ...prev };
+    delete next[id];
+    return next;
+  };
+
+  // Re-inject the original stored message so its consumer redelivers it.
+  const redeliver = async (row: DlqRow): Promise<void> => {
+    setPending((p) => ({ ...p, [row.id]: "redeliver" }));
+    setNotice(clearFrom(row.id));
+    try {
+      const res = await ipc.jetstream.getMessages({
+        connectionId: connId,
+        stream: row.stream,
+        startSeq: row.streamSeq,
+        limit: 1,
+      });
+      // startSeq is clamped up to the stream's first seq, so a purged message can
+      // yield a *different* (later) one — a seq mismatch means it's really gone.
+      const msg = res.messages[0];
+      if (!msg || msg.seq !== row.streamSeq) {
+        setNotice((n) => ({ ...n, [row.id]: { tone: "warning", text: "message no longer in stream" } }));
+        return;
+      }
+      await ipc.pubsub.publish({
+        connectionId: connId,
+        subject: msg.subject,
+        payload: msg.payloadBase64,
+        encoding: PayloadEncoding.Base64,
+        headers: msg.headers,
+      });
+      setNotice((n) => ({ ...n, [row.id]: { tone: "positive", text: "redelivered" } }));
+    } catch (e) {
+      setNotice((n) => ({ ...n, [row.id]: { tone: "danger", text: e instanceof Error ? e.message : String(e) } }));
+    } finally {
+      setPending(clearFrom(row.id));
+    }
+  };
+
+  // Delete this dead letter from the stream, then drop its row.
+  const purge = async (row: DlqRow): Promise<void> => {
+    setPending((p) => ({ ...p, [row.id]: "purge" }));
+    setNotice(clearFrom(row.id));
+    try {
+      await ipc.jetstream.deleteMessage({ connectionId: connId, stream: row.stream, seq: row.streamSeq });
+      setConfirmId(null);
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+    } catch (e) {
+      setNotice((n) => ({ ...n, [row.id]: { tone: "danger", text: e instanceof Error ? e.message : String(e) } }));
+      setPending(clearFrom(row.id));
+    }
+  };
 
   const onEvent = (event: SubStreamEvent): void => {
     if (event.kind === "error") {
@@ -63,6 +122,7 @@ function Dlq({ connId }: { connId: string }): JSX.Element {
       };
       const kind: Kind = view.subject.includes("MAX_DELIVERIES") ? "max_deliveries" : "terminated";
       const row: DlqRow = {
+        id: crypto.randomUUID(),
         ts: view.ts,
         kind,
         stream: body.stream ?? "—",
@@ -135,11 +195,7 @@ function Dlq({ connId }: { connId: string }): JSX.Element {
         </div>
       </div>
 
-      <p className="border-b border-border/60 px-4 py-1.5 text-xs text-muted">
-        Redeliver &amp; purge coming in a later phase.
-      </p>
-
-      {error && <p className="border-b border-border/60 px-4 py-1.5 text-xs text-danger">{error}</p>}
+      {error &&<p className="border-b border-border/60 px-4 py-1.5 text-xs text-danger">{error}</p>}
 
       <div className="min-h-0 flex-1 overflow-auto">
         {rows.length === 0 ? (
@@ -157,12 +213,16 @@ function Dlq({ connId }: { connId: string }): JSX.Element {
                 <th className="px-4 py-2 font-semibold">Consumer</th>
                 <th className="px-4 py-2 font-semibold">Seq</th>
                 <th className="px-4 py-2 font-semibold">Deliveries</th>
+                <th className="px-4 py-2 text-right font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
+              {rows.map((r, i) => {
+                const note = notice[r.id];
+                const busy = pending[r.id];
+                return (
                 <tr
-                  key={`${r.stream}-${r.consumer}-${r.streamSeq}-${r.ts}-${i}`}
+                  key={r.id}
                   className={cx("border-b border-border/60", i % 2 === 1 && "bg-surface-2/40")}
                 >
                   <td className="whitespace-nowrap px-4 py-1.5 font-mono text-xs text-muted">
@@ -175,8 +235,68 @@ function Dlq({ connId }: { connId: string }): JSX.Element {
                   <td className="px-4 py-1.5 text-content">{r.consumer}</td>
                   <td className="px-4 py-1.5 font-mono text-xs text-muted">{r.streamSeq}</td>
                   <td className="px-4 py-1.5 font-mono text-xs text-muted">{r.deliveries}</td>
+                  <td className="px-4 py-1.5">
+                    <div className="flex items-center justify-end gap-1.5">
+                      {note && (
+                        <span
+                          className={cx(
+                            "text-[11px]",
+                            note.tone === "positive"
+                              ? "text-positive"
+                              : note.tone === "warning"
+                                ? "text-warning"
+                                : "text-danger",
+                          )}
+                        >
+                          {note.text}
+                        </span>
+                      )}
+                      {confirmId === r.id ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => void purge(r)}
+                            disabled={busy !== undefined}
+                          >
+                            {busy === "purge" ? "Purging…" : "Confirm purge"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setConfirmId(null)}
+                            disabled={busy !== undefined}
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            icon="replay"
+                            onClick={() => void redeliver(r)}
+                            disabled={busy !== undefined}
+                          >
+                            {busy === "redeliver" ? "Redelivering…" : "Redeliver"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            icon="trash"
+                            onClick={() => setConfirmId(r.id)}
+                            disabled={busy !== undefined}
+                          >
+                            Purge
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}

@@ -3,5 +3,10 @@
   "identifier": "default",
   "description": "Base capability granted to the main window. Custom commands are registered in code; this grants the core defaults the WebView needs.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    "updater:default",
+    "process:default"
+  ]
 }

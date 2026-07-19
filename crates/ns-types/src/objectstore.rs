@@ -113,3 +113,28 @@ pub struct ObjectPutRequest {
     pub name: String,
     pub data_base64: String,
 }
+
+/// Stream a large object between a bucket and a real disk `path`, in Rust, off
+/// the base64 IPC path — no in-memory buffering, no 4 MB preview cap. Used by
+/// both the streaming upload (path -> object) and download (object -> path).
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ObjectStreamRequest {
+    pub connection_id: String,
+    pub bucket: String,
+    pub name: String,
+    pub path: String,
+}
+
+/// Progress tick for a streaming upload/download: `bytes` transferred of
+/// `total`, `done` once the transfer has finished. Delivered over a Tauri
+/// Channel.
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ObjectProgress {
+    pub bytes: U64,
+    pub total: U64,
+    pub done: bool,
+}

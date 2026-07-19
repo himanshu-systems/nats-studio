@@ -5,7 +5,7 @@
 
 use async_trait::async_trait;
 use ns_types::{
-    ConsumerConfigDto, ConsumerInfoDto, FetchMessagesResponse, GetMessagesResponse,
+    ConsumerConfigDto, ConsumerInfoDto, ErrorCode, FetchMessagesResponse, GetMessagesResponse,
     GetObjectResponse, KvBucketDto, KvEntryDto, ObjectBucketDto, ObjectInfoDto, StreamConfigDto,
     StreamInfoDto,
 };
@@ -117,4 +117,40 @@ pub trait JetStreamManager: Send + Sync {
         name: &str,
         data: Vec<u8>,
     ) -> Result<ObjectInfoDto, CoreError>;
+
+    /// Stream a local file at `path` into an object, uncapped, off the base64
+    /// path. `progress(bytes_so_far, total)` is invoked as bytes flow. The
+    /// default errors (`Internal`); only the real adapter implements streaming.
+    async fn object_put_file(
+        &self,
+        bucket: &str,
+        name: &str,
+        path: &str,
+        progress: &(dyn Fn(u64, u64) + Send + Sync),
+    ) -> Result<ObjectInfoDto, CoreError> {
+        let _ = (bucket, name, path, progress);
+        Err(CoreError::coded(
+            ErrorCode::Internal,
+            "object streaming upload is not supported by this backend".to_owned(),
+            false,
+        ))
+    }
+
+    /// Stream an object's bytes to a local file at `path`, uncapped (no preview
+    /// limit). `progress(bytes_so_far, total)` is invoked per chunk. The default
+    /// errors (`Internal`); only the real adapter implements streaming.
+    async fn object_get_file(
+        &self,
+        bucket: &str,
+        name: &str,
+        path: &str,
+        progress: &(dyn Fn(u64, u64) + Send + Sync),
+    ) -> Result<(), CoreError> {
+        let _ = (bucket, name, path, progress);
+        Err(CoreError::coded(
+            ErrorCode::Internal,
+            "object streaming download is not supported by this backend".to_owned(),
+            false,
+        ))
+    }
 }

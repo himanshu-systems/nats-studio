@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { ipc } from "@bindings";
-import type { ObjectInfoDto } from "@bindings";
+import type { ObjectInfoDto, ObjectProgress } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../components/ui";
 import { Select } from "../../components/Select";
@@ -38,6 +39,32 @@ function chunkedBase64(bytes: Uint8Array): string {
     binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
   }
   return btoa(binary);
+}
+
+/** Trailing path segment of a native file path (handles `\` and `/`). */
+function basename(path: string): string {
+  return path.split(/[\\/]/).pop() || path;
+}
+
+/** Streaming transfer progress bar (bytes / total). */
+function ProgressBar({ p, label }: { p: ObjectProgress | null; label: string }): JSX.Element {
+  const pct = p && p.total > 0 ? Math.min(100, (p.bytes / p.total) * 100) : p?.done ? 100 : 0;
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-[11px] text-muted">
+        <span>{label}</span>
+        <span className="tabular-nums">
+          {p ? `${formatBytes(p.bytes)} / ${formatBytes(p.total)}` : "starting…"}
+        </span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+        <div
+          className="h-full rounded-full bg-accent transition-all"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 /** base64 -> Blob download via a synthetic anchor. */
@@ -95,6 +122,33 @@ function ObjectStore({ connId }: { connId: string }): JSX.Element {
     onSuccess: () => qc.invalidateQueries({ queryKey: objectsKey(connId, bucket ?? "") }),
   });
 
+  // Streaming upload: pick a real file path, stream it in Rust (no base64), show
+  // a live progress bar. Sits alongside the small-file `upload` mutation above.
+  const [streamUp, setStreamUp] = useState<{ name: string; p: ObjectProgress | null } | null>(
+    null,
+  );
+  const [streamUpErr, setStreamUpErr] = useState<string | null>(null);
+
+  async function streamUpload(): Promise<void> {
+    if (!bucket) return;
+    const picked = await open({ multiple: false, title: "Pick a file to upload" });
+    if (typeof picked !== "string") return;
+    const name = basename(picked);
+    setStreamUpErr(null);
+    setStreamUp({ name, p: null });
+    try {
+      await ipc.jetstream.objectPutFile(
+        { connectionId: connId, bucket, name, path: picked },
+        (p) => setStreamUp((s) => (s ? { ...s, p } : s)),
+      );
+      void qc.invalidateQueries({ queryKey: objectsKey(connId, bucket) });
+    } catch (e) {
+      setStreamUpErr(errorMessage(e));
+    } finally {
+      setStreamUp(null);
+    }
+  }
+
   return (
     <div className="mx-auto grid h-full max-w-6xl gap-4 overflow-hidden p-4 lg:grid-cols-[1fr_300px]">
       <div className="grid min-h-0 grid-rows-[auto_1fr] gap-3 overflow-hidden">
@@ -118,6 +172,15 @@ function ObjectStore({ connId }: { connId: string }): JSX.Element {
             disabled={bucket === null || upload.isPending}
           >
             {upload.isPending ? "Uploading…" : "Upload"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            icon="send"
+            onClick={() => void streamUpload()}
+            disabled={bucket === null || streamUp !== null}
+          >
+            {streamUp ? "Streaming…" : "Stream file"}
           </Button>
             <Select
               className="w-44"
@@ -144,6 +207,8 @@ function ObjectStore({ connId }: { connId: string }): JSX.Element {
 
         {buckets.isError && <p className="text-xs text-danger">{errorMessage(buckets.error)}</p>}
         {upload.isError && <p className="text-xs text-danger">{errorMessage(upload.error)}</p>}
+        {streamUp && <ProgressBar p={streamUp.p} label={`Uploading ${streamUp.name}`} />}
+        {streamUpErr && <p className="text-xs text-danger">{streamUpErr}</p>}
 
         {bucket === null && !buckets.isLoading ? (
           <EmptyState icon="cube" title="No Object-Store buckets">
@@ -309,6 +374,30 @@ function ObjectDetail({
     onSuccess: (res) => downloadBase64(res.name, res.dataBase64),
   });
 
+  // Streaming download: pick a destination path, stream in Rust (uncapped), with
+  // a live progress bar. Sits alongside the small-file base64 `download` above.
+  const [dl, setDl] = useState<ObjectProgress | null>(null);
+  const [streaming, setStreaming] = useState(false);
+  const [streamErr, setStreamErr] = useState<string | null>(null);
+
+  async function streamDownload(): Promise<void> {
+    const picked = await save({ defaultPath: object.name, title: "Save object as" });
+    if (!picked) return;
+    setStreamErr(null);
+    setDl(null);
+    setStreaming(true);
+    try {
+      await ipc.jetstream.objectGetFile(
+        { connectionId: connId, bucket, name: object.name, path: picked },
+        setDl,
+      );
+    } catch (e) {
+      setStreamErr(errorMessage(e));
+    } finally {
+      setStreaming(false);
+    }
+  }
+
   const remove = useMutation({
     mutationFn: () =>
       ipc.jetstream.deleteObject({ connectionId: connId, bucket, name: object.name }),
@@ -337,6 +426,15 @@ function ObjectDetail({
           </Button>
           <Button
             size="sm"
+            variant="outline"
+            icon="inbox"
+            onClick={() => void streamDownload()}
+            disabled={streaming}
+          >
+            {streaming ? "Streaming…" : "Stream to file"}
+          </Button>
+          <Button
+            size="sm"
             variant="danger"
             icon="trash"
             onClick={() => {
@@ -361,6 +459,8 @@ function ObjectDetail({
         <dd className="break-all font-mono text-content">{object.digest ?? "—"}</dd>
       </dl>
 
+      {(streaming || dl) && <ProgressBar p={dl} label={`Downloading ${object.name}`} />}
+      {streamErr && <p className="text-xs text-danger">{streamErr}</p>}
       {download.isError && <p className="text-xs text-danger">{errorMessage(download.error)}</p>}
       {remove.isError && <p className="text-xs text-danger">{errorMessage(remove.error)}</p>}
     </Panel>

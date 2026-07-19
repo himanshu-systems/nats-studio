@@ -16,6 +16,9 @@ use tauri::Manager;
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             // Layered tracing + in-app log ring (installs the global subscriber).
             let log_store = ns_telemetry::init_telemetry(10_000).map_err(|e| e.to_string())?;
@@ -76,6 +79,8 @@ fn main() {
             commands::js_delete_object,
             commands::js_object_create_bucket,
             commands::js_object_put,
+            commands::js_object_put_file,
+            commands::js_object_get_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the NATS Studio application");

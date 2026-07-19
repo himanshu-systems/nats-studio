@@ -698,6 +698,17 @@ export interface ObjectCreateBucketRequest {
 }
 
 /**
+ * Progress tick for a streaming upload/download: `bytes` transferred of
+ * `total`, `done` once the transfer has finished. Delivered over a Tauri
+ * Channel.
+ */
+export interface ObjectProgress {
+	bytes: number;
+	total: number;
+	done: boolean;
+}
+
+/**
  * Upload an object into a bucket. `dataBase64` is the object's bytes,
  * base64-encoded (exactly like `KvPutRequest.valueBase64`).
  */
@@ -706,6 +717,18 @@ export interface ObjectPutRequest {
 	bucket: string;
 	name: string;
 	dataBase64: string;
+}
+
+/**
+ * Stream a large object between a bucket and a real disk `path`, in Rust, off
+ * the base64 IPC path — no in-memory buffering, no 4 MB preview cap. Used by
+ * both the streaming upload (path -> object) and download (object -> path).
+ */
+export interface ObjectStreamRequest {
+	connectionId: string;
+	bucket: string;
+	name: string;
+	path: string;
 }
 
 /** How a `payload` string in a request should be interpreted into bytes. */

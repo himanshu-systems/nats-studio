@@ -48,7 +48,9 @@ import type {
   MonitorRequest,
   ObjectCreateBucketRequest,
   ObjectInfoDto,
+  ObjectProgress,
   ObjectPutRequest,
+  ObjectStreamRequest,
   PublishRequest,
   PurgeStreamRequest,
   PurgeStreamResponse,
@@ -190,6 +192,41 @@ export const ipc = {
     objectCreateBucket: (req: ObjectCreateBucketRequest) =>
       call<void>("js_object_create_bucket", req),
     objectPut: (req: ObjectPutRequest) => call<ObjectInfoDto>("js_object_put", req),
+    /**
+     * Stream a local file into an object (no in-memory base64, no size cap).
+     * Progress ticks arrive on `onProgress` via a Tauri Channel; resolves with
+     * the stored object info.
+     */
+    objectPutFile: (
+      req: ObjectStreamRequest,
+      onProgress: (p: ObjectProgress) => void,
+    ): Promise<ObjectInfoDto> => {
+      const channel = new Channel<ObjectProgress>();
+      channel.onmessage = onProgress;
+      return invoke<ObjectInfoDto>("js_object_put_file", { req, onProgress: channel }).catch(
+        (raw: unknown) => {
+          if (isIpcError(raw)) throw new NatsStudioError(raw);
+          throw raw;
+        },
+      );
+    },
+    /**
+     * Stream an object to a local file (uncapped). Progress ticks arrive on
+     * `onProgress` via a Tauri Channel.
+     */
+    objectGetFile: (
+      req: ObjectStreamRequest,
+      onProgress: (p: ObjectProgress) => void,
+    ): Promise<void> => {
+      const channel = new Channel<ObjectProgress>();
+      channel.onmessage = onProgress;
+      return invoke<void>("js_object_get_file", { req, onProgress: channel }).catch(
+        (raw: unknown) => {
+          if (isIpcError(raw)) throw new NatsStudioError(raw);
+          throw raw;
+        },
+      );
+    },
   },
   monitor: {
     varz: (req: MonitorRequest) => call<VarzDto>("monitor_varz", req),

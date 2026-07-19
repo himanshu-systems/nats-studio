@@ -48,7 +48,11 @@ pub async fn build_state<R: Runtime>(app: &AppHandle<R>, log_store: LogStore) ->
         Arc::new(SqliteConnectionProfileRepo::new(db.clone()));
     let settings_repo = Arc::new(SqliteSettingsRepo::new(db));
     let secrets: Arc<dyn SecretStore> = Arc::new(KeyringSecretStore::new());
-    let factory: Arc<dyn NatsClientFactory> = Arc::new(AsyncNatsFactory);
+    // Inject the rustls ClientConfig builder from ns-security (composition root
+    // owns this cross-adapter wiring so ns-nats needn't depend on ns-security).
+    let factory: Arc<dyn NatsClientFactory> = Arc::new(AsyncNatsFactory::new(Arc::new(
+        |tls| ns_security::client_config(tls).map_err(Into::into),
+    )));
     let clock: Arc<dyn Clock> = Arc::new(SystemClock);
     let events = EventBus::new();
 
