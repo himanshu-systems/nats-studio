@@ -20,4 +20,4 @@ rustls-native-certs = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
-rcgen = "0.13"
+rcgen = "0.14"
