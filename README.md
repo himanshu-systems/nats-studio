@@ -11,6 +11,8 @@
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-informational)
 ![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%20v2%20%2B%20Rust%20%2B%20React-24C8A0)
 
+### [🌐 Website](https://himanshu-systems.github.io/nats-studio/) · [⬇️ Download](https://github.com/himanshu-systems/nats-studio/releases/latest)
+
 <!-- Add a 15s demo GIF (connect → Live Tail → Streams) at docs/media/demo.gif, then uncomment:
 <img src="docs/media/demo.gif" width="820" alt="NATS Studio demo" />
 -->
