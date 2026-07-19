@@ -6,12 +6,14 @@
 
 **The desktop GUI for [NATS](https://nats.io). Connect, publish, subscribe, and manage JetStream in one native app.**
 
+[![CI](https://github.com/himanshu-systems/nats-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/himanshu-systems/nats-studio/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-informational)
 ![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%20v2%20%2B%20Rust%20%2B%20React-24C8A0)
 
-<!-- Replace with a real 15s demo GIF: connect → Live Tail → Streams -->
+<!-- Add a 15s demo GIF (connect → Live Tail → Streams) at docs/media/demo.gif, then uncomment:
 <img src="docs/media/demo.gif" width="820" alt="NATS Studio demo" />
+-->
 
 </div>
 
@@ -55,11 +57,12 @@ It’s built with **Rust + Tauri v2** (small, secure, no Electron) and **React +
 - Offers light and dark themes that match the NATS brand.
 - Features searchable dropdowns, tooltips, smooth charts, and keyboard-friendly controls.
 
-## Screenshots
+<!-- ## Screenshots — drop real PNGs into docs/media/, then uncomment:
 
 | Overview | Live Tail | JetStream Streams |
 | --- | --- | --- |
 | ![overview](docs/media/overview.png) | ![live-tail](docs/media/live-tail.png) | ![streams](docs/media/streams.png) |
+-->
 
 ## Install
 
