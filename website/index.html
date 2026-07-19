@@ -5,10 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>NATS Studio — the desktop GUI for NATS</title>
 <meta name="description" content="A fast, native, cross-platform desktop GUI for NATS. Connect, publish/subscribe, and manage JetStream, Key-Value, and Object Store in one open-source app for Windows, macOS, and Linux." />
-<meta name="theme-color" content="#0d121c" />
+<meta name="theme-color" content="#08090c" />
 <link rel="icon" type="image/png" href="favicon.png" />
 
-<!-- Social preview -->
 <meta property="og:type" content="website" />
 <meta property="og:title" content="NATS Studio — the desktop GUI for NATS" />
 <meta property="og:description" content="Connect, publish/subscribe, and manage JetStream, KV, and Object Store in one native, open-source app for Windows, macOS, and Linux." />
@@ -18,146 +17,182 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
 <style>
   :root{
-    --bg:#0b0f17; --bg2:#0e1420; --panel:#141c2b; --panel2:#1b2434; --line:#26314a;
-    --text:#e7edf6; --muted:#93a0b4; --faint:#5f6b80;
-    --blue:#3c9cf5; --blue2:#2e8de8; --teal:#27c6a0;
-    --grad:linear-gradient(120deg,#2e8de8 0%,#27c6a0 100%);
-    --radius:16px; --maxw:1120px;
+    --bg:#08090c; --bg-2:#0b0d12;
+    --card:#0e1116; --card-2:#12151c; --card-hi:rgba(255,255,255,.045);
+    --line:rgba(255,255,255,.07); --line-2:rgba(255,255,255,.11);
+    --text:#f3f5f9; --muted:#98a2b2; --faint:#5c6472;
+    --teal:#2fd0a5; --blue:#4b9ff9; --brand2:#2e8de8;
+    --grad:linear-gradient(100deg,#4b9ff9,#2fd0a5);
+    --r:18px; --maxw:1140px;
   }
   *{box-sizing:border-box}
-  html{scroll-behavior:smooth}
+  html{scroll-behavior:smooth; -webkit-text-size-adjust:100%}
   body{
-    margin:0; background:var(--bg); color:var(--text);
-    font-family:"Inter",system-ui,-apple-system,sans-serif; line-height:1.6;
-    -webkit-font-smoothing:antialiased; overflow-x:hidden;
+    margin:0; background:var(--bg); color:var(--text); overflow-x:hidden;
+    font-family:"Inter",system-ui,-apple-system,sans-serif; font-weight:450;
+    line-height:1.6; letter-spacing:-.005em; -webkit-font-smoothing:antialiased;
+  }
+  /* grain */
+  body::before{
+    content:""; position:fixed; inset:0; z-index:1; pointer-events:none; opacity:.035;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
   a{color:inherit; text-decoration:none}
-  h1,h2,h3{font-family:"Space Grotesk",sans-serif; line-height:1.1; margin:0; letter-spacing:-.02em}
-  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 24px}
-  .grad-text{background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent}
+  h1,h2,h3{font-family:"Space Grotesk",sans-serif; margin:0; letter-spacing:-.03em; line-height:1.04; font-weight:600}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 24px; position:relative; z-index:2}
   .mono{font-family:"JetBrains Mono",monospace}
+  .gt{background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent}
 
-  /* glows */
-  .glow{position:absolute; border-radius:50%; filter:blur(90px); opacity:.5; pointer-events:none; z-index:0}
+  /* buttons */
+  .btn{display:inline-flex; align-items:center; gap:8px; font-weight:550; font-size:14px; padding:10px 17px; border-radius:11px; border:1px solid transparent; cursor:pointer; transition:.18s ease}
+  .btn svg{width:16px;height:16px}
+  .btn-primary{background:var(--text); color:#0a0c10; border-color:var(--text)}
+  .btn-primary:hover{background:#fff; transform:translateY(-1px)}
+  .btn-ghost{color:var(--text); border-color:var(--line-2); background:rgba(255,255,255,.02)}
+  .btn-ghost:hover{border-color:rgba(255,255,255,.28); background:rgba(255,255,255,.05)}
 
   /* nav */
-  header{position:sticky; top:0; z-index:50; transition:background .3s,border-color .3s, backdrop-filter .3s; border-bottom:1px solid transparent}
-  header.scrolled{background:rgba(11,15,23,.8); backdrop-filter:blur(12px); border-bottom:1px solid var(--line)}
-  nav{display:flex; align-items:center; justify-content:space-between; height:66px}
-  .brand{display:flex; align-items:center; gap:10px; font-family:"Space Grotesk"; font-weight:700; font-size:18px}
-  .brand img{width:30px; height:30px; border-radius:8px}
-  .nav-links{display:flex; align-items:center; gap:28px}
-  .nav-links a{color:var(--muted); font-size:14.5px; font-weight:500; transition:color .2s}
-  .nav-links a:hover{color:var(--text)}
-  .btn{display:inline-flex; align-items:center; gap:8px; font-weight:600; font-size:14.5px; padding:10px 18px; border-radius:11px; transition:transform .15s, box-shadow .2s, background .2s, border-color .2s; border:1px solid transparent; cursor:pointer}
-  .btn-primary{background:var(--grad); color:#04121a; box-shadow:0 6px 24px -8px rgba(39,198,160,.6)}
-  .btn-primary:hover{transform:translateY(-2px); box-shadow:0 12px 30px -8px rgba(39,198,160,.7)}
-  .btn-ghost{border-color:var(--line); color:var(--text); background:rgba(255,255,255,.02)}
-  .btn-ghost:hover{border-color:var(--blue); background:rgba(60,156,245,.08)}
-  .btn svg{width:17px;height:17px}
+  header{position:sticky; top:0; z-index:40; transition:.3s}
+  header.on{background:rgba(8,9,12,.72); backdrop-filter:blur(14px); border-bottom:1px solid var(--line)}
+  nav{display:flex; align-items:center; justify-content:space-between; height:64px}
+  .brand{display:flex; align-items:center; gap:9px; font-family:"Space Grotesk"; font-weight:600; font-size:16.5px; letter-spacing:-.02em}
+  .brand img{width:26px; height:26px; border-radius:7px}
+  .nl{display:flex; align-items:center; gap:30px}
+  .nl a.lk{color:var(--muted); font-size:14px; transition:.2s}
+  .nl a.lk:hover{color:var(--text)}
 
   /* hero */
-  .hero{position:relative; padding:72px 0 40px; overflow:hidden}
-  .hero .glow.g1{width:520px;height:520px; background:#2e8de8; top:-160px; left:-120px; opacity:.28}
-  .hero .glow.g2{width:480px;height:480px; background:#27c6a0; top:-60px; right:-140px; opacity:.24}
-  .hero-grid{position:relative; z-index:1; display:grid; grid-template-columns:1.05fr .95fr; gap:52px; align-items:center}
-  .pill{display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:500; color:var(--muted); border:1px solid var(--line); background:var(--panel); padding:6px 14px; border-radius:999px; margin-bottom:22px}
-  .pill .dot{width:7px;height:7px;border-radius:50%;background:var(--teal); box-shadow:0 0 0 4px rgba(39,198,160,.18)}
-  h1.title{font-size:clamp(40px,5.4vw,62px); font-weight:700}
-  .subtitle{color:var(--muted); font-size:19px; margin:20px 0 30px; max-width:520px}
-  .cta{display:flex; gap:14px; flex-wrap:wrap; align-items:center}
-  .cta .os{color:var(--faint); font-size:13px; margin-left:2px}
-  .hero-note{margin-top:20px; color:var(--faint); font-size:13.5px; display:flex; gap:18px; flex-wrap:wrap}
-  .hero-note b{color:var(--muted); font-weight:600}
+  .hero{position:relative; text-align:center; padding:90px 0 0}
+  .hero-glow{position:absolute; z-index:0; left:50%; top:-40px; transform:translateX(-50%); width:900px; height:520px; pointer-events:none;
+    background:radial-gradient(50% 60% at 50% 40%, rgba(47,208,165,.16), transparent 70%), radial-gradient(46% 55% at 62% 42%, rgba(75,159,249,.14), transparent 70%);
+    filter:blur(10px)}
+  .badge{display:inline-flex; align-items:center; gap:9px; font-size:12.5px; font-weight:500; color:var(--muted); border:1px solid var(--line); background:rgba(255,255,255,.025); padding:6px 13px 6px 8px; border-radius:999px; margin-bottom:26px}
+  .badge b{display:inline-flex; align-items:center; gap:6px; color:var(--teal); font-weight:600}
+  .badge .dot{width:6px;height:6px;border-radius:50%;background:var(--teal); box-shadow:0 0 0 3px rgba(47,208,165,.2)}
+  h1.title{font-size:clamp(42px,6.4vw,76px); font-weight:600}
+  .sub{color:var(--muted); font-size:clamp(16px,2vw,19px); max-width:560px; margin:24px auto 34px; font-weight:450}
+  .hero-cta{display:flex; gap:12px; justify-content:center; flex-wrap:wrap}
+  .trust{margin-top:20px; color:var(--faint); font-size:12.5px; letter-spacing:.02em}
+  .trust b{color:var(--muted); font-weight:500}
 
-  /* app mockup */
-  .mock{position:relative; border-radius:var(--radius); border:1px solid var(--line); background:linear-gradient(180deg,var(--panel),var(--bg2)); box-shadow:0 40px 80px -30px rgba(0,0,0,.7); overflow:hidden; transform:perspective(1600px) rotateY(-9deg) rotateX(3deg); transition:transform .5s}
-  .mock:hover{transform:perspective(1600px) rotateY(-3deg) rotateX(1deg)}
-  .mock-bar{display:flex; align-items:center; gap:7px; padding:11px 14px; border-bottom:1px solid var(--line); background:rgba(255,255,255,.02)}
-  .mock-bar i{width:11px;height:11px;border-radius:50%;display:block}
-  .mock-bar .r{background:#ff5f57}.mock-bar .y{background:#febc2e}.mock-bar .g{background:#28c840}
-  .mock-bar span{margin-left:8px; font-size:11.5px; color:var(--faint)}
-  .mock-body{display:grid; grid-template-columns:132px 1fr; min-height:280px}
-  .mside{border-right:1px solid var(--line); padding:12px 10px; display:flex; flex-direction:column; gap:4px; background:rgba(0,0,0,.15)}
-  .mside-h{font-size:9.5px; text-transform:uppercase; letter-spacing:.14em; color:var(--faint); margin:8px 6px 4px}
-  .mitem{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); padding:6px 8px; border-radius:7px}
-  .mitem.on{background:rgba(60,156,245,.12); color:#bcd8f7}
-  .mitem b{width:6px;height:6px;border-radius:2px;background:currentColor;opacity:.6}
-  .mmain{padding:16px}
-  .mcard{border:1px solid var(--line); border-radius:11px; background:var(--panel2); padding:12px 14px; margin-bottom:12px}
-  .mrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-  .mrow small{font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.1em}
-  .badge{font-size:10px; font-weight:600; padding:2px 8px; border-radius:6px}
-  .badge.json{background:rgba(60,156,245,.15); color:#7bbcf9}
-  .badge.ok{background:rgba(39,198,160,.15); color:#54d6b3}
-  .spark{height:46px; width:100%; display:block}
-  .mmsg{display:flex; align-items:center; gap:10px; font-family:"JetBrains Mono"; font-size:11px; padding:7px 0; border-top:1px solid rgba(255,255,255,.04); color:var(--muted)}
-  .mmsg:first-child{border-top:0}
-  .mmsg .subj{color:#bcd8f7}
-  .mmsg .n{margin-left:auto; color:var(--faint)}
+  /* product mockup */
+  .shot{position:relative; margin:64px auto 0; max-width:1000px; z-index:2;
+    -webkit-mask-image:linear-gradient(180deg,#000 78%,transparent); mask-image:linear-gradient(180deg,#000 78%,transparent)}
+  .win{border:1px solid var(--line-2); border-radius:14px; overflow:hidden; background:linear-gradient(180deg,#0f1218,#0a0c11);
+    box-shadow:0 60px 120px -40px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.02) inset}
+  .tbar{display:flex; align-items:center; gap:8px; padding:11px 14px; border-bottom:1px solid var(--line); background:rgba(255,255,255,.02)}
+  .tbar i{width:11px;height:11px;border-radius:50%;display:block;background:#2a2f3a}
+  .tbar .tt{margin-left:10px; display:flex; align-items:center; gap:7px; font-size:12px; color:var(--faint)}
+  .tbar .tt img{width:14px;height:14px;border-radius:4px}
+  .tbar .conn{margin-left:auto; display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); font-family:"JetBrains Mono"}
+  .tbar .conn .g{width:6px;height:6px;border-radius:50%;background:var(--teal); box-shadow:0 0 6px var(--teal)}
+  .app{display:grid; grid-template-columns:180px 1fr; min-height:400px}
+  .sb{border-right:1px solid var(--line); padding:14px 12px; background:rgba(0,0,0,.22); display:flex; flex-direction:column; gap:3px}
+  .sb .cap{font-size:9.5px; text-transform:uppercase; letter-spacing:.16em; color:var(--faint); margin:12px 8px 5px; font-weight:600}
+  .sb .cap:first-child{margin-top:2px}
+  .it{display:flex; align-items:center; gap:9px; font-size:12.5px; color:var(--muted); padding:6.5px 9px; border-radius:8px}
+  .it svg{width:14px;height:14px;opacity:.7;stroke:currentColor;fill:none;stroke-width:1.7}
+  .it.on{background:linear-gradient(90deg,rgba(75,159,249,.14),rgba(47,208,165,.06)); color:#dbe6f5}
+  .it.on svg{opacity:1;stroke:var(--teal)}
+  .main{padding:18px 20px}
+  .mhead{display:flex; align-items:center; gap:10px; margin-bottom:16px}
+  .mhead h4{font-family:"Space Grotesk"; font-size:16px; font-weight:600; margin:0}
+  .chips{display:flex; gap:6px; margin-left:auto}
+  .chip{font-size:10.5px; padding:3px 9px; border-radius:7px; border:1px solid var(--line); color:var(--muted)}
+  .chip.a{background:rgba(75,159,249,.12); border-color:transparent; color:#8fc0fb}
+  .panel{border:1px solid var(--line); border-radius:12px; background:var(--card-2); padding:14px 15px; margin-bottom:13px}
+  .prow{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px}
+  .prow small{font-size:10px; text-transform:uppercase; letter-spacing:.12em; color:var(--faint)}
+  .tag{font-size:10px; font-weight:600; padding:2px 8px; border-radius:6px}
+  .tag.live{background:rgba(47,208,165,.14); color:#57dcb6}
+  .tag.json{background:rgba(75,159,249,.14); color:#8fc0fb}
+  .tag.pb{background:rgba(168,130,255,.16); color:#c1a8ff}
+  .spark{height:60px;width:100%;display:block}
+  .msg{display:flex; align-items:center; gap:11px; font-family:"JetBrains Mono"; font-size:11.5px; padding:8px 0; border-top:1px solid rgba(255,255,255,.045); color:var(--muted)}
+  .msg:first-child{border-top:0}
+  .msg .s{color:#a9cdf6}
+  .msg .n{margin-left:auto; color:var(--faint); font-size:10.5px}
 
-  /* logos strip */
-  .strip{border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:var(--bg2)}
-  .strip-in{display:flex; flex-wrap:wrap; gap:14px 40px; justify-content:center; padding:22px 24px; color:var(--muted); font-size:14px; font-weight:500}
-  .strip-in span{display:inline-flex; align-items:center; gap:9px}
-  .strip-in .tk{color:var(--teal)}
+  /* tech strip */
+  .strip{border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:var(--bg-2); margin-top:-60px; padding-top:60px}
+  .strip .in{display:flex; flex-wrap:wrap; gap:14px 38px; justify-content:center; padding:20px 24px; color:var(--faint); font-size:13px; font-weight:500}
+  .strip .in span{display:inline-flex; align-items:center; gap:8px}
+  .strip .in svg{width:15px;height:15px;stroke:var(--teal);fill:none;stroke-width:1.8;opacity:.9}
 
   /* sections */
-  section.blk{padding:88px 0}
-  .eyebrow{text-align:center; color:var(--teal); font-weight:600; font-size:13px; letter-spacing:.16em; text-transform:uppercase; margin-bottom:14px}
-  .h2{text-align:center; font-size:clamp(28px,3.6vw,42px); font-weight:700}
-  .lead{text-align:center; color:var(--muted); font-size:18px; max-width:620px; margin:16px auto 0}
+  section.s{padding:118px 0}
+  .lab{color:var(--teal); font-weight:600; font-size:12.5px; letter-spacing:.15em; text-transform:uppercase}
+  .h2{font-size:clamp(30px,4vw,46px); font-weight:600; margin-top:14px; max-width:640px}
+  .p{color:var(--muted); font-size:17px; max-width:560px; margin-top:16px}
+  .shead{margin-bottom:52px}
 
-  .features{display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin-top:52px}
-  .fcard{background:linear-gradient(180deg,var(--panel),rgba(20,28,43,.5)); border:1px solid var(--line); border-radius:var(--radius); padding:24px; transition:transform .2s, border-color .2s, box-shadow .2s}
-  .fcard:hover{transform:translateY(-4px); border-color:rgba(60,156,245,.4); box-shadow:0 20px 40px -24px rgba(46,141,232,.5)}
-  .ficon{width:44px; height:44px; border-radius:12px; display:grid; place-items:center; margin-bottom:16px; background:rgba(39,198,160,.1); border:1px solid rgba(39,198,160,.22)}
-  .ficon svg{width:22px; height:22px; stroke:var(--teal)}
-  .fcard h3{font-size:18px; margin-bottom:7px}
-  .fcard p{color:var(--muted); font-size:14.5px; margin:0}
+  /* bento */
+  .bento{display:grid; grid-template-columns:repeat(12,1fr); gap:16px}
+  .tile{position:relative; border:1px solid var(--line); border-radius:var(--r); background:
+      linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,0)) , var(--card);
+    padding:26px; overflow:hidden; transition:border-color .25s, transform .25s}
+  .tile:hover{border-color:var(--line-2); transform:translateY(-3px)}
+  .tile::after{content:""; position:absolute; inset:0 0 auto 0; height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent)}
+  .tile h3{font-size:18.5px; font-weight:600; margin-bottom:8px}
+  .tile p{color:var(--muted); font-size:14.5px; margin:0}
+  .ico{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;margin-bottom:16px;background:rgba(47,208,165,.09);border:1px solid rgba(47,208,165,.2)}
+  .ico svg{width:19px;height:19px;stroke:var(--teal);fill:none;stroke-width:1.8}
+  .t7{grid-column:span 7} .t5{grid-column:span 5} .t4{grid-column:span 4} .t6{grid-column:span 6}
+
+  /* mini visuals inside tiles */
+  .stream{margin-top:20px; border-top:1px solid var(--line); padding-top:14px; display:flex; flex-direction:column; gap:9px}
+  .stream .r{display:flex; align-items:center; gap:10px; font-family:"JetBrains Mono"; font-size:11.5px; color:var(--muted)}
+  .stream .r .s{color:#a9cdf6}
+  .stream .r .b{margin-left:auto; font-size:9.5px; padding:2px 7px; border-radius:5px}
+  .fmt{display:flex; flex-wrap:wrap; gap:8px; margin-top:20px}
+  .fmt span{font-size:12px; font-family:"JetBrains Mono"; padding:6px 11px; border-radius:9px; border:1px solid var(--line); color:var(--muted); background:rgba(255,255,255,.02)}
+  .fmt span.hot{border-color:transparent; background:rgba(75,159,249,.14); color:#8fc0fb}
+  .kv{margin-top:18px; display:flex; flex-direction:column; gap:8px}
+  .kv .r{display:flex; justify-content:space-between; font-family:"JetBrains Mono"; font-size:11.5px; padding:7px 11px; border:1px solid var(--line); border-radius:8px; background:rgba(255,255,255,.02)}
+  .kv .r b{color:var(--teal); font-weight:500}
 
   /* download */
-  .dl{display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin-top:52px}
-  .dlcard{text-align:center; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:30px 22px; transition:transform .2s, border-color .2s}
-  .dlcard:hover{transform:translateY(-4px); border-color:var(--blue)}
-  .dlcard .os-ico{width:40px;height:40px;margin:0 auto 14px; stroke:var(--text); fill:none}
-  .dlcard h3{font-size:18px}
-  .dlcard p{color:var(--muted); font-size:13px; margin:6px 0 18px}
-  .dlcard .files{font-family:"JetBrains Mono"; font-size:11.5px; color:var(--faint); margin-top:14px}
-  .center{text-align:center}
-  .note{color:var(--faint); font-size:13px; margin-top:26px; text-align:center}
+  .dl{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:8px}
+  .os{border:1px solid var(--line); border-radius:var(--r); background:var(--card); padding:28px 24px; transition:.25s; display:block}
+  .os:hover{border-color:var(--line-2); transform:translateY(-3px)}
+  .os svg{width:34px;height:34px;stroke:var(--text);fill:none;stroke-width:1.4;opacity:.92}
+  .os h3{font-size:17px; margin:16px 0 4px}
+  .os .sm{color:var(--muted); font-size:13px}
+  .os .fl{margin-top:16px; padding-top:14px; border-top:1px solid var(--line); font-family:"JetBrains Mono"; font-size:11px; color:var(--faint)}
+  .os .go{margin-top:12px; display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:550; color:var(--teal)}
+  .fine{color:var(--faint); font-size:13px; margin-top:26px; text-align:center; max-width:640px; margin-left:auto; margin-right:auto}
 
-  /* cta band */
-  .band{position:relative; overflow:hidden; border:1px solid var(--line); border-radius:22px; padding:56px 32px; text-align:center; background:linear-gradient(180deg,var(--panel),var(--bg2))}
-  .band .glow{width:380px;height:380px;background:#27c6a0;top:-140px;left:50%;transform:translateX(-50%);opacity:.22}
-  .band h2{position:relative; font-size:clamp(26px,3.4vw,38px); font-weight:700}
-  .band p{position:relative; color:var(--muted); margin:14px auto 26px; max-width:480px}
-  .band .cta{position:relative; justify-content:center}
+  /* cta */
+  .band{position:relative; overflow:hidden; border:1px solid var(--line-2); border-radius:24px; text-align:center; padding:66px 32px;
+    background:radial-gradient(120% 120% at 50% 0%, rgba(47,208,165,.1), transparent 55%), var(--card)}
+  .band h2{font-size:clamp(28px,3.6vw,42px); margin:0 auto; max-width:560px}
+  .band p{color:var(--muted); margin:16px auto 28px; max-width:460px; font-size:16px}
+  .band .hero-cta{justify-content:center}
 
   /* footer */
-  footer{border-top:1px solid var(--line); background:var(--bg2); margin-top:20px}
-  .foot{display:flex; flex-wrap:wrap; gap:24px; justify-content:space-between; align-items:flex-start; padding:44px 0 22px}
-  .foot .brand{margin-bottom:10px}
-  .foot p{color:var(--muted); font-size:14px; max-width:320px; margin:0}
-  .fcol{display:flex; flex-direction:column; gap:10px}
-  .fcol strong{font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:var(--faint); font-weight:600}
-  .fcol a{color:var(--muted); font-size:14px; transition:color .2s}
-  .fcol a:hover{color:var(--teal)}
-  .legal{border-top:1px solid var(--line); padding:18px 0; text-align:center; color:var(--faint); font-size:12.5px}
+  footer{border-top:1px solid var(--line); background:var(--bg-2); margin-top:40px}
+  .foot{display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:28px; padding:56px 0 30px}
+  .foot .brand{margin-bottom:14px}
+  .foot .desc{color:var(--muted); font-size:14px; max-width:300px}
+  .fc{display:flex; flex-direction:column; gap:11px}
+  .fc strong{font-size:11.5px; text-transform:uppercase; letter-spacing:.13em; color:var(--faint); font-weight:600; margin-bottom:2px}
+  .fc a{color:var(--muted); font-size:14px; width:fit-content; transition:.2s}
+  .fc a:hover{color:var(--teal)}
+  .legal{border-top:1px solid var(--line); padding:20px 0; text-align:center; color:var(--faint); font-size:12px}
 
-  /* reveal */
-  .reveal{opacity:0; transform:translateY(18px); transition:opacity .6s ease, transform .6s ease}
+  .reveal{opacity:0; transform:translateY(16px); transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1)}
   .reveal.in{opacity:1; transform:none}
 
-  @media (max-width:900px){
-    .hero-grid{grid-template-columns:1fr; gap:40px}
-    .mock{transform:none}
-    .features,.dl{grid-template-columns:1fr}
-    .nav-links a:not(.btn){display:none}
+  @media (max-width:920px){
+    .app{grid-template-columns:1fr} .sb{display:none}
+    .t7,.t5,.t4,.t6{grid-column:span 12}
+    .dl{grid-template-columns:1fr}
+    .foot{grid-template-columns:1fr 1fr; gap:32px}
+    .nl a.lk{display:none}
   }
 </style>
 </head>
@@ -166,12 +201,12 @@
 <header id="hdr">
   <div class="wrap">
     <nav>
-      <a class="brand" href="#top"><img src="logo.png" alt="NATS Studio" /> NATS&nbsp;Studio</a>
-      <div class="nav-links">
-        <a href="#features">Features</a>
-        <a href="#download">Download</a>
-        <a href="https://github.com/himanshu-systems/nats-studio">GitHub</a>
-        <a class="btn btn-primary" href="https://github.com/himanshu-systems/nats-studio/releases/latest">Download</a>
+      <a class="brand" href="#top"><img src="logo.png" alt="" /> NATS&nbsp;Studio</a>
+      <div class="nl">
+        <a class="lk" href="#features">Features</a>
+        <a class="lk" href="#download">Download</a>
+        <a class="lk" href="https://github.com/himanshu-systems/nats-studio">GitHub</a>
+        <a class="btn btn-ghost" href="https://github.com/himanshu-systems/nats-studio/releases/latest">Download</a>
       </div>
     </nav>
   </div>
@@ -179,60 +214,60 @@
 
 <a id="top"></a>
 <section class="hero">
-  <div class="glow g1"></div><div class="glow g2"></div>
-  <div class="wrap hero-grid">
-    <div>
-      <div class="pill"><span class="dot"></span> Open source · Cross-platform · Free</div>
-      <h1 class="title">The desktop GUI<br />for <span class="grad-text">NATS</span>.</h1>
-      <p class="subtitle">Connect, publish, subscribe, and manage JetStream, Key-Value, and Object Store — all in one fast, native app. Built with Rust&nbsp;+&nbsp;Tauri.</p>
-      <div class="cta">
-        <a class="btn btn-primary" href="https://github.com/himanshu-systems/nats-studio/releases/latest">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/></svg>
-          Download free
-        </a>
-        <a class="btn btn-ghost" href="https://github.com/himanshu-systems/nats-studio">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.09.68-.22.68-.49v-1.7c-2.78.62-3.37-1.22-3.37-1.22-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.62.07-.62 1 .07 1.53 1.05 1.53 1.05.9 1.57 2.36 1.12 2.94.85.09-.66.35-1.12.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.3 9.3 0 015 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9v2.82c0 .27.18.59.69.49A10.27 10.27 0 0022 12.25C22 6.58 17.52 2 12 2z"/></svg>
-          Star on GitHub
-        </a>
-        <span class="os">Windows · macOS · Linux</span>
-      </div>
-      <div class="hero-note">
-        <span><b>MIT</b> licensed</span>
-        <span><b>JetStream</b> native</span>
-        <span><b>Zero</b> telemetry</span>
-      </div>
+  <div class="hero-glow"></div>
+  <div class="wrap">
+    <div class="badge reveal in"><b><span class="dot"></span>v0.1</b> Open source &amp; free forever</div>
+    <h1 class="title reveal in">The desktop client<br/><span class="gt">NATS deserves.</span></h1>
+    <p class="sub reveal in">Connect, publish, subscribe, and manage JetStream, Key-Value &amp; Object Store — in one fast, native app. No CLI juggling, no browser tab.</p>
+    <div class="hero-cta reveal in">
+      <a class="btn btn-primary" href="https://github.com/himanshu-systems/nats-studio/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/></svg> Download free
+      </a>
+      <a class="btn btn-ghost" href="https://github.com/himanshu-systems/nats-studio">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.09.68-.22.68-.49v-1.7c-2.78.62-3.37-1.22-3.37-1.22-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.62.07-.62 1 .07 1.53 1.05 1.53 1.05.9 1.57 2.36 1.12 2.94.85.09-.66.35-1.12.63-1.37-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.3 9.3 0 015 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9v2.82c0 .27.18.59.69.49A10.27 10.27 0 0022 12.25C22 6.58 17.52 2 12 2z"/></svg> Star on GitHub
+      </a>
     </div>
+    <p class="trust reveal in"><b>Windows · macOS · Linux</b> &nbsp;·&nbsp; Rust + Tauri &nbsp;·&nbsp; Zero telemetry</p>
+  </div>
 
-    <div class="mock reveal">
-      <div class="mock-bar"><i class="r"></i><i class="y"></i><i class="g"></i><span>NATS Studio — localhost:4222</span></div>
-      <div class="mock-body">
-        <div class="mside">
-          <div class="mside-h">Workspace</div>
-          <div class="mitem"><b></b>Overview</div>
-          <div class="mitem on"><b></b>Live Tail</div>
-          <div class="mside-h">JetStream</div>
-          <div class="mitem"><b></b>Streams</div>
-          <div class="mitem"><b></b>Key-Value</div>
-          <div class="mitem"><b></b>Object Store</div>
-          <div class="mside-h">Monitor</div>
-          <div class="mitem"><b></b>Metrics</div>
+  <div class="shot reveal">
+    <div class="win">
+      <div class="tbar">
+        <i></i><i></i><i></i>
+        <span class="tt"><img src="logo.png" alt=""/> NATS Studio</span>
+        <span class="conn"><span class="g"></span> Connected · localhost:4222</span>
+      </div>
+      <div class="app">
+        <div class="sb">
+          <div class="cap">Workspace</div>
+          <div class="it"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg> Overview</div>
+          <div class="it on"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h12M4 17h8"/></svg> Live Tail</div>
+          <div class="it"><svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg> Publisher</div>
+          <div class="cap">JetStream</div>
+          <div class="it"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="12" width="18" height="8" rx="1.5"/></svg> Streams</div>
+          <div class="it"><svg viewBox="0 0 24 24"><path d="M4 7l8-4 8 4-8 4-8-4zM4 12l8 4 8-4"/></svg> Object Store</div>
+          <div class="cap">Monitor</div>
+          <div class="it"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M7 14l3-3 3 3 5-6"/></svg> Metrics</div>
         </div>
-        <div class="mmain">
-          <div class="mcard">
-            <div class="mrow"><small>Messages / sec</small><span class="badge ok">live</span></div>
-            <svg class="spark" viewBox="0 0 300 46" preserveAspectRatio="none">
-              <defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stop-color="#27c6a0" stop-opacity=".45"/><stop offset="1" stop-color="#27c6a0" stop-opacity="0"/>
-              </linearGradient></defs>
-              <path d="M0 34 L30 30 L60 32 L90 20 L120 24 L150 12 L180 18 L210 8 L240 15 L270 6 L300 11 L300 46 L0 46 Z" fill="url(#sg)"/>
-              <path d="M0 34 L30 30 L60 32 L90 20 L120 24 L150 12 L180 18 L210 8 L240 15 L270 6 L300 11" fill="none" stroke="#27c6a0" stroke-width="2"/>
+        <div class="main">
+          <div class="mhead">
+            <h4>Live Tail</h4>
+            <div class="chips"><span class="chip a">orders.&gt;</span><span class="chip">events.&gt;</span></div>
+          </div>
+          <div class="panel">
+            <div class="prow"><small>Throughput · msgs/sec</small><span class="tag live">● live</span></div>
+            <svg class="spark" viewBox="0 0 340 60" preserveAspectRatio="none">
+              <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2fd0a5" stop-opacity=".4"/><stop offset="1" stop-color="#2fd0a5" stop-opacity="0"/></linearGradient></defs>
+              <path d="M0 44 L34 40 L68 43 L102 28 L136 33 L170 18 L204 24 L238 12 L272 20 L306 8 L340 15 L340 60 L0 60Z" fill="url(#g)"/>
+              <path d="M0 44 L34 40 L68 43 L102 28 L136 33 L170 18 L204 24 L238 12 L272 20 L306 8 L340 15" fill="none" stroke="#2fd0a5" stroke-width="2"/>
             </svg>
           </div>
-          <div class="mcard">
-            <div class="mrow"><small>orders.&gt;</small><span class="badge json">JSON</span></div>
-            <div class="mmsg"><span class="subj">orders.created</span> {"id":"a91f"…} <span class="n">2.1 KB</span></div>
-            <div class="mmsg"><span class="subj">orders.paid</span> {"id":"a91f"…} <span class="n">1.8 KB</span></div>
-            <div class="mmsg"><span class="subj">orders.shipped</span> {"id":"a91f"…} <span class="n">1.2 KB</span></div>
+          <div class="panel">
+            <div class="prow"><small>Stream · incoming</small><span class="tag json">JSON</span></div>
+            <div class="msg"><span class="s">orders.created</span> {"id":"a91f",…} <span class="n">2.1 KB · now</span></div>
+            <div class="msg"><span class="s">orders.paid</span> {"id":"a91f",…} <span class="n">1.8 KB · 0s</span></div>
+            <div class="msg"><span class="s">payments.settled</span> {"amt":48.0,…} <span class="n">0.9 KB · 1s</span></div>
+            <div class="msg"><span class="s">orders.shipped</span> {"id":"a91f",…} <span class="n">1.2 KB · 2s</span></div>
           </div>
         </div>
       </div>
@@ -241,91 +276,97 @@
 </section>
 
 <div class="strip">
-  <div class="strip-in wrap">
-    <span><span class="tk">◆</span> Rust + Tauri</span>
-    <span><span class="tk">◆</span> Windows · macOS · Linux</span>
-    <span><span class="tk">◆</span> JetStream · KV · Object Store</span>
-    <span><span class="tk">◆</span> Credentials in the OS keychain</span>
-    <span><span class="tk">◆</span> Auto-update</span>
+  <div class="wrap in">
+    <div class="in" style="display:flex">
+      <span><svg viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4L18 20l-6-4-6 4 1.5-7L2 9h7z"/></svg> Rust + Tauri</span>
+      <span><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg> Native desktop</span>
+      <span><svg viewBox="0 0 24 24"><path d="M4 7l8-4 8 4-8 4-8-4zM4 12l8 4 8-4"/></svg> JetStream · KV · Object</span>
+      <span><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg> Keychain + TLS</span>
+      <span><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-6.2-8.5M21 4v5h-5"/></svg> Auto-update</span>
+    </div>
   </div>
 </div>
 
-<section class="blk" id="features">
+<section class="s" id="features">
   <div class="wrap">
-    <div class="eyebrow reveal">Everything, in one window</div>
-    <h2 class="h2 reveal">The tool NATS was missing</h2>
-    <p class="lead reveal">A real desktop client — not a CLI wrapper, not a web tab. Fast, native, and built for how you actually work with NATS.</p>
-    <div class="features">
-      <div class="fcard reveal">
-        <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg></div>
-        <h3>Live Tail</h3>
-        <p>Subscribe to any subject and watch messages stream in, with per-subscription filtering and instant search.</p>
+    <div class="shead">
+      <div class="lab reveal">Everything, one window</div>
+      <h2 class="h2 reveal">Built for how you actually work with NATS.</h2>
+    </div>
+    <div class="bento">
+      <div class="tile t7 reveal">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h12M4 17h8"/></svg></div>
+        <h3>Live Tail, with real filtering</h3>
+        <p>Subscribe to any subject and watch messages stream in — each subscription filtered on its own tab, with instant search.</p>
+        <div class="stream">
+          <div class="r"><span class="s">orders.created</span> {"id":"a91f"…} <span class="b tag json">JSON</span></div>
+          <div class="r"><span class="s">metrics.cpu</span> \x9f\x01… <span class="b tag pb">Protobuf</span></div>
+          <div class="r"><span class="s">cache.set</span> \x82\xa3id… <span class="b" style="background:rgba(47,208,165,.14);color:#57dcb6">MsgPack</span></div>
+        </div>
       </div>
-      <div class="fcard reveal">
-        <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/></svg></div>
-        <h3>Publish anything</h3>
-        <p>Compose JSON, Protobuf, MessagePack, Text, Hex, or Base64 — with templates, variables, and burst publishing.</p>
+      <div class="tile t5 reveal">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg></div>
+        <h3>Publish any format</h3>
+        <p>Compose and send in the format your services speak — with templates, variables, and burst mode.</p>
+        <div class="fmt"><span class="hot">JSON</span><span class="hot">Protobuf</span><span class="hot">MessagePack</span><span>Text</span><span>Hex</span><span>Base64</span></div>
       </div>
-      <div class="fcard reveal">
-        <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="4" width="18" height="5" rx="1"/><rect x="3" y="12" width="18" height="8" rx="1"/></svg></div>
-        <h3>JetStream</h3>
-        <p>Create and inspect streams and consumers, browse stored messages, and manage retention — no CLI required.</p>
+      <div class="tile t4 reveal">
+        <div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="12" width="18" height="8" rx="1.5"/></svg></div>
+        <h3>JetStream, visually</h3>
+        <p>Create streams &amp; consumers, browse stored messages, purge and redeliver — no CLI.</p>
       </div>
-      <div class="fcard reveal">
-        <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 7l8-4 8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4M4 17l8 4 8-4"/></svg></div>
-        <h3>KV & Object Store</h3>
-        <p>Read and write Key-Value buckets, and stream large objects to and from disk with live progress.</p>
+      <div class="tile t4 reveal">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 7l8-4 8 4-8 4-8-4zM4 12l8 4 8-4M4 17l8 4 8-4"/></svg></div>
+        <h3>KV &amp; Object Store</h3>
+        <p>Read and write buckets; stream large objects to and from disk with live progress.</p>
+        <div class="kv"><div class="r"><span>config.region</span><b>eu-west-1</b></div><div class="r"><span>flags.beta</span><b>true</b></div></div>
       </div>
-      <div class="fcard reveal">
-        <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 12a9 9 0 11-6.2-8.5"/><path d="M21 4v5h-5"/></svg></div>
-        <h3>Request / Reply & Services</h3>
-        <p>Fire request/reply calls and discover NATS micro-services with per-endpoint stats and schemas.</p>
-      </div>
-      <div class="fcard reveal">
-        <div class="ficon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7l7-4z"/></svg></div>
+      <div class="tile t4 reveal">
+        <div class="ico"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg></div>
         <h3>Secure by default</h3>
-        <p>TLS & mTLS profiles, credentials stored in the OS keychain, and zero telemetry. Your data stays yours.</p>
+        <p>TLS &amp; mTLS profiles, credentials in the OS keychain, and zero telemetry. Your data stays yours.</p>
       </div>
     </div>
   </div>
 </section>
 
-<section class="blk" id="download" style="padding-top:20px">
+<section class="s" id="download" style="padding-top:0">
   <div class="wrap">
-    <div class="eyebrow reveal">Get it now</div>
-    <h2 class="h2 reveal">Download for your platform</h2>
-    <p class="lead reveal">Free and open source. Pick your OS — installers are built for each platform.</p>
+    <div class="shead">
+      <div class="lab reveal">Get it now</div>
+      <h2 class="h2 reveal">Download for your platform.</h2>
+      <p class="p reveal">Free, open source, and one native binary per OS.</p>
+    </div>
     <div class="dl">
-      <a class="dlcard reveal" href="https://github.com/himanshu-systems/nats-studio/releases/latest">
-        <svg class="os-ico" viewBox="0 0 24 24" stroke-width="1.6"><path d="M3 5.5l8-1.2v7.2H3zM11 4.1l10-1.5v9.1H11zM3 12.5h8v7.2l-8-1.2zM11 12.5h10v9.1l-10-1.5z"/></svg>
-        <h3>Windows</h3>
-        <p>Windows 10 / 11</p>
-        <div class="files">.msi · .exe setup</div>
+      <a class="os reveal" href="https://github.com/himanshu-systems/nats-studio/releases/latest">
+        <svg viewBox="0 0 24 24"><path d="M3 5.5l8-1.2v7.2H3zM11 4.1l10-1.5v9.1H11zM3 12.5h8v7.2l-8-1.2zM11 12.5h10v9.1l-10-1.5z"/></svg>
+        <h3>Windows</h3><div class="sm">Windows 10 / 11</div>
+        <div class="fl">.msi · .exe setup</div>
+        <span class="go">Download →</span>
       </a>
-      <a class="dlcard reveal" href="https://github.com/himanshu-systems/nats-studio/releases/latest">
-        <svg class="os-ico" viewBox="0 0 24 24" stroke-width="1.6"><path d="M16 3c-.5 1.6-1.8 2.9-3.3 3 .2-1.6 1.6-3 3.3-3z"/><path d="M19 16c-.6 1.9-2 4-3.6 4-1 0-1.5-.6-2.7-.6s-1.8.6-2.7.6C7.8 20.1 5 15.9 5 12.3 5 9 7.2 7.3 9.2 7.3c1.1 0 2 .7 2.8.7.7 0 1.9-.8 3.1-.7 1.4.1 2.5.7 3.2 1.8-2.8 1.7-2.3 5.6.7 6.6z"/></svg>
-        <h3>macOS</h3>
-        <p>Apple Silicon & Intel</p>
-        <div class="files">.dmg (arm64 · x64)</div>
+      <a class="os reveal" href="https://github.com/himanshu-systems/nats-studio/releases/latest">
+        <svg viewBox="0 0 24 24"><path d="M16 3c-.5 1.6-1.8 2.9-3.3 3 .2-1.6 1.6-3 3.3-3z"/><path d="M19 16c-.6 1.9-2 4-3.6 4-1 0-1.5-.6-2.7-.6s-1.8.6-2.7.6C7.8 20.1 5 15.9 5 12.3 5 9 7.2 7.3 9.2 7.3c1.1 0 2 .7 2.8.7.7 0 1.9-.8 3.1-.7 1.4.1 2.5.7 3.2 1.8-2.8 1.7-2.3 5.6.7 6.6z"/></svg>
+        <h3>macOS</h3><div class="sm">Apple Silicon &amp; Intel</div>
+        <div class="fl">.dmg (arm64 · x64)</div>
+        <span class="go">Download →</span>
       </a>
-      <a class="dlcard reveal" href="https://github.com/himanshu-systems/nats-studio/releases/latest">
-        <svg class="os-ico" viewBox="0 0 24 24" stroke-width="1.6"><path d="M9 4c-1 1-1 3-1 4 0 2-2 4-2 7 0 3 2 4 6 4s6-1 6-4c0-3-2-5-2-7 0-1 0-3-1-4-1.2-1.3-4.8-1.3-6 0z"/><path d="M10 9h.01M14 9h.01"/></svg>
-        <h3>Linux</h3>
-        <p>Most distributions</p>
-        <div class="files">.AppImage · .deb · .rpm</div>
+      <a class="os reveal" href="https://github.com/himanshu-systems/nats-studio/releases/latest">
+        <svg viewBox="0 0 24 24"><path d="M9 4c-1 1-1 3-1 4 0 2-2 4-2 7 0 3 2 4 6 4s6-1 6-4c0-3-2-5-2-7 0-1 0-3-1-4-1.2-1.3-4.8-1.3-6 0z"/><path d="M10 9h.01M14 9h.01"/></svg>
+        <h3>Linux</h3><div class="sm">Most distributions</div>
+        <div class="fl">.AppImage · .deb · .rpm</div>
+        <span class="go">Download →</span>
       </a>
     </div>
-    <p class="note">Builds aren't code-signed yet — Windows SmartScreen or macOS Gatekeeper may warn on first launch (one-time). You'll need a NATS server to connect to; <span class="mono">nats-server -js</span> works locally.</p>
+    <p class="fine">Builds aren't code-signed yet — Windows SmartScreen / macOS Gatekeeper may warn on first launch (one-time). You'll need a NATS server to connect to; <span class="mono">nats-server -js</span> runs one locally.</p>
   </div>
 </section>
 
-<section class="blk" style="padding-top:20px">
+<section class="s" style="padding-top:0">
   <div class="wrap">
     <div class="band reveal">
-      <div class="glow"></div>
       <h2>Give NATS the client it deserves.</h2>
-      <p>Open source, MIT licensed, and shaped by the people who use it. Try it, star it, and tell us what to build next.</p>
-      <div class="cta">
+      <p>Open source, MIT licensed, shaped by the people who use it. Try it, star it, tell us what to build next.</p>
+      <div class="hero-cta">
         <a class="btn btn-primary" href="https://github.com/himanshu-systems/nats-studio/releases/latest">Download free</a>
         <a class="btn btn-ghost" href="https://github.com/himanshu-systems/nats-studio">View source</a>
       </div>
@@ -336,40 +377,24 @@
 <footer>
   <div class="wrap">
     <div class="foot">
-      <div style="max-width:340px">
-        <a class="brand" href="#top"><img src="logo.png" alt="NATS Studio" /> NATS&nbsp;Studio</a>
-        <p>The definitive desktop GUI for NATS — connect, message, and manage JetStream in one native app.</p>
+      <div>
+        <a class="brand" href="#top"><img src="logo.png" alt="" /> NATS&nbsp;Studio</a>
+        <p class="desc">The definitive desktop GUI for NATS — connect, message, and manage JetStream in one native app.</p>
       </div>
-      <div class="fcol">
-        <strong>Product</strong>
-        <a href="#features">Features</a>
-        <a href="#download">Download</a>
-        <a href="https://github.com/himanshu-systems/nats-studio/releases">Releases</a>
-      </div>
-      <div class="fcol">
-        <strong>Project</strong>
-        <a href="https://github.com/himanshu-systems/nats-studio">GitHub</a>
-        <a href="https://github.com/himanshu-systems/nats-studio/issues">Issues</a>
-        <a href="https://github.com/himanshu-systems/nats-studio/blob/main/LICENSE">License (MIT)</a>
-      </div>
-      <div class="fcol">
-        <strong>Maintainer</strong>
-        <a href="https://www.linkedin.com/in/himanshuchavda/">LinkedIn</a>
-        <a href="mailto:himanshu.tech.profile@gmail.com">Email</a>
-      </div>
+      <div class="fc"><strong>Product</strong><a href="#features">Features</a><a href="#download">Download</a><a href="https://github.com/himanshu-systems/nats-studio/releases">Releases</a></div>
+      <div class="fc"><strong>Project</strong><a href="https://github.com/himanshu-systems/nats-studio">GitHub</a><a href="https://github.com/himanshu-systems/nats-studio/issues">Issues</a><a href="https://github.com/himanshu-systems/nats-studio/blob/main/LICENSE">License</a></div>
+      <div class="fc"><strong>Contact</strong><a href="https://www.linkedin.com/in/himanshuchavda/">LinkedIn</a><a href="mailto:himanshu.tech.profile@gmail.com">Email</a></div>
     </div>
-    <div class="legal">
-      © <span id="yr">2026</span> Himanshu Chavda · Built with Rust + Tauri · Not affiliated with Synadia or the NATS project. NATS is a trademark of its respective owner.
-    </div>
+    <div class="legal">© <span id="yr">2026</span> · Built with Rust + Tauri · Not affiliated with Synadia or the NATS project. NATS is a trademark of its respective owner.</div>
   </div>
 </footer>
 
 <script>
-  const hdr = document.getElementById('hdr');
-  addEventListener('scroll', () => hdr.classList.toggle('scrolled', scrollY > 8), {passive:true});
-  const io = new IntersectionObserver((es)=>es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} }), {threshold:.12});
-  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
-  document.getElementById('yr').textContent = new Date().getFullYear();
+  const h = document.getElementById('hdr');
+  addEventListener('scroll', () => h.classList.toggle('on', scrollY > 6), {passive:true});
+  const io = new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.14});
+  document.querySelectorAll('.reveal:not(.in)').forEach(el=>io.observe(el));
+  document.getElementById('yr').textContent=new Date().getFullYear();
 </script>
 </body>
 </html>
