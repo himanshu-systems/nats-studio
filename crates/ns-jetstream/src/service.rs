@@ -544,6 +544,7 @@ mod tests {
         kv_puts: Mutex<Vec<(String, String, Vec<u8>)>>,
         kv_deletes: Mutex<Vec<(String, String)>>,
         deleted_objects: Mutex<Vec<(String, String)>>,
+        #[allow(clippy::type_complexity)] // test mock: records call args, not a public type
         kv_created_buckets: Mutex<Vec<(String, u8, Option<u64>, String)>>,
         object_created_buckets: Mutex<Vec<(String, Option<u64>, String)>>,
         object_puts: Mutex<Vec<(String, String, Vec<u8>)>>,
