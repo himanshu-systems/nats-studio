@@ -18,7 +18,7 @@ jobs:
     name: Frontend (typecheck + build)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
         with:
           version: 9
@@ -34,7 +34,7 @@ jobs:
     name: Rust (fmt + clippy + check-layers)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Tauri system deps
         run: |
           sudo apt-get update
@@ -66,7 +66,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Tauri system deps
         if: runner.os == 'Linux'
         run: |
@@ -94,7 +94,7 @@ jobs:
     name: Rust->TS type drift
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: Swatinem/rust-cache@v2
       - name: Install typeshare-cli (pinned)
         run: cargo install typeshare-cli --version 1.13.4 --locked
@@ -107,7 +107,7 @@ jobs:
     name: cargo-deny
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check
