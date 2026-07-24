@@ -7,6 +7,7 @@ import { Badge, Button, EmptyState, Panel, SearchInput, SectionLabel, cx } from 
 import { Icon } from "../../components/Icon";
 import { Select } from "../../components/Select";
 import { TipLabel } from "../../components/InfoTip";
+import { useConfirm } from "../../components/ConfirmDialog";
 import { errorMessage } from "../messaging/message";
 
 const streamsKey = (connId: string): [string, string] => ["streams", connId];
@@ -46,6 +47,7 @@ export function StreamsView(): JSX.Element {
 
 function Streams({ connId }: { connId: string }): JSX.Element {
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const streams = useQuery({
     queryKey: streamsKey(connId),
     queryFn: () => ipc.jetstream.listStreams({ connectionId: connId }),
@@ -107,9 +109,16 @@ function Streams({ connId }: { connId: string }): JSX.Element {
                 key={s.config.name}
                 info={s}
                 onDelete={() => {
-                  if (window.confirm(`Delete stream "${s.config.name}"? This cannot be undone.`)) {
-                    remove.mutate(s.config.name);
-                  }
+                  void confirm({
+                    title: `Delete stream "${s.config.name}"?`,
+                    description: "This cannot be undone.",
+                    consequences: [
+                      `All ${s.state.messages.toLocaleString()} stored message(s) will be permanently deleted.`,
+                      `Its ${s.state.consumerCount.toLocaleString()} consumer(s) will be deleted along with it.`,
+                    ],
+                  }).then((ok) => {
+                    if (ok) remove.mutate(s.config.name);
+                  });
                 }}
                 onPurge={() => setPurgeTarget(s.config.name)}
               />
@@ -398,6 +407,7 @@ function PurgeModal({
               <Icon name="x" size={16} />
             </button>
           </div>
+          <p className="text-xs text-danger">Purged messages are gone permanently — this cannot be undone.</p>
 
           <div className="space-y-1.5">
             {(

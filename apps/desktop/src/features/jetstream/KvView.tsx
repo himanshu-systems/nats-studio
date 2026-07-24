@@ -5,6 +5,7 @@ import type { KvEntryDto } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../components/ui";
 import { Select } from "../../components/Select";
+import { useConfirm } from "../../components/ConfirmDialog";
 import { errorMessage } from "../messaging/message";
 
 const bucketsKey = (connId: string): [string, string] => ["kvBuckets", connId];
@@ -252,6 +253,7 @@ function KeyDetail({
   onDeleted: () => void;
 }): JSX.Element {
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const entry = useQuery({
     queryKey: entryKey(connId, bucket, keyName),
     queryFn: () => ipc.jetstream.kvGet({ connectionId: connId, bucket, key: keyName }),
@@ -309,9 +311,16 @@ function KeyDetail({
           icon="trash"
           className="shrink-0"
           onClick={() => {
-            if (window.confirm(`Delete key "${keyName}"? This writes a delete marker.`)) {
-              remove.mutate();
-            }
+            void confirm({
+              title: `Delete key "${keyName}"?`,
+              description: `In bucket "${bucket}".`,
+              consequences: [
+                "Writes a delete marker — reads for this key return not-found from then on.",
+                "Older revisions stay until the bucket's history limit rolls them off.",
+              ],
+            }).then((ok) => {
+              if (ok) remove.mutate();
+            });
           }}
         >
           Delete

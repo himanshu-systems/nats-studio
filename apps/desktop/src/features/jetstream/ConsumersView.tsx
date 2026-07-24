@@ -6,6 +6,7 @@ import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SearchInput, SectionLabel, cx } from "../../components/ui";
 import { Select } from "../../components/Select";
 import { TipLabel } from "../../components/InfoTip";
+import { useConfirm } from "../../components/ConfirmDialog";
 import { errorMessage } from "../messaging/message";
 
 const streamsKey = (connId: string): [string, string] => ["streams", connId];
@@ -57,6 +58,22 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
       ipc.jetstream.deleteConsumer({ connectionId: connId, streamName: stream, name }),
     onSettled: (_data, _err, vars) => qc.invalidateQueries({ queryKey: consumersKey(connId, vars.stream) }),
   });
+
+  const confirm = useConfirm();
+  const confirmDelete = (stream: string, info: ConsumerInfoDto): void => {
+    void confirm({
+      title: `Delete consumer "${info.name}"?`,
+      description: `On stream "${stream}". This cannot be undone.`,
+      consequences: [
+        info.numPending > 0
+          ? `${info.numPending.toLocaleString()} pending message(s) will stop being delivered to it.`
+          : "Any messages published after this will never reach it.",
+        "Anything relying on its delivery/ack progress will lose that state.",
+      ],
+    }).then((ok) => {
+      if (ok) remove.mutate({ stream, name: info.name });
+    });
+  };
 
   const [q, setQ] = useState("");
   const needle = q.trim().toLowerCase();
@@ -155,11 +172,7 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
                 key={`${stream}::${info.name}`}
                 stream={stream}
                 info={info}
-                onDelete={() => {
-                  if (window.confirm(`Delete consumer "${info.name}" on "${stream}"? This cannot be undone.`)) {
-                    remove.mutate({ stream, name: info.name });
-                  }
-                }}
+                onDelete={() => confirmDelete(stream, info)}
               />
             ))}
           </ul>
@@ -177,11 +190,7 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
                       key={`${stream}::${info.name}`}
                       stream={stream}
                       info={info}
-                      onDelete={() => {
-                        if (window.confirm(`Delete consumer "${info.name}" on "${stream}"? This cannot be undone.`)) {
-                          remove.mutate({ stream, name: info.name });
-                        }
-                      }}
+                      onDelete={() => confirmDelete(stream, info)}
                     />
                   ))}
                 </ul>

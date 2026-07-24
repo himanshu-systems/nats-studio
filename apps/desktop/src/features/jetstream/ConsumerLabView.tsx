@@ -6,6 +6,7 @@ import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel } from "../../components/ui";
 import { Select } from "../../components/Select";
 import { ErrorNote } from "../../components/ErrorNote";
+import { useConfirm } from "../../components/ConfirmDialog";
 import { PayloadView } from "../messaging/message";
 
 const streamsKey = (connId: string): [string, string] => ["streams", connId];
@@ -260,6 +261,7 @@ function MessageRow({
   error: unknown;
   onAct: (msg: FetchedMessageDto, action: AckAction) => void;
 }): JSX.Element {
+  const confirm = useConfirm();
   return (
     <Panel className={acted ? "space-y-3 p-4 opacity-60" : "space-y-3 p-4"}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -286,9 +288,16 @@ function MessageRow({
               variant="danger"
               icon="x"
               onClick={() => {
-                if (window.confirm(`Terminate message #${msg.streamSeq}? It won't be redelivered.`)) {
-                  onAct(msg, "term");
-                }
+                void confirm({
+                  title: `Terminate message #${msg.streamSeq}?`,
+                  description: `On subject "${msg.subject}".`,
+                  consequences: [
+                    "It's marked permanently failed and won't be redelivered to this or any other consumer.",
+                    msg.numDelivered > 1 ? `It was already delivered ${msg.numDelivered} times.` : "",
+                  ].filter(Boolean),
+                }).then((ok) => {
+                  if (ok) onAct(msg, "term");
+                });
               }}
             >
               Term

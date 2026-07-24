@@ -6,6 +6,7 @@ import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../components/ui";
 import { Select } from "../../components/Select";
 import { ErrorNote } from "../../components/ErrorNote";
+import { useConfirm } from "../../components/ConfirmDialog";
 import { PayloadView, fmtBytes } from "../messaging/message";
 
 const PAGE = 50;
@@ -219,6 +220,7 @@ function MessageDetail({
   onDeleted: () => void;
 }): JSX.Element {
   const qc = useQueryClient();
+  const confirm = useConfirm();
 
   const remove = useMutation({
     mutationFn: () =>
@@ -242,9 +244,16 @@ function MessageDetail({
           icon="trash"
           className="shrink-0"
           onClick={() => {
-            if (window.confirm(`Delete message #${msg.seq}? This cannot be undone.`)) {
-              remove.mutate();
-            }
+            void confirm({
+              title: `Delete message #${msg.seq}?`,
+              description: `On stream "${stream}". This cannot be undone.`,
+              consequences: [
+                `The message on subject "${msg.subject}" will be permanently removed from the stream.`,
+                "It cannot be recovered — not even by pull/fetch consumers that haven't read it yet.",
+              ],
+            }).then((ok) => {
+              if (ok) remove.mutate();
+            });
           }}
         >
           Delete

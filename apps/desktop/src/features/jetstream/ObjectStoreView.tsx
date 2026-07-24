@@ -6,6 +6,7 @@ import type { ObjectInfoDto, ObjectProgress } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../components/ui";
 import { Select } from "../../components/Select";
+import { useConfirm } from "../../components/ConfirmDialog";
 import { errorMessage } from "../messaging/message";
 
 const bucketsKey = (connId: string): [string, string] => ["objBuckets", connId];
@@ -367,6 +368,7 @@ function ObjectDetail({
   onDeleted: () => void;
 }): JSX.Element {
   const qc = useQueryClient();
+  const confirm = useConfirm();
 
   const download = useMutation({
     mutationFn: () =>
@@ -438,9 +440,16 @@ function ObjectDetail({
             variant="danger"
             icon="trash"
             onClick={() => {
-              if (window.confirm(`Delete object "${object.name}"? This cannot be undone.`)) {
-                remove.mutate();
-              }
+              void confirm({
+                title: `Delete object "${object.name}"?`,
+                description: `In bucket "${bucket}". This cannot be undone.`,
+                consequences: [
+                  `The stored ${formatBytes(object.size)} of data will be permanently deleted.`,
+                  "Anything downloading or referencing this object will start failing.",
+                ],
+              }).then((ok) => {
+                if (ok) remove.mutate();
+              });
             }}
           >
             Delete

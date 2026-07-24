@@ -16,6 +16,7 @@ import { Badge, Button, EmptyState, Panel, SectionLabel, StatusDot, statusMeta, 
 import { Icon } from "../../components/Icon";
 import { InfoTip, TipLabel } from "../../components/InfoTip";
 import { Select } from "../../components/Select";
+import { useConfirm } from "../../components/ConfirmDialog";
 import { errorMessage } from "../messaging/message";
 
 type AuthKind = "none" | "userPassword" | "token";
@@ -32,6 +33,7 @@ export function ConnectionsView(): JSX.Element {
 
 function ProfilesPanel(): JSX.Element {
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const profiles = useQuery({ queryKey: PROFILES_KEY, queryFn: () => ipc.connection.listProfiles() });
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -94,9 +96,16 @@ function ProfilesPanel(): JSX.Element {
                     variant="ghost"
                     icon="trash"
                     onClick={() => {
-                      if (window.confirm(`Delete connection profile "${p.name}"? This cannot be undone.`)) {
-                        remove.mutate(p.id);
-                      }
+                      void confirm({
+                        title: `Delete connection profile "${p.name}"?`,
+                        description: "This cannot be undone.",
+                        consequences: [
+                          `Its saved servers (${p.servers.join(", ")}) and any stored credentials will be removed.`,
+                          "You'll need to re-enter its details to connect to it again.",
+                        ],
+                      }).then((ok) => {
+                        if (ok) remove.mutate(p.id);
+                      });
                     }}
                     aria-label="Delete profile"
                   />

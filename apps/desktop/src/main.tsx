@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "@/App";
 import { ThemeProvider } from "@/lib/theme";
 import { ActiveConnectionProvider } from "@/lib/activeConnection";
+import { ConfirmProvider } from "@/components/ConfirmDialog";
 import "@/index.css";
 
 const queryClient = new QueryClient({
@@ -27,7 +28,9 @@ ReactDOM.createRoot(rootEl).render(
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <ActiveConnectionProvider>
-          <App />
+          <ConfirmProvider>
+            <App />
+          </ConfirmProvider>
         </ActiveConnectionProvider>
       </ThemeProvider>
     </QueryClientProvider>
