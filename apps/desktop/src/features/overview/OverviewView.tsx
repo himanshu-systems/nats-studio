@@ -4,7 +4,8 @@ import { ConnectionStatus, ipc, type VarzDto } from "@bindings";
 import { useActiveConnection } from "../../lib/activeConnection";
 import { useMonitorUrl } from "../../lib/monitorUrl";
 import { useUiStore } from "../../lib/uiStore";
-import { Badge, Button, EmptyState, Panel, SearchInput, SectionLabel, StatusDot, statusMeta } from "../../components/ui";
+import { sumClientTraffic } from "../../lib/clientTraffic";
+import { Badge, Button, EmptyState, Panel, SectionLabel, StatusDot, statusMeta } from "../../components/ui";
 import { Icon } from "../../components/Icon";
 import { LineChart } from "../../components/Chart";
 import { RequireConnection } from "../../components/RequireConnection";
@@ -59,15 +60,16 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
   const meta = statusMeta(active?.status ?? ConnectionStatus.Disconnected);
 
   const { url, isCustom } = useMonitorUrl();
-  const [q, setQ] = useState("");
   const [rtt, setRtt] = useState<number[]>([]);
-  const prevVarz = useRef<{ t: number; inBytes: number; outBytes: number } | null>(null);
+  const prevTraffic = useRef<{ t: number; inBytes: number; outBytes: number } | null>(null);
   const [proc, setProc] = useState<{ rate: number; history: number[] }>({ rate: 0, history: [] });
 
   // Poll streams so "Data stored" / "Streams" reflect publishes & new streams.
   const streams = useQuery({ queryKey: ["streams", connId], queryFn: () => ipc.jetstream.listStreams({ connectionId: connId }), refetchInterval: 3000 });
   const varz = useQuery({ queryKey: ["monitor", "varz", url], queryFn: () => ipc.monitor.varz({ baseUrl: url }), refetchInterval: 1000 });
-  const connz = useQuery({ queryKey: ["monitor", "connz", url], queryFn: () => ipc.monitor.connz({ baseUrl: url }), refetchInterval: 3000 });
+  // Polled at the same 1s cadence as varz — its per-connection breakdown is
+  // what "Data processed/sec" uses to count only genuine client traffic.
+  const connz = useQuery({ queryKey: ["monitor", "connz", url], queryFn: () => ipc.monitor.connz({ baseUrl: url }), refetchInterval: 1000 });
   const v: VarzDto | undefined = varz.data;
 
   // Live RTT (µs).
@@ -90,25 +92,24 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
     };
   }, [connId]);
 
-  // Data-processed rate (bytes/sec in+out) from varz deltas.
+  // Data-processed rate (bytes/sec in+out), from client-connection deltas
+  // only — excludes route/gateway/leafnode/system traffic, so this reflects
+  // what applications actually produced and consumed, not server-internal
+  // chatter between nodes.
   useEffect(() => {
-    if (!v) return;
+    if (!connz.data) return;
+    const traffic = sumClientTraffic(connz.data);
     const now = Date.now();
-    const p = prevVarz.current;
+    const p = prevTraffic.current;
     if (p && now > p.t) {
       const dt = (now - p.t) / 1000;
-      const rate = Math.max(0, (v.inBytes - p.inBytes + (v.outBytes - p.outBytes)) / dt);
+      const rate = Math.max(0, (traffic.inBytes - p.inBytes + (traffic.outBytes - p.outBytes)) / dt);
       setProc((s) => ({ rate, history: [...s.history, rate].slice(-48) }));
     }
-    prevVarz.current = { t: now, inBytes: v.inBytes, outBytes: v.outBytes };
-  }, [v]);
+    prevTraffic.current = { t: now, inBytes: traffic.inBytes, outBytes: traffic.outBytes };
+  }, [connz.data]);
 
   const items = streams.data?.streams ?? [];
-  const needle = q.trim().toLowerCase();
-  const filtered =
-    needle === ""
-      ? items
-      : items.filter((s) => s.config.name.toLowerCase().includes(needle) || s.config.subjects.some((subj) => subj.toLowerCase().includes(needle)));
   const conns = connz.data?.connections ?? [];
 
   const totalStored = items.reduce((a, s) => a + s.state.bytes, 0);
@@ -154,8 +155,8 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
         {active?.lastError && <p className="mt-3 rounded-lg border border-danger/25 bg-danger/10 px-3 py-2 text-xs text-danger">{active.lastError}</p>}
       </Panel>
 
-      {/* Data: stored + processed */}
-      <div className="grid gap-5 lg:grid-cols-2">
+      {/* Data stored, data processed, and round-trip — three equal, full-size panels */}
+      <div className="grid gap-5 lg:grid-cols-3">
         <Panel className="p-4">
           <div className="flex items-baseline justify-between">
             <SectionLabel>Data stored (JetStream)</SectionLabel>
@@ -170,7 +171,7 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
             ) : (
               topStreams.map((s) => (
                 <div key={s.config.name} className="flex items-center gap-2 text-xs">
-                  <span className="w-28 shrink-0 truncate text-muted" title={s.config.name}>{s.config.name}</span>
+                  <span className="w-20 shrink-0 truncate text-muted" title={s.config.name}>{s.config.name}</span>
                   <div className="h-3 flex-1 overflow-hidden rounded bg-surface-2">
                     <div className="h-full rounded bg-accent/70" style={{ width: `${(s.state.bytes / maxStreamBytes) * 100}%` }} />
                   </div>
@@ -193,81 +194,29 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
               <div className="flex h-full items-center justify-center text-xs text-faint">collecting samples…</div>
             )}
           </div>
+          <p className="mt-2 text-[11px] text-faint">Client traffic only — excludes route/gateway/leafnode/system messages between nodes.</p>
         </Panel>
-      </div>
 
-      {/* Stats + latency */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Subscriptions" value={v ? fmtNum(v.subscriptions) : "—"} icon="signal" />
-        <Stat label="Connections" value={v ? fmtNum(v.connections) : "—"} icon="users" />
-        <Stat label="Streams" value={fmtNum(items.length)} icon="database" />
         <Panel className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-muted">
-              <Icon name="clock" size={15} />
-              <span className="text-[11px] font-semibold uppercase tracking-wider">Round-trip</span>
-            </div>
-            <span className="text-lg font-semibold tabular-nums text-content">{fmtRtt(rtt.at(-1))}</span>
+          <div className="flex items-baseline justify-between">
+            <SectionLabel>Round-trip</SectionLabel>
+            <div className="text-2xl font-semibold tabular-nums text-content">{fmtRtt(rtt.at(-1))}</div>
           </div>
-          <div className="mt-2 h-16">
+          <div className="mt-3 h-[120px]">
             {rtt.length > 1 ? (
-              <LineChart series={[{ label: "rtt", values: rtt, color: ACCENT }]} height={64} formatY={fmtRtt} />
+              <LineChart series={[{ label: "rtt", values: rtt, color: ACCENT }]} height={120} formatY={fmtRtt} />
             ) : (
-              <div className="flex h-full items-center text-[11px] text-faint">sampling…</div>
+              <div className="flex h-full items-center justify-center text-xs text-faint">sampling…</div>
             )}
           </div>
         </Panel>
       </div>
 
-      {/* Streams ↔ subjects */}
-      <div>
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <SectionLabel>
-            Streams & subjects ({filtered.length}
-            {needle && ` / ${items.length}`})
-          </SectionLabel>
-          <Button size="sm" variant="outline" icon="replay" onClick={() => void streams.refetch()} disabled={streams.isFetching}>
-            {streams.isFetching ? "…" : "Refresh"}
-          </Button>
-        </div>
-        {items.length > 0 && (
-          <div className="mb-2">
-            <SearchInput value={q} onChange={setQ} placeholder="Search stream or subject…" />
-          </div>
-        )}
-        {items.length === 0 ? (
-          <Panel className="p-6 text-center text-xs text-muted">No JetStream streams on this server yet.</Panel>
-        ) : filtered.length === 0 ? (
-          <p className="px-1 py-6 text-center text-xs text-muted">No matches for “{q}”.</p>
-        ) : (
-          <div className="space-y-2">
-            {filtered.map((s) => (
-              <Panel key={s.config.name} className="p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <button type="button" onClick={() => setView("browser")} className="truncate text-sm font-medium text-content hover:text-accent" title="Open in Message Browser">
-                    {s.config.name}
-                  </button>
-                  <div className="flex shrink-0 items-center gap-3 text-xs text-muted">
-                    <span className="tabular-nums">{fmtNum(s.state.messages)} msgs</span>
-                    <span className="tabular-nums">{fmtBytes(s.state.bytes)}</span>
-                    <span className="tabular-nums">{fmtNum(s.state.consumerCount)} consumers</span>
-                  </div>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {s.config.subjects.length === 0 ? (
-                    <span className="text-xs text-faint">(no subjects)</span>
-                  ) : (
-                    s.config.subjects.map((subj) => (
-                      <span key={subj} className="rounded-md border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-content">
-                        {subj}
-                      </span>
-                    ))
-                  )}
-                </div>
-              </Panel>
-            ))}
-          </div>
-        )}
+      {/* Stats */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Stat label="Subscriptions" value={v ? fmtNum(v.subscriptions) : "—"} icon="signal" />
+        <Stat label="Connections" value={v ? fmtNum(v.connections) : "—"} icon="users" />
+        <Stat label="Streams" value={fmtNum(items.length)} icon="database" />
       </div>
 
       {/* Clients */}

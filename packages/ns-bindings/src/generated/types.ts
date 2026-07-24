@@ -37,6 +37,13 @@ export interface AppInfo {
 /** A single client connection from `/connz`. */
 export interface ConnInfoDto {
 	cid: number;
+	/**
+	 * Connection type: `"client"`, `"route"`, `"gateway"`, `"leafnode"`, or
+	 * `"system"`. Empty on servers too old to report it. Only `"client"`
+	 * traffic is a genuine application produce/consume; the rest is
+	 * server-to-server plumbing.
+	 */
+	kind: string;
 	name?: string;
 	ip: string;
 	port: number;

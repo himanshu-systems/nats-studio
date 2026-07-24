@@ -5,6 +5,7 @@ import { Badge, Button, EmptyState, Panel, SectionLabel } from "../../components
 import { LineChart } from "../../components/Chart";
 import { useMonitorUrl } from "../../lib/monitorUrl";
 import { useUiStore } from "../../lib/uiStore";
+import { sumClientTraffic } from "../../lib/clientTraffic";
 
 const TEAL = "#27c6a0";
 const ACCENT = "rgb(var(--c-accent))";
@@ -51,32 +52,37 @@ export function MetricsView(): JSX.Element {
     queryFn: () => ipc.monitor.varz({ baseUrl: url }),
     refetchInterval: 1000,
   });
+  // Per-connection breakdown, polled at the same cadence — used instead of
+  // varz's server-wide totals so message/byte figures below count only
+  // genuine client traffic, not route/gateway/leafnode/system chatter.
+  const connz = useQuery({
+    queryKey: ["monitor", "connz", url],
+    queryFn: () => ipc.monitor.connz({ baseUrl: url }),
+    refetchInterval: 1000,
+  });
+
+  const data = varz.data;
+  const traffic = sumClientTraffic(connz.data);
 
   // Compute per-refresh rates from the delta against the previous sample.
-  const data = varz.data;
   useEffect(() => {
-    if (!data) return;
+    if (!connz.data) return;
+    const sample = sumClientTraffic(connz.data);
     const now = Date.now();
     const p = prev.current;
     if (p && now > p.t) {
       const dt = (now - p.t) / 1000;
       const r: Rates = {
-        inMsgs: Math.max(0, (data.inMsgs - p.inMsgs) / dt),
-        outMsgs: Math.max(0, (data.outMsgs - p.outMsgs) / dt),
-        inBytes: Math.max(0, (data.inBytes - p.inBytes) / dt),
-        outBytes: Math.max(0, (data.outBytes - p.outBytes) / dt),
+        inMsgs: Math.max(0, (sample.inMsgs - p.inMsgs) / dt),
+        outMsgs: Math.max(0, (sample.outMsgs - p.outMsgs) / dt),
+        inBytes: Math.max(0, (sample.inBytes - p.inBytes) / dt),
+        outBytes: Math.max(0, (sample.outBytes - p.outBytes) / dt),
       };
       setRates(r);
       setHistory((h) => [...h, r].slice(-MAX_HISTORY));
     }
-    prev.current = {
-      t: now,
-      inMsgs: data.inMsgs,
-      outMsgs: data.outMsgs,
-      inBytes: data.inBytes,
-      outBytes: data.outBytes,
-    };
-  }, [data]);
+    prev.current = { t: now, ...sample };
+  }, [connz.data]);
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-auto p-4">
@@ -127,25 +133,30 @@ export function MetricsView(): JSX.Element {
           <Stat label="Uptime" value={data.uptime || "—"} />
           <Stat
             label="Msgs in"
-            value={fmtNum(data.inMsgs)}
+            value={fmtNum(traffic.inMsgs)}
             sub={rates ? `${fmtNum(Math.round(rates.inMsgs))} msg/s` : undefined}
           />
           <Stat
             label="Msgs out"
-            value={fmtNum(data.outMsgs)}
+            value={fmtNum(traffic.outMsgs)}
             sub={rates ? `${fmtNum(Math.round(rates.outMsgs))} msg/s` : undefined}
           />
           <Stat
             label="Bytes in"
-            value={fmtBytes(data.inBytes)}
+            value={fmtBytes(traffic.inBytes)}
             sub={rates ? `${fmtBytes(rates.inBytes)}/s` : undefined}
           />
           <Stat
             label="Bytes out"
-            value={fmtBytes(data.outBytes)}
+            value={fmtBytes(traffic.outBytes)}
             sub={rates ? `${fmtBytes(rates.outBytes)}/s` : undefined}
           />
         </div>
+      )}
+      {data && (
+        <p className="-mt-2 text-[11px] text-faint">
+          Msgs/Bytes in/out are client traffic only — route/gateway/leafnode/system messages between nodes are excluded.
+        </p>
       )}
 
       {data && (

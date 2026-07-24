@@ -49,6 +49,11 @@ pub struct ConnzDto {
 #[serde(rename_all = "camelCase")]
 pub struct ConnInfoDto {
     pub cid: U64,
+    /// Connection type: `"client"`, `"route"`, `"gateway"`, `"leafnode"`, or
+    /// `"system"`. Empty on servers too old to report it. Only `"client"`
+    /// traffic is a genuine application produce/consume; the rest is
+    /// server-to-server plumbing.
+    pub kind: String,
     pub name: Option<String>,
     pub ip: String,
     pub port: u32,

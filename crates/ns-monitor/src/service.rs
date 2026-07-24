@@ -112,6 +112,7 @@ impl From<ConnzWire> for ConnzDto {
 #[serde(default)]
 struct ConnInfoWire {
     cid: u64,
+    kind: String,
     name: Option<String>,
     ip: String,
     port: u32,
@@ -129,6 +130,7 @@ impl From<ConnInfoWire> for ConnInfoDto {
     fn from(w: ConnInfoWire) -> Self {
         ConnInfoDto {
             cid: w.cid,
+            kind: w.kind,
             name: w.name,
             ip: w.ip,
             port: w.port,
@@ -188,6 +190,7 @@ mod tests {
             "connections": [
                 {
                     "cid": 5,
+                    "kind": "Client",
                     "name": "publisher",
                     "ip": "127.0.0.1",
                     "port": 52344,
@@ -208,11 +211,21 @@ mod tests {
         assert_eq!(dto.connections.len(), 1);
         let c = &dto.connections[0];
         assert_eq!(c.cid, 5);
+        assert_eq!(c.kind, "Client");
         assert_eq!(c.name.as_deref(), Some("publisher"));
         assert_eq!(c.ip, "127.0.0.1");
         assert_eq!(c.port, 52344);
         assert_eq!(c.subscriptions, 2);
         assert_eq!(c.lang.as_deref(), Some("rust"));
+    }
+
+    #[test]
+    fn connz_without_kind_field_defaults_to_empty_string() {
+        // Servers too old to report `kind` must still parse — treated as
+        // "unknown", not client-vs-internal-filtered out by the frontend.
+        let json = r#"{"num_connections":1,"total":1,"connections":[{"cid":1,"ip":"127.0.0.1","port":1,"subscriptions":0,"in_msgs":0,"out_msgs":0,"in_bytes":0,"out_bytes":0,"uptime":"1s"}]}"#;
+        let dto: ConnzDto = serde_json::from_str::<ConnzWire>(json).unwrap().into();
+        assert_eq!(dto.connections[0].kind, "");
     }
 
     #[test]
