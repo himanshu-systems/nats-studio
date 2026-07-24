@@ -53,11 +53,21 @@ export function OverviewView(): JSX.Element {
 }
 
 function Dashboard({ connId }: { connId: string }): JSX.Element {
-  const { active } = useActiveConnection();
+  const { active, activeId } = useActiveConnection();
+  const currentView = useUiStore((s) => s.view);
   const setView = useUiStore((s) => s.setView);
   const info = active?.serverInfo;
   const connected = active?.status === ConnectionStatus.Connected;
   const meta = statusMeta(active?.status ?? ConnectionStatus.Disconnected);
+
+  // Views stay mounted in the background (state persistence across tabs), but
+  // that means an always-on poll would keep hitting the server forever after
+  // a single visit — showing up as phantom "traffic" in Data processed/sec
+  // even with nothing actually being published. Only poll while this is the
+  // instance the user is actually looking at; state (last-seen data) is kept
+  // either way, and returning here refetches immediately (react-query's
+  // default behavior when a query re-enables).
+  const isActive = currentView === "overview" && activeId === connId;
 
   const { url, isCustom } = useMonitorUrl();
   const [rtt, setRtt] = useState<number[]>([]);
@@ -65,16 +75,37 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
   const [proc, setProc] = useState<{ rate: number; history: number[] }>({ rate: 0, history: [] });
 
   // Poll streams so "Data stored" / "Streams" reflect publishes & new streams.
-  const streams = useQuery({ queryKey: ["streams", connId], queryFn: () => ipc.jetstream.listStreams({ connectionId: connId }), refetchInterval: 3000 });
-  const varz = useQuery({ queryKey: ["monitor", "varz", url], queryFn: () => ipc.monitor.varz({ baseUrl: url }), refetchInterval: 1000 });
+  // This is itself a JetStream API request/reply — real NATS traffic on our
+  // own connection that /connz can't tell apart from application messages
+  // (no subject-level breakdown). A slower interval keeps that self-generated
+  // blip infrequent enough not to read as "getting messages" on the
+  // Data processed/sec chart while still refreshing promptly enough to
+  // reflect new publishes.
+  const streams = useQuery({
+    queryKey: ["streams", connId],
+    queryFn: () => ipc.jetstream.listStreams({ connectionId: connId }),
+    refetchInterval: 15_000,
+    enabled: isActive,
+  });
+  const varz = useQuery({
+    queryKey: ["monitor", "varz", url],
+    queryFn: () => ipc.monitor.varz({ baseUrl: url }),
+    refetchInterval: 1000,
+    enabled: isActive,
+  });
   // Polled at the same 1s cadence as varz — its per-connection breakdown is
   // what "Data processed/sec" uses to count only genuine client traffic.
-  const connz = useQuery({ queryKey: ["monitor", "connz", url], queryFn: () => ipc.monitor.connz({ baseUrl: url }), refetchInterval: 1000 });
+  const connz = useQuery({
+    queryKey: ["monitor", "connz", url],
+    queryFn: () => ipc.monitor.connz({ baseUrl: url }),
+    refetchInterval: 1000,
+    enabled: isActive,
+  });
   const v: VarzDto | undefined = varz.data;
 
-  // Live RTT (µs).
+  // Live RTT (µs) — paused while not the active view, for the same reason.
   useEffect(() => {
-    setRtt([]);
+    if (!isActive) return;
     let alive = true;
     const tick = async (): Promise<void> => {
       try {
@@ -90,7 +121,7 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
       alive = false;
       clearInterval(id);
     };
-  }, [connId]);
+  }, [connId, isActive]);
 
   // Data-processed rate (bytes/sec in+out), from client-connection deltas
   // only — excludes route/gateway/leafnode/system traffic, so this reflects

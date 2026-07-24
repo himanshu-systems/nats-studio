@@ -42,15 +42,23 @@ interface Rates {
 
 export function MetricsView(): JSX.Element {
   const { url, isCustom } = useMonitorUrl();
+  const currentView = useUiStore((s) => s.view);
   const setView = useUiStore((s) => s.setView);
   const prev = useRef<Sample | null>(null);
   const [rates, setRates] = useState<Rates | null>(null);
   const [history, setHistory] = useState<Rates[]>([]);
 
+  // This view stays mounted in the background once visited (state
+  // persistence across tabs); without this, its poll would keep running
+  // forever, hitting the server every second even while looking at another
+  // page entirely. Only poll while Metrics is the one actually on screen.
+  const isActive = currentView === "metrics";
+
   const varz = useQuery({
     queryKey: ["monitor", "varz", url],
     queryFn: () => ipc.monitor.varz({ baseUrl: url }),
     refetchInterval: 1000,
+    enabled: isActive,
   });
   // Per-connection breakdown, polled at the same cadence — used instead of
   // varz's server-wide totals so message/byte figures below count only
@@ -59,6 +67,7 @@ export function MetricsView(): JSX.Element {
     queryKey: ["monitor", "connz", url],
     queryFn: () => ipc.monitor.connz({ baseUrl: url }),
     refetchInterval: 1000,
+    enabled: isActive,
   });
 
   const data = varz.data;
