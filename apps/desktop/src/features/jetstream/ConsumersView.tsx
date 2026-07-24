@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ipc } from "@bindings";
 import type { ConsumerConfigDto, ConsumerInfoDto } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
@@ -15,6 +15,11 @@ const consumersKey = (connId: string, stream: string): [string, string, string] 
   stream,
 ];
 
+interface StreamConsumer {
+  stream: string;
+  info: ConsumerInfoDto;
+}
+
 export function ConsumersView(): JSX.Element {
   return <RequireConnection>{(connId) => <Consumers connId={connId} />}</RequireConnection>;
 }
@@ -27,31 +32,41 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
   });
   const streamNames = (streams.data?.streams ?? []).map((s) => s.config.name);
 
-  const [picked, setPicked] = useState<string | null>(null);
-  const stream = picked ?? streamNames[0] ?? null;
-
-  const consumers = useQuery({
-    queryKey: consumersKey(connId, stream ?? ""),
-    queryFn: () => ipc.jetstream.listConsumers({ connectionId: connId, streamName: stream ?? "" }),
-    enabled: stream !== null,
+  // JetStream's own API only lists consumers per stream (no "all consumers"
+  // endpoint) — fan out one query per stream and merge, so this reads like
+  // Streams: every consumer, across every stream, in one flat list.
+  const consumerQueries = useQueries({
+    queries: streamNames.map((name) => ({
+      queryKey: consumersKey(connId, name),
+      queryFn: () => ipc.jetstream.listConsumers({ connectionId: connId, streamName: name }),
+    })),
   });
+  const allConsumers: StreamConsumer[] = streamNames.flatMap(
+    (stream, i) => (consumerQueries[i]?.data?.consumers ?? []).map((info) => ({ stream, info })),
+  );
+  const consumersLoading = streams.isLoading || consumerQueries.some((q) => q.isLoading);
+  const consumersFetching = consumerQueries.some((q) => q.isFetching);
+  const firstConsumerError = consumerQueries.find((q) => q.isError)?.error;
+  const refetchAll = (): void => {
+    consumerQueries.forEach((q) => void q.refetch());
+  };
 
   const remove = useMutation({
-    mutationFn: (name: string) =>
-      ipc.jetstream.deleteConsumer({ connectionId: connId, streamName: stream ?? "", name }),
-    onSettled: () => qc.invalidateQueries({ queryKey: consumersKey(connId, stream ?? "") }),
+    mutationFn: ({ stream, name }: { stream: string; name: string }) =>
+      ipc.jetstream.deleteConsumer({ connectionId: connId, streamName: stream, name }),
+    onSettled: (_data, _err, vars) => qc.invalidateQueries({ queryKey: consumersKey(connId, vars.stream) }),
   });
 
   const [q, setQ] = useState("");
-  const items = consumers.data?.consumers ?? [];
   const needle = q.trim().toLowerCase();
   const filtered =
     needle === ""
-      ? items
-      : items.filter(
-          (c) =>
-            c.name.toLowerCase().includes(needle) ||
-            (c.filterSubject ?? "").toLowerCase().includes(needle),
+      ? allConsumers
+      : allConsumers.filter(
+          ({ stream, info }) =>
+            info.name.toLowerCase().includes(needle) ||
+            (info.filterSubject ?? "").toLowerCase().includes(needle) ||
+            stream.toLowerCase().includes(needle),
         );
 
   return (
@@ -59,56 +74,48 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
       <div className="min-w-0 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <SectionLabel>
-            Consumers{stream ? ` — ${stream} (${filtered.length}${needle ? ` / ${items.length}` : ""})` : ""}
+            Consumers ({filtered.length}
+            {needle && ` / ${allConsumers.length}`})
           </SectionLabel>
-          <div className="flex items-center gap-2">
-            <Select
-              className="max-w-[220px]"
-              value={stream ?? ""}
-              onChange={(v) => setPicked(v)}
-              options={streamNames.map((n) => ({ value: n, label: n }))}
-              disabled={streamNames.length === 0}
-              placeholder="No streams"
-            />
-            <Button
-              size="sm"
-              variant="outline"
-              icon="replay"
-              onClick={() => void consumers.refetch()}
-              disabled={stream === null || consumers.isFetching}
-            >
-              {consumers.isFetching ? "Refreshing…" : "Refresh"}
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            icon="replay"
+            onClick={refetchAll}
+            disabled={streamNames.length === 0 || consumersFetching}
+          >
+            {consumersFetching ? "Refreshing…" : "Refresh"}
+          </Button>
         </div>
 
-        {stream !== null && items.length > 0 && (
-          <SearchInput value={q} onChange={setQ} placeholder="Search consumer or subject…" />
+        {allConsumers.length > 0 && (
+          <SearchInput value={q} onChange={setQ} placeholder="Search consumer, subject, or stream…" />
         )}
 
         {streams.isError && <p className="text-xs text-danger">{errorMessage(streams.error)}</p>}
-        {consumers.isError && <p className="text-xs text-danger">{errorMessage(consumers.error)}</p>}
+        {firstConsumerError && <p className="text-xs text-danger">{errorMessage(firstConsumerError)}</p>}
         {remove.isError && <p className="text-xs text-danger">{errorMessage(remove.error)}</p>}
 
-        {stream === null && !streams.isLoading ? (
+        {streamNames.length === 0 && !streams.isLoading ? (
           <EmptyState icon="database" title="No streams">
-            Create a JetStream stream first — consumers are inspected per stream.
+            Create a JetStream stream first — consumers belong to a stream.
           </EmptyState>
-        ) : items.length === 0 && !consumers.isLoading && stream !== null ? (
+        ) : allConsumers.length === 0 && !consumersLoading ? (
           <EmptyState icon="users" title="No consumers">
-            Stream “{stream}” has no consumers.
+            No stream has any consumers yet. Create one with the form on the right.
           </EmptyState>
         ) : filtered.length === 0 ? (
           <p className="px-1 py-6 text-center text-xs text-muted">No consumers match “{q}”.</p>
         ) : (
           <ul className="space-y-2.5">
-            {filtered.map((c) => (
+            {filtered.map(({ stream, info }) => (
               <ConsumerCard
-                key={c.name}
-                info={c}
+                key={`${stream}::${info.name}`}
+                stream={stream}
+                info={info}
                 onDelete={() => {
-                  if (window.confirm(`Delete consumer "${c.name}" on "${stream}"? This cannot be undone.`)) {
-                    remove.mutate(c.name);
+                  if (window.confirm(`Delete consumer "${info.name}" on "${stream}"? This cannot be undone.`)) {
+                    remove.mutate({ stream, name: info.name });
                   }
                 }}
               />
@@ -117,7 +124,7 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
         )}
       </div>
 
-      <CreateConsumerForm connId={connId} stream={stream} />
+      <CreateConsumerForm connId={connId} streamNames={streamNames} />
     </div>
   );
 }
@@ -132,12 +139,14 @@ function parseOptInt(raw: string): number | undefined {
 
 function CreateConsumerForm({
   connId,
-  stream,
+  streamNames,
 }: {
   connId: string;
-  stream: string | null;
+  streamNames: string[];
 }): JSX.Element {
   const qc = useQueryClient();
+  const [pickedStream, setPickedStream] = useState<string | null>(null);
+  const stream = pickedStream ?? streamNames[0] ?? null;
   const [durableName, setDurableName] = useState("");
   const [filterSubject, setFilterSubject] = useState("");
   const [ackPolicy, setAckPolicy] = useState("explicit");
@@ -174,7 +183,17 @@ function CreateConsumerForm({
 
   return (
     <Panel className="h-fit space-y-3 p-4">
-      <SectionLabel>Create consumer{stream ? ` — ${stream}` : ""}</SectionLabel>
+      <SectionLabel>Create consumer</SectionLabel>
+      <label className="block space-y-1.5">
+        <TipLabel tip="Which stream this consumer reads from.">Stream</TipLabel>
+        <Select
+          value={stream ?? ""}
+          onChange={setPickedStream}
+          options={streamNames.map((n) => ({ value: n, label: n }))}
+          disabled={streamNames.length === 0}
+          placeholder="No streams"
+        />
+      </label>
       <label className="block space-y-1.5">
         <TipLabel tip="Durable name — a persistent consumer that survives restarts and remembers its position. Pull it from Consumer Lab by this name.">
           Durable name
@@ -263,9 +282,11 @@ function CreateConsumerForm({
 }
 
 function ConsumerCard({
+  stream,
   info,
   onDelete,
 }: {
+  stream: string;
   info: ConsumerInfoDto;
   onDelete: () => void;
 }): JSX.Element {
@@ -275,6 +296,7 @@ function ConsumerCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="truncate text-sm font-medium text-content">{info.name}</span>
+            <Badge tone="accent">{stream}</Badge>
             <Badge tone={info.durableName ? "accent" : "neutral"}>
               {info.durableName ? "Durable" : "Ephemeral"}
             </Badge>
