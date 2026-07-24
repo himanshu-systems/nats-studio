@@ -2435,7 +2435,7 @@ dependencies = [
 
 [[package]]
 name = "nats-studio"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "ns-connection",
@@ -2518,7 +2518,7 @@ dependencies = [
 
 [[package]]
 name = "ns-connection"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "ns-core",
@@ -2530,7 +2530,7 @@ dependencies = [
 
 [[package]]
 name = "ns-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "ns-types",
@@ -2544,7 +2544,7 @@ dependencies = [
 
 [[package]]
 name = "ns-dashboard"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ns-connection",
  "ns-core",
@@ -2556,7 +2556,7 @@ dependencies = [
 
 [[package]]
 name = "ns-event"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ns-core",
  "ns-types",
@@ -2567,7 +2567,7 @@ dependencies = [
 
 [[package]]
 name = "ns-inspector"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "flate2",
  "ns-core",
@@ -2579,7 +2579,7 @@ dependencies = [
 
 [[package]]
 name = "ns-ipc"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ns-core",
  "ns-event",
@@ -2593,7 +2593,7 @@ dependencies = [
 
 [[package]]
 name = "ns-jetstream"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -2605,7 +2605,7 @@ dependencies = [
 
 [[package]]
 name = "ns-monitor"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ns-core",
  "ns-types",
@@ -2618,7 +2618,7 @@ dependencies = [
 
 [[package]]
 name = "ns-nats"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-nats",
  "async-trait",
@@ -2636,7 +2636,7 @@ dependencies = [
 
 [[package]]
 name = "ns-plugin"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ns-core",
  "ns-event",
@@ -2645,7 +2645,7 @@ dependencies = [
 
 [[package]]
 name = "ns-pubsub"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -2658,7 +2658,7 @@ dependencies = [
 
 [[package]]
 name = "ns-security"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "apple-native-keyring-store",
  "async-trait",
@@ -2678,7 +2678,7 @@ dependencies = [
 
 [[package]]
 name = "ns-storage"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "ns-core",
@@ -2692,7 +2692,7 @@ dependencies = [
 
 [[package]]
 name = "ns-subject"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ns-core",
  "ns-event",
@@ -2701,7 +2701,7 @@ dependencies = [
 
 [[package]]
 name = "ns-telemetry"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ns-core",
  "ns-event",
@@ -2714,7 +2714,7 @@ dependencies = [
 
 [[package]]
 name = "ns-terminal"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ns-core",
  "ns-event",
@@ -2723,7 +2723,7 @@ dependencies = [
 
 [[package]]
 name = "ns-testkit"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ns-core",
  "ns-nats",
@@ -2732,7 +2732,7 @@ dependencies = [
 
 [[package]]
 name = "ns-types"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
  "typeshare",
@@ -6357,7 +6357,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "toml 0.8.23",
