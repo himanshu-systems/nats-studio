@@ -1,13 +1,13 @@
 //! [`KeyringSecretStore`]: the [`ns_core::SecretStore`] port implemented over
-//! the OS keychain via the `keyring` crate (Windows Credential Manager /
-//! macOS Keychain Services / Linux Secret Service — selected at compile time
-//! per target, see this crate's `Cargo.toml`).
+//! the OS keychain via `keyring-core` (Windows Credential Manager / macOS
+//! Keychain Services / Linux Secret Service — selected at compile time per
+//! target, see this crate's `Cargo.toml`).
 //!
-//! `keyring`'s blocking calls (DBus/Keychain/Credential Manager round trips)
-//! never run on the async reactor: every operation is dispatched through
+//! Every blocking call (DBus/Keychain/Credential Manager round trips) never
+//! runs on the async reactor: every operation is dispatched through
 //! [`tokio::task::spawn_blocking`].
 
-use keyring::Entry;
+use keyring_core::Entry;
 use ns_core::SecretString;
 
 use crate::error::SecurityError;
@@ -19,6 +19,25 @@ const SERVICE_NAME: &str = "nats-studio";
 /// Key used only by [`KeyringSecretStore::available`]'s round-trip probe.
 /// Written, read back, and deleted again on every call — never left behind.
 const PROBE_KEY: &str = "__ns_security_probe__";
+
+/// Select the OS-native credential store as `keyring-core`'s default store —
+/// but only if nothing has claimed the default yet. Deliberately *not*
+/// unconditional: that asymmetry is what lets tests install
+/// [`keyring_core::mock::Store`] before any entry is touched and have it
+/// stick, rather than being silently overwritten on first real use.
+fn ensure_default_store() -> Result<(), keyring_core::Error> {
+    if keyring_core::get_default_store().is_some() {
+        return Ok(());
+    }
+    #[cfg(target_os = "windows")]
+    let store = windows_native_keyring_store::Store::new()?;
+    #[cfg(target_os = "macos")]
+    let store = apple_native_keyring_store::keychain::Store::new()?;
+    #[cfg(all(unix, not(any(target_os = "macos", target_os = "android"))))]
+    let store = zbus_secret_service_keyring_store::Store::new()?;
+    keyring_core::set_default_store(store);
+    Ok(())
+}
 
 /// [`ns_core::SecretStore`] backed by the OS keychain.
 ///
@@ -58,6 +77,7 @@ impl KeyringSecretStore {
                 "secret store key must not be empty".to_owned(),
             ));
         }
+        ensure_default_store().map_err(|err| map_keyring_error(&err))?;
         Entry::new(&self.service, key).map_err(|err| map_keyring_error(&err))
     }
 }
@@ -83,7 +103,7 @@ impl ns_core::SecretStore for KeyringSecretStore {
             let entry = store.entry(&key)?;
             match entry.get_password() {
                 Ok(password) => Ok(Some(password)),
-                Err(keyring::Error::NoEntry) => Ok(None),
+                Err(keyring_core::Error::NoEntry) => Ok(None),
                 Err(err) => Err(map_keyring_error(&err)),
             }
         })
@@ -100,7 +120,7 @@ impl ns_core::SecretStore for KeyringSecretStore {
                 // Deleting an already-absent entry is not a failure —
                 // "the secret is gone" is exactly the postcondition either
                 // way, so `delete` is idempotent.
-                Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+                Ok(()) | Err(keyring_core::Error::NoEntry) => Ok(()),
                 Err(err) => Err(map_keyring_error(&err)),
             }
         })
@@ -150,14 +170,14 @@ where
     }
 }
 
-/// Map a `keyring::Error` to our domain error. Callers that need
+/// Map a `keyring_core::Error` to our domain error. Callers that need
 /// `NoEntry` to mean "absent, not an error" (`get`/`delete`) match on it
 /// themselves before falling back to this for everything else.
-fn map_keyring_error(err: &keyring::Error) -> SecurityError {
+fn map_keyring_error(err: &keyring_core::Error) -> SecurityError {
     match err {
-        keyring::Error::BadEncoding(_)
-        | keyring::Error::TooLong(_, _)
-        | keyring::Error::Invalid(_, _) => SecurityError::InvalidArgument(err.to_string()),
+        keyring_core::Error::BadEncoding(_)
+        | keyring_core::Error::TooLong(_, _)
+        | keyring_core::Error::Invalid(_, _) => SecurityError::InvalidArgument(err.to_string()),
         // PlatformFailure, NoStorageAccess, NoEntry (reached only when a
         // caller didn't special-case it), Ambiguous, and any future
         // non-exhaustive variant: treat as the backend being unusable for
@@ -172,23 +192,21 @@ mod tests {
 
     use super::*;
 
-    /// Switch the process-wide default keyring backend to the crate's
-    /// built-in in-memory mock (see `keyring::mock`). This is idempotent and
-    /// safe to call from multiple tests: it never touches the real OS
-    /// keychain, so these tests are deterministic on any machine (including
-    /// headless CI with no Secret Service/Credential Manager).
-    ///
-    /// Note the mock has no persistence *across separately-constructed
-    /// `Entry` instances* (each `Entry::new` call gets an independent,
-    /// empty-by-default mock credential) — it only persists across calls
-    /// made on the *same* `Entry`. That's enough to exercise
-    /// `available()` (which builds one entry and round-trips on it) and the
-    /// "missing entry" contract of `get`/`delete`, but not a full
-    /// set-then-get round trip through the public port (each port method
-    /// builds its own `Entry`) — that is instead covered by the `#[ignore]`d
-    /// real-backend test below.
+    /// Install `keyring-core`'s built-in in-memory mock store as the
+    /// process-wide default, if nothing has claimed the default yet. Once
+    /// installed it never touches the real OS keychain, so these tests are
+    /// deterministic on any machine (including headless CI with no Secret
+    /// Service/Credential Manager) — and unlike `ensure_default_store`'s
+    /// native-store selection, this *is* safe to call repeatedly: after the
+    /// first call wins, later calls are no-ops (`ensure_default_store` keeps
+    /// deferring to whatever default already exists), so every test in this
+    /// module shares one mock store for its lifetime.
     fn use_mock_backend() {
-        keyring::set_default_credential_builder(keyring::mock::default_credential_builder());
+        if keyring_core::get_default_store().is_none() {
+            keyring_core::set_default_store(
+                keyring_core::mock::Store::new().expect("build in-memory mock store"),
+            );
+        }
     }
 
     #[tokio::test]
@@ -235,14 +253,14 @@ mod tests {
 
     #[test]
     fn maps_platform_failure_to_unavailable() {
-        let err = keyring::Error::NoStorageAccess("locked".into());
+        let err = keyring_core::Error::NoStorageAccess("locked".into());
         let mapped = map_keyring_error(&err);
         assert!(matches!(mapped, SecurityError::SecretStoreUnavailable(_)));
     }
 
     #[test]
     fn maps_invalid_attribute_to_invalid_argument() {
-        let err = keyring::Error::Invalid("user".to_owned(), "too weird".to_owned());
+        let err = keyring_core::Error::Invalid("user".to_owned(), "too weird".to_owned());
         let mapped = map_keyring_error(&err);
         assert!(matches!(mapped, SecurityError::InvalidArgument(_)));
     }

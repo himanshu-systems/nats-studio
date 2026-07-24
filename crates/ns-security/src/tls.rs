@@ -230,7 +230,7 @@ mod tests {
         let ck = rcgen::generate_simple_self_signed(vec!["localhost".to_string()])
             .expect("generate self-signed");
         let cert_pem = ck.cert.pem();
-        let key_pem = ck.key_pair.serialize_pem();
+        let key_pem = ck.signing_key.serialize_pem();
 
         let ca = temp_file("ca.pem", &cert_pem);
         let cfg = client_config(&resolved(Some(ca.clone()), None, None, false))

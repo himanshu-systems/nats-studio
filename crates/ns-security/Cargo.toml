@@ -13,10 +13,22 @@ async-trait = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 zeroize = { workspace = true }
-keyring = { workspace = true }
+keyring-core = { workspace = true }
 rustls = { workspace = true }
 rustls-pemfile = { workspace = true }
 rustls-native-certs = { workspace = true }
+
+# Native OS credential-store backends, one per platform (mirrors the set
+# `keyring`'s own "v1" feature pulls in) — selected at compile time, wired up
+# as keyring-core's default store on first use (see `secret_store.rs`).
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-native-keyring-store = "1.1.0"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+apple-native-keyring-store = { version = "1.0.1", features = ["keychain"] }
+
+[target.'cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android"))))'.dependencies]
+zbus-secret-service-keyring-store = { version = "1.0.0", features = ["crypto-rust"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
