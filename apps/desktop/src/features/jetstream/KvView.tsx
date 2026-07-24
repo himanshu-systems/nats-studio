@@ -318,6 +318,8 @@ function KeyDetail({
                 "Writes a delete marker — reads for this key return not-found from then on.",
                 "Older revisions stay until the bucket's history limit rolls them off.",
               ],
+              confirmLabel: "Delete key",
+              confirmIcon: "trash",
             }).then((ok) => {
               if (ok) remove.mutate();
             });

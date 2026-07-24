@@ -116,6 +116,8 @@ function Streams({ connId }: { connId: string }): JSX.Element {
                       `All ${s.state.messages.toLocaleString()} stored message(s) will be permanently deleted.`,
                       `Its ${s.state.consumerCount.toLocaleString()} consumer(s) will be deleted along with it.`,
                     ],
+                    confirmLabel: "Delete stream",
+                    confirmIcon: "x",
                   }).then((ok) => {
                     if (ok) remove.mutate(s.config.name);
                   });

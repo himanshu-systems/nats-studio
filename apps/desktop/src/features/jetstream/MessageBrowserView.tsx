@@ -251,6 +251,8 @@ function MessageDetail({
                 `The message on subject "${msg.subject}" will be permanently removed from the stream.`,
                 "It cannot be recovered — not even by pull/fetch consumers that haven't read it yet.",
               ],
+              confirmLabel: "Delete message",
+              confirmIcon: "trash",
             }).then((ok) => {
               if (ok) remove.mutate();
             });

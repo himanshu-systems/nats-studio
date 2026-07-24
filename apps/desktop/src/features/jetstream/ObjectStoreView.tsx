@@ -447,6 +447,8 @@ function ObjectDetail({
                   `The stored ${formatBytes(object.size)} of data will be permanently deleted.`,
                   "Anything downloading or referencing this object will start failing.",
                 ],
+                confirmLabel: "Delete object",
+                confirmIcon: "trash",
               }).then((ok) => {
                 if (ok) remove.mutate();
               });

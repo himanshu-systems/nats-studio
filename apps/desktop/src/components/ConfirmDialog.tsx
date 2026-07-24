@@ -10,7 +10,12 @@ export interface ConfirmOptions {
   description?: string;
   /** Bullet list of concrete "what happens" consequences. */
   consequences?: string[];
-  confirmLabel?: string;
+  /** The action being taken, e.g. "Delete stream" / "Terminate" — required so
+   *  every call site names its actual verb instead of a generic default. */
+  confirmLabel: string;
+  /** Icon on the confirm button, matching the button that triggered this (e.g.
+   *  "trash" for deletes, "x" for terminate). */
+  confirmIcon?: string;
   cancelLabel?: string;
   /** Styles the confirm button as danger (red). Default `true`. */
   danger?: boolean;
@@ -94,8 +99,13 @@ export function ConfirmProvider({ children }: { children: ReactNode }): JSX.Elem
                 <Button variant="outline" size="sm" onClick={() => settle(false)}>
                   {pending.opts.cancelLabel ?? "Cancel"}
                 </Button>
-                <Button variant={pending.opts.danger === false ? "primary" : "danger"} size="sm" onClick={() => settle(true)}>
-                  {pending.opts.confirmLabel ?? "Delete"}
+                <Button
+                  variant={pending.opts.danger === false ? "primary" : "danger"}
+                  size="sm"
+                  icon={pending.opts.confirmIcon}
+                  onClick={() => settle(true)}
+                >
+                  {pending.opts.confirmLabel}
                 </Button>
               </div>
             </div>

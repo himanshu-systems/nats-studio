@@ -103,6 +103,8 @@ function ProfilesPanel(): JSX.Element {
                           `Its saved servers (${p.servers.join(", ")}) and any stored credentials will be removed.`,
                           "You'll need to re-enter its details to connect to it again.",
                         ],
+                        confirmLabel: "Delete profile",
+                        confirmIcon: "trash",
                       }).then((ok) => {
                         if (ok) remove.mutate(p.id);
                       });

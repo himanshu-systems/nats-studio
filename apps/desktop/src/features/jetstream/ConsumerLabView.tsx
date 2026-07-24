@@ -295,6 +295,8 @@ function MessageRow({
                     "It's marked permanently failed and won't be redelivered to this or any other consumer.",
                     msg.numDelivered > 1 ? `It was already delivered ${msg.numDelivered} times.` : "",
                   ].filter(Boolean),
+                  confirmLabel: "Terminate",
+                  confirmIcon: "x",
                 }).then((ok) => {
                   if (ok) onAct(msg, "term");
                 });

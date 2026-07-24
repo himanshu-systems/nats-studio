@@ -70,6 +70,8 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
           : "Any messages published after this will never reach it.",
         "Anything relying on its delivery/ack progress will lose that state.",
       ],
+      confirmLabel: "Delete consumer",
+      confirmIcon: "x",
     }).then((ok) => {
       if (ok) remove.mutate({ stream, name: info.name });
     });
