@@ -496,9 +496,9 @@ impl JetStreamManager for AsyncJetStream {
             .get_object_store(bucket)
             .await
             .map_err(|e| js_err("open object bucket", &e, ErrorCode::StreamNotFound))?;
-        let file = tokio::fs::File::open(path)
-            .await
-            .map_err(|e| CoreError::coded(ErrorCode::Io, format!("open source file: {e}"), false))?;
+        let file = tokio::fs::File::open(path).await.map_err(|e| {
+            CoreError::coded(ErrorCode::Io, format!("open source file: {e}"), false)
+        })?;
         // Total from metadata so the bar has a denominator; 0 if unknown.
         let total = file.metadata().await.map(|m| m.len()).unwrap_or(0);
         // `put` drains an AsyncRead; the wrapper tallies bytes for progress.
