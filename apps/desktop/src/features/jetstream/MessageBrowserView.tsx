@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ipc } from "@bindings";
-import type { StoredMessageDto } from "@bindings";
+import type { MessageView, StoredMessageDto } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../components/ui";
-import { Icon } from "../../components/Icon";
 import { Select } from "../../components/Select";
-import { errorMessage, fmtBytes } from "../messaging/message";
+import { ErrorNote } from "../../components/ErrorNote";
+import { PayloadView, fmtBytes } from "../messaging/message";
 
 const PAGE = 50;
 
@@ -25,6 +25,23 @@ function base64ToUtf8(b64: string): string | null {
   } catch {
     return null;
   }
+}
+
+/** Adapt a stored JetStream message into the shared `MessageView` for `PayloadView`
+ *  — the same JSON/Text/Hex/Protobuf/MessagePack/Base64 viewer used everywhere else. */
+function toView(msg: StoredMessageDto): MessageView {
+  const text = base64ToUtf8(msg.payloadBase64);
+  return {
+    seq: msg.seq,
+    subject: msg.subject,
+    headers: msg.headers,
+    payloadBase64: msg.payloadBase64,
+    size: msg.size,
+    format: text === null ? "binary" : "text",
+    compression: "none",
+    preview: text ?? msg.payloadBase64,
+    ts: msg.timeRfc3339,
+  };
 }
 
 export function MessageBrowserView(): JSX.Element {
@@ -103,7 +120,7 @@ function Browser({ connId }: { connId: string }): JSX.Element {
         </div>
       </div>
 
-      {streams.isError && <p className="text-xs text-danger">{errorMessage(streams.error)}</p>}
+      {streams.isError && <ErrorNote error={streams.error} />}
 
       {stream === null && !streams.isLoading ? (
         <EmptyState icon="database" title="No streams">
@@ -139,7 +156,7 @@ function Browser({ connId }: { connId: string }): JSX.Element {
               </Button>
             </div>
 
-            {page.isError && <p className="p-2 text-xs text-danger">{errorMessage(page.error)}</p>}
+            {page.isError && <ErrorNote className="m-2" error={page.error} />}
 
             {messages.length === 0 && !page.isLoading ? (
               <p className="p-3 text-xs text-muted">No messages in this stream range.</p>
@@ -202,11 +219,6 @@ function MessageDetail({
   onDeleted: () => void;
 }): JSX.Element {
   const qc = useQueryClient();
-  const [copied, setCopied] = useState(false);
-
-  const text = base64ToUtf8(msg.payloadBase64);
-  const binary = text === null;
-  const preview = text ?? msg.payloadBase64;
 
   const remove = useMutation({
     mutationFn: () =>
@@ -217,20 +229,12 @@ function MessageDetail({
     },
   });
 
-  const copy = (): void => {
-    void navigator.clipboard.writeText(preview).then(() => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1200);
-    });
-  };
-
   return (
     <Panel className="space-y-3 p-4">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <Badge tone="neutral">#{msg.seq}</Badge>
           <span className="truncate font-mono text-sm text-content">{msg.subject}</span>
-          {binary && <Badge tone="warning">binary</Badge>}
         </div>
         <Button
           size="sm"
@@ -252,34 +256,9 @@ function MessageDetail({
         <span>{new Date(msg.timeRfc3339).toLocaleString()}</span>
       </div>
 
-      {msg.headers.length > 0 && (
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 rounded-lg border border-border bg-surface-2 p-2 text-xs">
-          {msg.headers.map((h, i) => (
-            <div key={i} className="contents">
-              <dt className="font-mono text-muted">{h.name}</dt>
-              <dd className="truncate font-mono text-content">{h.value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
+      <PayloadView view={toView(msg)} />
 
-      <div className="relative">
-        <button
-          type="button"
-          onClick={copy}
-          className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border border-border bg-surface px-1.5 py-1 text-[11px] text-muted transition-colors hover:text-content"
-        >
-          <Icon name={copied ? "check" : "copy"} size={13} />
-          {copied ? "Copied" : "Copy"}
-        </button>
-        <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-surface-2 p-3 pr-16 font-mono text-xs leading-relaxed text-content">
-          {preview || <span className="text-faint">(empty payload)</span>}
-        </pre>
-      </div>
-      {binary && (
-        <p className="text-[11px] text-muted">Payload isn't valid UTF-8 — showing base64.</p>
-      )}
-      {remove.isError && <p className="text-xs text-danger">{errorMessage(remove.error)}</p>}
+      {remove.isError && <ErrorNote error={remove.error} />}
     </Panel>
   );
 }

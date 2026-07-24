@@ -281,7 +281,16 @@ function MessageRow({
             <Button size="sm" variant="outline" icon="alert" onClick={() => onAct(msg, "nak")}>
               Nak
             </Button>
-            <Button size="sm" variant="danger" icon="x" onClick={() => onAct(msg, "term")}>
+            <Button
+              size="sm"
+              variant="danger"
+              icon="x"
+              onClick={() => {
+                if (window.confirm(`Terminate message #${msg.streamSeq}? It won't be redelivered.`)) {
+                  onAct(msg, "term");
+                }
+              }}
+            >
               Term
             </Button>
           </div>

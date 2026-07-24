@@ -89,7 +89,17 @@ function ProfilesPanel(): JSX.Element {
                     Connect
                   </Button>
                   <Button size="sm" variant="ghost" icon="pencil" onClick={() => setEditingId(p.id)} aria-label="Edit profile" />
-                  <Button size="sm" variant="ghost" icon="trash" onClick={() => remove.mutate(p.id)} aria-label="Delete profile" />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon="trash"
+                    onClick={() => {
+                      if (window.confirm(`Delete connection profile "${p.name}"? This cannot be undone.`)) {
+                        remove.mutate(p.id);
+                      }
+                    }}
+                    aria-label="Delete profile"
+                  />
                 </div>
               </div>
             </Panel>
