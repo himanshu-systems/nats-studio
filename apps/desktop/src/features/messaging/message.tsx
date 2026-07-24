@@ -9,6 +9,69 @@ export function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
+/** A friendly diagnosis of a failed IPC call: a one-line summary, a hint at
+ *  what usually causes it and what to do, and the full raw detail (error
+ *  code, message, and cause chain) for anyone who needs to see exactly what
+ *  the server said. */
+export interface ErrorExplanation {
+  code: string | null;
+  summary: string;
+  hint: string;
+  detail: string;
+  retriable: boolean;
+}
+
+const KNOWN_ERROR_HINTS: Partial<Record<string, { summary: string; hint: string }>> = {
+  STREAM_NOT_FOUND: {
+    summary: "Stream not found.",
+    hint: "It may have just been deleted (in another tab, or by another tool). The list will refresh — pick another.",
+  },
+  CONSUMER_NOT_FOUND: {
+    summary: "Consumer not found, or it can't be pulled from.",
+    hint: "It may have been deleted, or it's a push consumer (push consumers deliver to a subject instead of being pulled). The list will refresh.",
+  },
+  JETSTREAM_NOT_ENABLED: {
+    summary: "JetStream isn't enabled for this connection.",
+    hint: "Enable JetStream on the NATS server, or connect with an account that has it enabled.",
+  },
+  CONNECTION_CLOSED: {
+    summary: "The connection to the server closed.",
+    hint: "Reconnect from the Connections page, then try again.",
+  },
+  CONNECTION_TIMEOUT: {
+    summary: "Timed out reaching the server.",
+    hint: "Check the server is running and reachable, then try again.",
+  },
+  REQUEST_TIMEOUT: {
+    summary: "The request timed out waiting for a reply.",
+    hint: "The server didn't respond in time — it may be under load or unreachable. Safe to retry.",
+  },
+  NO_RESPONDERS: {
+    summary: "Nobody answered this request.",
+    hint: "The JetStream API subject had no responder — check the server is running and JetStream is enabled.",
+  },
+  PERMISSION_DENIED: {
+    summary: "Permission denied.",
+    hint: "This connection's credentials/account don't allow this operation.",
+  },
+};
+
+export function explainError(e: unknown): ErrorExplanation {
+  if (e instanceof NatsStudioError) {
+    const known = KNOWN_ERROR_HINTS[e.code];
+    const detail = [`${e.code}: ${e.message}`, ...e.causes].join("\n");
+    return {
+      code: e.code,
+      summary: known?.summary ?? e.message,
+      hint: known?.hint ?? (e.retriable ? "This looks transient — safe to retry." : "See details below."),
+      detail,
+      retriable: e.retriable,
+    };
+  }
+  const message = e instanceof Error ? e.message : String(e);
+  return { code: null, summary: message, hint: "Unexpected error — see details below.", detail: message, retriable: false };
+}
+
 /** Format a byte count with binary units (B / KiB / MiB / …). */
 export function fmtBytes(n: number): string {
   if (n < 1024) return `${n} B`;

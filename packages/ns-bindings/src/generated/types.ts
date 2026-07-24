@@ -210,6 +210,12 @@ export interface ConsumerInfoDto {
 	streamName: string;
 	/** `Some` for durable consumers, `None` for ephemeral. */
 	durableName?: string;
+	/**
+	 * `true` if this consumer can be fetched from (no `deliver_subject`
+	 * configured). `false` = a push consumer — Consumer Lab can't pull from
+	 * it; messages arrive on its deliver subject instead.
+	 */
+	isPull: boolean;
 	deliverPolicy: string;
 	ackPolicy: string;
 	/** The single subject filter, if any (empty on the wire -> `None`). */

@@ -519,6 +519,7 @@ mod tests {
             name: name.to_owned(),
             stream_name: stream.to_owned(),
             durable_name: Some(name.to_owned()),
+            is_pull: true,
             deliver_policy: "all".to_owned(),
             ack_policy: "explicit".to_owned(),
             filter_subject: None,

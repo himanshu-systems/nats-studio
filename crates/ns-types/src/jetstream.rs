@@ -158,6 +158,10 @@ pub struct ConsumerInfoDto {
     pub stream_name: String,
     /// `Some` for durable consumers, `None` for ephemeral.
     pub durable_name: Option<String>,
+    /// `true` if this consumer can be fetched from (no `deliver_subject`
+    /// configured). `false` = a push consumer — Consumer Lab can't pull from
+    /// it; messages arrive on its deliver subject instead.
+    pub is_pull: bool,
     pub deliver_policy: String,
     pub ack_policy: String,
     /// The single subject filter, if any (empty on the wire -> `None`).

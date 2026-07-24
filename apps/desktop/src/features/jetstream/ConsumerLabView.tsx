@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ipc, PayloadEncoding } from "@bindings";
+import { ipc, NatsStudioError, PayloadEncoding } from "@bindings";
 import type { FetchedMessageDto, MessageView } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel } from "../../components/ui";
 import { Select } from "../../components/Select";
-import { PayloadView, errorMessage } from "../messaging/message";
+import { ErrorNote } from "../../components/ErrorNote";
+import { PayloadView } from "../messaging/message";
 
 const streamsKey = (connId: string): [string, string] => ["streams", connId];
 const consumersKey = (connId: string, stream: string): [string, string, string] => [
@@ -71,6 +72,7 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
   const consumer = pickedConsumer ?? consumerNames[0] ?? null;
   const consumerInfo = consumerList.find((c) => c.name === consumer) ?? null;
   const pending = consumerInfo?.numPending ?? null;
+  const isPushConsumer = consumerInfo !== null && !consumerInfo.isPull;
   const refreshConsumers = (): void => {
     void qc.invalidateQueries({ queryKey: consumersKey(connId, stream ?? "") });
   };
@@ -78,6 +80,18 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
   const [batch, setBatch] = useState(10);
   const [messages, setMessages] = useState<FetchedMessageDto[]>([]);
   const [acted, setActed] = useState<Record<number, AckAction>>({});
+  const [actErrors, setActErrors] = useState<Record<number, unknown>>({});
+  const [lastFetch, setLastFetch] = useState<{ requested: number; received: number } | null>(null);
+
+  const pickStream = (v: string | null): void => {
+    setPickedStream(v);
+    setPickedConsumer(null);
+    setLastFetch(null);
+  };
+  const pickConsumer = (v: string | null): void => {
+    setPickedConsumer(v);
+    setLastFetch(null);
+  };
 
   const fetch = useMutation({
     mutationFn: () =>
@@ -90,7 +104,17 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
     onSuccess: (resp) => {
       setMessages(resp.messages);
       setActed({});
+      setActErrors({});
+      setLastFetch({ requested: batch, received: resp.messages.length });
       refreshConsumers();
+    },
+    onError: (err) => {
+      // Stream/consumer vanished underneath us (deleted elsewhere) — refresh
+      // the pickers instead of leaving the user stuck on a dead selection.
+      if (err instanceof NatsStudioError && (err.code === "STREAM_NOT_FOUND" || err.code === "CONSUMER_NOT_FOUND")) {
+        void qc.invalidateQueries({ queryKey: streamsKey(connId) });
+        refreshConsumers();
+      }
     },
   });
 
@@ -106,12 +130,21 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
   });
 
   const act = (msg: FetchedMessageDto, action: AckAction): void => {
+    setActErrors((e) => {
+      if (!(msg.streamSeq in e)) return e;
+      const next = { ...e };
+      delete next[msg.streamSeq];
+      return next;
+    });
     publish.mutate(
       { subject: msg.ackSubject, payload: ACK_BODY[action] },
       {
         onSuccess: () => {
           setActed((a) => ({ ...a, [msg.streamSeq]: action }));
           refreshConsumers();
+        },
+        onError: (err) => {
+          setActErrors((e) => ({ ...e, [msg.streamSeq]: err }));
         },
       },
     );
@@ -125,10 +158,7 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
           <Select
             className="max-w-[180px]"
             value={stream ?? ""}
-            onChange={(v) => {
-              setPickedStream(v);
-              setPickedConsumer(null);
-            }}
+            onChange={pickStream}
             options={streamNames.map((n) => ({ value: n, label: n }))}
             disabled={streamNames.length === 0}
             placeholder="No streams"
@@ -136,16 +166,17 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
           <Select
             className="max-w-[200px]"
             value={consumer ?? ""}
-            onChange={(v) => setPickedConsumer(v)}
+            onChange={pickConsumer}
             options={consumerList.map((c) => ({
               value: c.name,
               label: c.name,
-              hint: `${c.numPending} pending`,
+              hint: c.isPull ? `${c.numPending} pending` : "push — can't fetch",
             }))}
             disabled={consumerList.length === 0}
             placeholder="No consumers"
           />
-          {consumer && pending != null && (
+          {consumer && isPushConsumer && <Badge tone="warning">push consumer</Badge>}
+          {consumer && !isPushConsumer && pending != null && (
             <Badge tone={pending > 0 ? "positive" : "neutral"}>{pending} pending</Badge>
           )}
           <input
@@ -161,20 +192,29 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
             size="sm"
             icon="beaker"
             onClick={() => fetch.mutate()}
-            disabled={consumer === null || fetch.isPending}
+            disabled={consumer === null || isPushConsumer || fetch.isPending}
           >
             {fetch.isPending ? "Fetching…" : "Fetch"}
           </Button>
         </div>
       </div>
 
-      {streams.isError && <p className="text-xs text-danger">{errorMessage(streams.error)}</p>}
-      {consumers.isError && <p className="text-xs text-danger">{errorMessage(consumers.error)}</p>}
-      {fetch.isError && <p className="text-xs text-danger">{errorMessage(fetch.error)}</p>}
-      {publish.isError && <p className="text-xs text-danger">{errorMessage(publish.error)}</p>}
+      {streams.isError && <ErrorNote error={streams.error} />}
+      {consumers.isError && <ErrorNote error={consumers.error} />}
+      {fetch.isError && <ErrorNote error={fetch.error} />}
 
       {messages.length === 0 ? (
-        consumer !== null && pending === 0 ? (
+        isPushConsumer ? (
+          <EmptyState icon="alert" title="Push consumer selected">
+            “{consumer}” delivers to a subject instead of being pulled — Consumer Lab only fetches from
+            pull consumers. Pick a different one, or create a pull consumer on the Consumers page.
+          </EmptyState>
+        ) : lastFetch !== null ? (
+          <EmptyState icon="beaker" title="Fetch completed — nothing came back">
+            Requested {lastFetch.requested}, received 0. Either nothing is pending right now, another
+            puller already claimed it, or the wait expired before anything arrived. Safe to try again.
+          </EmptyState>
+        ) : consumer !== null && pending === 0 ? (
           <EmptyState icon="beaker" title="No pending messages">
             Consumer “{consumer}” has nothing waiting to pull. Publish to its stream, or pick a
             consumer that shows a pending count.
@@ -188,7 +228,13 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
       ) : (
         <ul className="space-y-2.5">
           {messages.map((m) => (
-            <MessageRow key={m.streamSeq} msg={m} acted={acted[m.streamSeq]} onAct={act} />
+            <MessageRow
+              key={m.streamSeq}
+              msg={m}
+              acted={acted[m.streamSeq]}
+              error={actErrors[m.streamSeq]}
+              onAct={act}
+            />
           ))}
         </ul>
       )}
@@ -206,10 +252,12 @@ const ACTED_TONE: Record<AckAction, "positive" | "warning" | "danger"> = {
 function MessageRow({
   msg,
   acted,
+  error,
   onAct,
 }: {
   msg: FetchedMessageDto;
   acted: AckAction | undefined;
+  error: unknown;
   onAct: (msg: FetchedMessageDto, action: AckAction) => void;
 }): JSX.Element {
   return (
@@ -239,6 +287,7 @@ function MessageRow({
           </div>
         )}
       </div>
+      {error !== undefined && <ErrorNote error={error} />}
       <PayloadView view={toView(msg)} />
     </Panel>
   );

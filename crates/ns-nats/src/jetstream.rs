@@ -704,6 +704,7 @@ fn consumer_to_dto(info: &consumer::Info) -> ConsumerInfoDto {
         name: info.name.clone(),
         stream_name: info.stream_name.clone(),
         durable_name: info.config.durable_name.clone(),
+        is_pull: info.config.deliver_subject.is_none(),
         deliver_policy: deliver_policy_str(&info.config.deliver_policy).to_owned(),
         ack_policy: ack_policy_str(&info.config.ack_policy).to_owned(),
         filter_subject: (!filter.is_empty()).then(|| filter.to_owned()),
