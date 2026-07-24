@@ -73,7 +73,7 @@ function Browser({ connId }: { connId: string }): JSX.Element {
   const selectedMsg = messages.find((m) => m.seq === selected) ?? null;
 
   return (
-    <div className="mx-auto grid h-full max-w-6xl grid-rows-[auto_1fr] gap-4 overflow-hidden p-4">
+    <div className="grid h-full grid-rows-[auto_1fr] gap-4 overflow-hidden p-4">
       <div className="flex items-center justify-between gap-3">
         <SectionLabel>
           Messages{stream ? ` — ${stream}` : ""}

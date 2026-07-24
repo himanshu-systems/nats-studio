@@ -150,7 +150,7 @@ function ObjectStore({ connId }: { connId: string }): JSX.Element {
   }
 
   return (
-    <div className="mx-auto grid h-full max-w-6xl gap-4 overflow-hidden p-4 lg:grid-cols-[1fr_300px]">
+    <div className="grid h-full gap-4 overflow-hidden p-4 lg:grid-cols-[1fr_300px]">
       <div className="grid min-h-0 grid-rows-[auto_1fr] gap-3 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <SectionLabel>Object Store{bucket ? ` — ${bucket} (${objectList.length})` : ""}</SectionLabel>

@@ -79,7 +79,7 @@ export function MetricsView(): JSX.Element {
   }, [data]);
 
   return (
-    <div className="mx-auto flex h-full max-w-6xl flex-col gap-4 overflow-auto p-4">
+    <div className="flex h-full flex-col gap-4 overflow-auto p-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1.5">
           <SectionLabel>Monitoring endpoint</SectionLabel>

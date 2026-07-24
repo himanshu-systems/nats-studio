@@ -71,7 +71,7 @@ function Streams({ connId }: { connId: string }): JSX.Element {
         );
 
   return (
-    <div className="mx-auto grid h-full max-w-6xl grid-rows-[1fr] gap-4 overflow-auto p-4 lg:grid-cols-[1fr_340px]">
+    <div className="grid h-full grid-rows-[1fr] gap-4 overflow-auto p-4 lg:grid-cols-[1fr_340px]">
       <div className="min-w-0 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <SectionLabel>

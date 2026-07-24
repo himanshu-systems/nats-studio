@@ -32,7 +32,7 @@ function RequestReply({ connId }: { connId: string }): JSX.Element {
   });
 
   return (
-    <div className="mx-auto grid h-full max-w-5xl gap-4 overflow-auto p-4 lg:grid-cols-2">
+    <div className="grid h-full gap-4 overflow-auto p-4 lg:grid-cols-2">
       <Panel className="space-y-3 p-4">
         <label className="block space-y-1.5">
           <SectionLabel>Subject</SectionLabel>
