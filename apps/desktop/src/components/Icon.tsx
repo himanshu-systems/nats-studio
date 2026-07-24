@@ -11,6 +11,12 @@ const ICONS: Record<string, ReactNode> = {
     </>
   ),
   bolt: <path d="M13 3 L4 14 h6 l-1 7 10-11 h-6 z" />,
+  pencil: (
+    <>
+      <path d="M16.5 3.5 a2.1 2.1 0 0 1 3 3 L7 19 l-4 1 1-4 Z" />
+      <path d="M14.5 5.5 l3 3" />
+    </>
+  ),
   activity: <path d="M3 12 h4 l3 8 4-16 3 8 h4" />,
   clock: (
     <>

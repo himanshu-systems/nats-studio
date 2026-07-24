@@ -4,12 +4,11 @@ import { ipc } from "@bindings";
 import { Badge, Button, EmptyState, Panel, SectionLabel } from "../../components/ui";
 import { LineChart } from "../../components/Chart";
 import { useMonitorUrl } from "../../lib/monitorUrl";
+import { useUiStore } from "../../lib/uiStore";
 
 const TEAL = "#27c6a0";
 const ACCENT = "rgb(var(--c-accent))";
 const MAX_HISTORY = 60;
-
-const DEFAULT_URL = "http://127.0.0.1:8222";
 
 /** Format a byte count with binary units. */
 function fmtBytes(n: number): string {
@@ -41,7 +40,8 @@ interface Rates {
 }
 
 export function MetricsView(): JSX.Element {
-  const { url, setUrl } = useMonitorUrl();
+  const { url, isCustom } = useMonitorUrl();
+  const setView = useUiStore((s) => s.setView);
   const prev = useRef<Sample | null>(null);
   const [rates, setRates] = useState<Rates | null>(null);
   const [history, setHistory] = useState<Rates[]>([]);
@@ -83,13 +83,14 @@ export function MetricsView(): JSX.Element {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1.5">
           <SectionLabel>Monitoring endpoint</SectionLabel>
-          <input
-            className="field w-80 font-mono"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder={DEFAULT_URL}
-            spellCheck={false}
-          />
+          <div className="flex items-center gap-2 text-xs">
+            <span className="font-mono text-content">{url}</span>
+            {!isCustom && (
+              <button type="button" onClick={() => setView("connections")} className="text-accent hover:underline">
+                set in Connections
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {data && (

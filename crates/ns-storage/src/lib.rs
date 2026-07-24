@@ -51,6 +51,7 @@ mod tests {
             servers: vec!["nats://127.0.0.1:4222".to_owned()],
             auth: ConnectionAuth::None,
             tls: None,
+            monitor_url: None,
             options: ConnectionOptions {
                 max_reconnects: None,
                 reconnect_delay_ms: 1_000,

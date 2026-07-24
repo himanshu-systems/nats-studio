@@ -58,7 +58,7 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
   const connected = active?.status === ConnectionStatus.Connected;
   const meta = statusMeta(active?.status ?? ConnectionStatus.Disconnected);
 
-  const { url, setUrl } = useMonitorUrl();
+  const { url, isCustom } = useMonitorUrl();
   const [q, setQ] = useState("");
   const [rtt, setRtt] = useState<number[]>([]);
   const prevVarz = useRef<{ t: number; inBytes: number; outBytes: number } | null>(null);
@@ -315,9 +315,14 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
         </Panel>
       </div>
 
-      <div className="flex items-center gap-2 pb-2">
-        <span className="text-[11px] text-faint">Monitoring</span>
-        <input className="field h-8 max-w-xs font-mono text-xs" value={url} onChange={(e) => setUrl(e.target.value)} spellCheck={false} />
+      <div className="flex items-center gap-2 pb-2 text-[11px] text-faint">
+        <span>Monitoring</span>
+        <span className="font-mono text-muted">{url}</span>
+        {!isCustom && (
+          <button type="button" onClick={() => setView("connections")} className="text-accent hover:underline">
+            set in Connections
+          </button>
+        )}
       </div>
     </div>
   );

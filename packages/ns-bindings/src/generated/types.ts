@@ -103,6 +103,11 @@ export interface ConnectionProfile {
 	servers: string[];
 	auth: ConnectionAuth;
 	tls?: TlsConfig;
+	/**
+	 * HTTP monitoring base URL (e.g. `http://host:8222`). When unset, the UI
+	 * derives one from the first server's host on the conventional port 8222.
+	 */
+	monitorUrl?: string;
 	options: ConnectionOptions;
 }
 
@@ -112,6 +117,7 @@ export interface ConnectionProfileInput {
 	servers: string[];
 	auth: ConnectionAuth;
 	tls?: TlsConfig;
+	monitorUrl?: string;
 	options: ConnectionOptions;
 }
 

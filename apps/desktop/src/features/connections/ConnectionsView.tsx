@@ -5,6 +5,7 @@ import {
   ConnectionStatus,
   ipc,
   type ConnectionAuth,
+  type ConnectionProfile,
   type ConnectionProfileInput,
   type ConnectionSummary,
   type TlsConfig,
@@ -32,10 +33,18 @@ export function ConnectionsView(): JSX.Element {
 function ProfilesPanel(): JSX.Element {
   const qc = useQueryClient();
   const profiles = useQuery({ queryKey: PROFILES_KEY, queryFn: () => ipc.connection.listProfiles() });
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const create = useMutation({
     mutationFn: (input: ConnectionProfileInput) => ipc.connection.createProfile(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: PROFILES_KEY }),
+  });
+  const update = useMutation({
+    mutationFn: (profile: ConnectionProfile) => ipc.connection.updateProfile(profile),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PROFILES_KEY });
+      setEditingId(null);
+    },
   });
   const remove = useMutation({
     mutationFn: (id: string) => ipc.connection.deleteProfile(id),
@@ -55,54 +64,87 @@ function ProfilesPanel(): JSX.Element {
         {profiles.data?.profiles.length === 0 && (
           <p className="text-xs text-muted">No profiles yet — create one below.</p>
         )}
-        {profiles.data?.profiles.map((p) => (
-          <Panel key={p.id} className="p-3">
-            <div className="flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-content">{p.name}</div>
-                <div className="truncate font-mono text-xs text-muted">{p.servers.join(", ")}</div>
+        {profiles.data?.profiles.map((p) =>
+          editingId === p.id ? (
+            <Panel key={p.id} className="p-3">
+              <ProfileForm
+                initial={p}
+                pending={update.isPending}
+                error={update.isError ? errorMessage(update.error) : null}
+                submitLabel="Save changes"
+                onCancel={() => setEditingId(null)}
+                onSubmit={(input) => update.mutate({ id: p.id, ...input })}
+              />
+            </Panel>
+          ) : (
+            <Panel key={p.id} className="p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-content">{p.name}</div>
+                  <div className="truncate font-mono text-xs text-muted">{p.servers.join(", ")}</div>
+                  {p.monitorUrl && <div className="truncate font-mono text-[11px] text-faint">monitor: {p.monitorUrl}</div>}
+                </div>
+                <div className="flex shrink-0 gap-1.5">
+                  <Button size="sm" icon="link" onClick={() => connect.mutate(p.id)} disabled={connect.isPending}>
+                    Connect
+                  </Button>
+                  <Button size="sm" variant="ghost" icon="pencil" onClick={() => setEditingId(p.id)} aria-label="Edit profile" />
+                  <Button size="sm" variant="ghost" icon="trash" onClick={() => remove.mutate(p.id)} aria-label="Delete profile" />
+                </div>
               </div>
-              <div className="flex shrink-0 gap-1.5">
-                <Button size="sm" icon="link" onClick={() => connect.mutate(p.id)} disabled={connect.isPending}>
-                  Connect
-                </Button>
-                <Button size="sm" variant="ghost" icon="trash" onClick={() => remove.mutate(p.id)} aria-label="Delete profile" />
-              </div>
-            </div>
-          </Panel>
-        ))}
+            </Panel>
+          ),
+        )}
         {connect.isError && <p className="text-xs text-danger">{errorMessage(connect.error)}</p>}
       </div>
-      <CreateProfileForm
-        pending={create.isPending}
-        error={create.isError ? errorMessage(create.error) : null}
-        onCreate={(input) => create.mutate(input)}
-      />
+      <div className="border-t border-border p-4">
+        <SectionLabel>New profile</SectionLabel>
+        <div className="mt-2">
+          <ProfileForm
+            pending={create.isPending}
+            error={create.isError ? errorMessage(create.error) : null}
+            submitLabel="Create profile"
+            onSubmit={(input) => create.mutate(input)}
+          />
+        </div>
+      </div>
     </section>
   );
 }
 
-function CreateProfileForm(props: {
+/** Create/edit form for a connection profile. Pass `initial` to edit an
+ * existing profile in place (used for both the "New profile" form and the
+ * inline "Edit" action on a profile card) — this is also where the
+ * Monitoring URL lives, so it's set once per connection instead of being
+ * retyped in every view that needs it (Overview, Metrics, …). */
+function ProfileForm(props: {
+  initial?: ConnectionProfile;
   pending: boolean;
   error: string | null;
-  onCreate: (input: ConnectionProfileInput) => void;
+  submitLabel: string;
+  onCancel?: () => void;
+  onSubmit: (input: ConnectionProfileInput) => void;
 }): JSX.Element {
-  const [name, setName] = useState("Local");
-  const [server, setServer] = useState("nats://127.0.0.1:4222");
-  const [authKind, setAuthKind] = useState<AuthKind>("none");
-  const [username, setUsername] = useState("");
+  const init = props.initial;
+  const initAuthKind: AuthKind =
+    init?.auth.kind === "userPassword" || init?.auth.kind === "token" ? init.auth.kind : "none";
+  const [name, setName] = useState(init?.name ?? "Local");
+  const [server, setServer] = useState(init?.servers[0] ?? "nats://127.0.0.1:4222");
+  const [monitorUrl, setMonitorUrl] = useState(init?.monitorUrl ?? "");
+  const [authKind, setAuthKind] = useState<AuthKind>(initAuthKind);
+  const [username, setUsername] = useState(init?.auth.kind === "userPassword" ? init.auth.data.username : "");
   const [password, setPassword] = useState("");
   const [token, setToken] = useState("");
-  const [tlsEnabled, setTlsEnabled] = useState(false);
-  const [caCertPath, setCaCertPath] = useState("");
-  const [clientCertPath, setClientCertPath] = useState("");
-  const [clientKeyPath, setClientKeyPath] = useState("");
-  const [insecureSkipVerify, setInsecureSkipVerify] = useState(false);
-  const [sni, setSni] = useState("");
+  const [tlsEnabled, setTlsEnabled] = useState(init?.tls?.enabled ?? false);
+  const [caCertPath, setCaCertPath] = useState(init?.tls?.caCertPath ?? "");
+  const [clientCertPath, setClientCertPath] = useState(init?.tls?.clientCertPath ?? "");
+  const [clientKeyPath, setClientKeyPath] = useState(init?.tls?.clientKeyPath ?? "");
+  const [insecureSkipVerify, setInsecureSkipVerify] = useState(init?.tls?.insecureSkipVerify ?? false);
+  const [sni, setSni] = useState(init?.tls?.sni ?? "");
 
   const buildAuth = (): ConnectionAuth => {
-    if (authKind === "userPassword") return { kind: "userPassword", data: { username, password } };
-    if (authKind === "token") return { kind: "token", data: { token } };
+    if (authKind === "userPassword") return { kind: "userPassword", data: { username, password: password || undefined } };
+    if (authKind === "token") return { kind: "token", data: { token: token || undefined } };
     return { kind: "none" };
   };
 
@@ -119,12 +161,13 @@ function CreateProfileForm(props: {
   };
 
   const submit = (): void => {
-    props.onCreate({
+    props.onSubmit({
       name,
       servers: [server],
       auth: buildAuth(),
       tls: buildTls(),
-      options: { reconnectDelayMs: 2000, connectTimeoutMs: 5000, pingIntervalMs: 30000, noEcho: false },
+      monitorUrl: monitorUrl.trim() || undefined,
+      options: init?.options ?? { reconnectDelayMs: 2000, connectTimeoutMs: 5000, pingIntervalMs: 30000, noEcho: false },
     });
   };
 
@@ -134,11 +177,21 @@ function CreateProfileForm(props: {
         e.preventDefault();
         submit();
       }}
-      className="space-y-2 border-t border-border p-4"
+      className="space-y-2"
     >
-      <SectionLabel>New profile</SectionLabel>
       <input className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
       <input className="field font-mono" value={server} onChange={(e) => setServer(e.target.value)} placeholder="nats://host:4222" />
+      <div className="space-y-1">
+        <TipLabel tip="HTTP monitoring endpoint for this server (varz/connz). Leave blank to auto-derive http://<host>:8222 from the server URL above.">
+          Monitoring URL (optional)
+        </TipLabel>
+        <input
+          className="field font-mono"
+          value={monitorUrl}
+          onChange={(e) => setMonitorUrl(e.target.value)}
+          placeholder="http://host:8222 (auto)"
+        />
+      </div>
       <Select
         value={authKind}
         onChange={(v) => setAuthKind(v as AuthKind)}
@@ -151,11 +204,23 @@ function CreateProfileForm(props: {
       {authKind === "userPassword" && (
         <div className="grid grid-cols-2 gap-2">
           <input className="field" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" />
-          <input className="field" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" />
+          <input
+            className="field"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={init ? "Leave blank to keep existing" : "Password"}
+          />
         </div>
       )}
       {authKind === "token" && (
-        <input className="field" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Token" />
+        <input
+          className="field"
+          type="password"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          placeholder={init ? "Leave blank to keep existing" : "Token"}
+        />
       )}
       <div className="space-y-2 rounded-lg border border-border p-3">
         <label className="flex items-center gap-2 text-xs font-medium text-content">
@@ -197,9 +262,21 @@ function CreateProfileForm(props: {
         )}
       </div>
       {props.error && <p className="text-xs text-danger">{props.error}</p>}
-      <Button type="submit" className="w-full" icon="plus" disabled={props.pending || name.trim() === "" || server.trim() === ""}>
-        {props.pending ? "Creating…" : "Create profile"}
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          type="submit"
+          className="flex-1"
+          icon={init ? "check" : "plus"}
+          disabled={props.pending || name.trim() === "" || server.trim() === ""}
+        >
+          {props.pending ? "Saving…" : props.submitLabel}
+        </Button>
+        {props.onCancel && (
+          <Button type="button" variant="outline" onClick={props.onCancel}>
+            Cancel
+          </Button>
+        )}
+      </div>
     </form>
   );
 }

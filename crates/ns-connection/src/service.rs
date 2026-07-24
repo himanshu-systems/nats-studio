@@ -118,6 +118,7 @@ impl ConnectionService {
             servers: input.servers,
             auth,
             tls: input.tls,
+            monitor_url: input.monitor_url,
             options: input.options,
         };
         self.repo.upsert(&profile).await?;
@@ -637,6 +638,7 @@ mod tests {
                 password: Some("s3cret".into()),
             }),
             tls: None,
+            monitor_url: None,
             options: ConnectionOptions {
                 max_reconnects: None,
                 reconnect_delay_ms: 2000,

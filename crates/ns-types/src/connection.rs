@@ -95,6 +95,9 @@ pub struct ConnectionProfile {
     pub servers: Vec<String>,
     pub auth: ConnectionAuth,
     pub tls: Option<TlsConfig>,
+    /// HTTP monitoring base URL (e.g. `http://host:8222`). When unset, the UI
+    /// derives one from the first server's host on the conventional port 8222.
+    pub monitor_url: Option<String>,
     pub options: ConnectionOptions,
 }
 
@@ -107,6 +110,7 @@ pub struct ConnectionProfileInput {
     pub servers: Vec<String>,
     pub auth: ConnectionAuth,
     pub tls: Option<TlsConfig>,
+    pub monitor_url: Option<String>,
     pub options: ConnectionOptions,
 }
 
