@@ -246,7 +246,7 @@ fn verify_tools() -> Result<()> {
     let root = workspace_root()?;
     let path = root.join("tools/versions.toml");
     let text = fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
-    let val: toml::Value = text.parse()?;
+    let val: toml::Value = toml::from_str(&text)?;
     let tools = val
         .get("tools")
         .and_then(|t| t.as_table())
@@ -326,7 +326,7 @@ fn gen_types() -> Result<()> {
 fn sync_version() -> Result<()> {
     let root = workspace_root()?;
     let text = fs::read_to_string(root.join("Cargo.toml"))?;
-    let val: toml::Value = text.parse()?;
+    let val: toml::Value = toml::from_str(&text)?;
     let version = val
         .get("workspace")
         .and_then(|w| w.get("package"))
@@ -396,7 +396,7 @@ fn find_up(start: &Path) -> Option<PathBuf> {
 
 fn load_crates(root: &Path) -> Result<Vec<CrateInfo>> {
     let root_text = fs::read_to_string(root.join("Cargo.toml"))?;
-    let root_toml: toml::Value = root_text.parse().context("parse root Cargo.toml")?;
+    let root_toml: toml::Value = toml::from_str(&root_text).context("parse root Cargo.toml")?;
     let members = root_toml
         .get("workspace")
         .and_then(|w| w.get("members"))
@@ -426,9 +426,8 @@ fn load_crates(root: &Path) -> Result<Vec<CrateInfo>> {
         let manifest = dir.join("Cargo.toml");
         let text = fs::read_to_string(&manifest)
             .with_context(|| format!("read {}", manifest.display()))?;
-        let val: toml::Value = text
-            .parse()
-            .with_context(|| format!("parse {}", manifest.display()))?;
+        let val: toml::Value =
+            toml::from_str(&text).with_context(|| format!("parse {}", manifest.display()))?;
         let name = val
             .get("package")
             .and_then(|p| p.get("name"))
