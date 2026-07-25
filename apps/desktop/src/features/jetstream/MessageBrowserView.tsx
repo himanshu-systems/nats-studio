@@ -7,7 +7,7 @@ import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../compon
 import { Select } from "../../components/Select";
 import { ErrorNote } from "../../components/ErrorNote";
 import { useConfirm } from "../../components/ConfirmDialog";
-import { PayloadView, fmtBytes } from "../messaging/message";
+import { PayloadView, exportMessages, fmtBytes } from "../messaging/message";
 
 const PAGE = 50;
 
@@ -117,6 +117,24 @@ function Browser({ connId }: { connId: string }): JSX.Element {
             disabled={stream === null || page.isFetching}
           >
             {page.isFetching ? "Refreshing…" : "Refresh"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            icon="inbox"
+            onClick={() => exportMessages(messages.map(toView), stream ?? "messages", "json")}
+            disabled={messages.length === 0}
+          >
+            Export JSON
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            icon="inbox"
+            onClick={() => exportMessages(messages.map(toView), stream ?? "messages", "csv")}
+            disabled={messages.length === 0}
+          >
+            Export CSV
           </Button>
         </div>
       </div>
