@@ -100,6 +100,7 @@
     background:radial-gradient(60% 100% at 30% 0%, #ffd6ec, transparent 70%), radial-gradient(60% 100% at 75% 20%, #c9dcff, transparent 70%)}
   .frame{border-radius:20px; overflow:hidden; border:1px solid var(--border); box-shadow:var(--shadow-lg),var(--hi); background:var(--surface-strong); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); padding:8px}
   .frame img{display:block; width:100%; height:auto; border-radius:13px; border:1px solid var(--border-alt)}
+  .hero .frame{transition:transform .15s ease-out; transform:perspective(900px) rotateX(0) rotateY(0) scale3d(1,1,1); will-change:transform}
 
   /* scroll-synced showcase: screenshot pins in place, active image follows the step in view */
   .scroller{display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:start}
@@ -395,6 +396,23 @@
       { rootMargin: '-45% 0px -45% 0px', threshold: 0 },
     );
     steps.forEach(s => stepIO.observe(s));
+  }
+
+  // Hero screenshot: subtle cursor-tracked 3D tilt.
+  const heroFrame = document.querySelector('.hero .frame');
+  if (heroFrame && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const maxTilt = 7;
+    heroFrame.addEventListener('mousemove', (e) => {
+      const r = heroFrame.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width;
+      const py = (e.clientY - r.top) / r.height;
+      const ry = (px - 0.5) * maxTilt * 2;
+      const rx = (0.5 - py) * maxTilt * 2;
+      heroFrame.style.transform = `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg) scale3d(1.015,1.015,1.015)`;
+    });
+    heroFrame.addEventListener('mouseleave', () => {
+      heroFrame.style.transform = 'perspective(900px) rotateX(0deg) rotateY(0deg) scale3d(1,1,1)';
+    });
   }
 </script>
 </body>
