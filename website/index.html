@@ -96,7 +96,8 @@
 
   /* hero scroll-synced showcase: screenshot pins in place, active image
      follows the step in view, description changes to match */
-  .scroller{display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:start; margin-top:66px; text-align:left}
+  .scroller-wrap{max-width:1640px}
+  .scroller{display:grid; grid-template-columns:1.8fr 1fr; gap:48px; align-items:start; margin-top:66px; text-align:left}
   .scroller-pin{position:sticky; top:96px}
   .scroller-pin .halo{position:absolute; inset:-6% 8% auto 8%; height:70%; z-index:-1; filter:blur(46px); opacity:.7;
     background:radial-gradient(60% 100% at 30% 0%, #ffd6ec, transparent 70%), radial-gradient(60% 100% at 75% 20%, #c9dcff, transparent 70%)}
@@ -227,7 +228,7 @@
     <p class="meta"><b>Windows · macOS · Linux</b> &nbsp;·&nbsp; Rust + Tauri &nbsp;·&nbsp; Zero telemetry</p>
   </div>
 
-  <div class="wrap">
+  <div class="wrap scroller-wrap">
     <div class="scroller">
       <div class="scroller-pin">
         <div class="halo"></div>
