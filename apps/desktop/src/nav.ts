@@ -133,6 +133,14 @@ export const NAV: NavSection[] = [
         requiresConnection: true,
         blurb: "Advisory-based poison-message analyzer — inspect (redeliver / purge coming).",
       },
+      {
+        id: "sessions",
+        label: "Sessions",
+        icon: "replay",
+        live: true,
+        requiresConnection: true,
+        blurb: "Record live messages, save/load them as JSON, and replay with scrubbing and speed control.",
+      },
     ],
   },
   {

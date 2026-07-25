@@ -12,6 +12,7 @@ import { ConnectionsView } from "@/features/connections/ConnectionsView";
 import { PublisherView } from "@/features/messaging/PublisherView";
 import { RequestReplyView } from "@/features/messaging/RequestReplyView";
 import { LiveTailView } from "@/features/messaging/LiveTailView";
+import { SessionRecorderView } from "@/features/messaging/SessionRecorderView";
 import { StreamsView } from "@/features/jetstream/StreamsView";
 import { ConsumersView } from "@/features/jetstream/ConsumersView";
 import { KvView } from "@/features/jetstream/KvView";
@@ -49,6 +50,8 @@ function renderView(view: string): JSX.Element {
       return <ConsumerLabView />;
     case "dlq":
       return <DlqView />;
+    case "sessions":
+      return <SessionRecorderView />;
     case "metrics":
       return <MetricsView />;
     case "services":
