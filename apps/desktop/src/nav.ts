@@ -110,6 +110,14 @@ export const NAV: NavSection[] = [
         blurb: "Send a request and inspect the decoded reply, with a configurable timeout.",
       },
       {
+        id: "saved-requests",
+        label: "Saved Requests",
+        icon: "archive",
+        live: true,
+        requiresConnection: true,
+        blurb: "Save common publish/request patterns as named templates and fire them with one click.",
+      },
+      {
         id: "browser",
         label: "Message Browser",
         icon: "inbox",

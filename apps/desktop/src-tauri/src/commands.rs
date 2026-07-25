@@ -1,23 +1,25 @@
 //! The `#[tauri::command]` surface: thin handlers that delegate to the services
 //! and map domain errors to the wire `IpcError` via `ns_ipc::map_ipc`.
 
-use ns_core::{SettingsRepo, SubscriptionId};
+use ns_core::{SavedRequestId, SavedRequestRepo, SettingsRepo, SubscriptionId};
 use ns_ipc::map_ipc;
 use ns_types::{
     AppInfo, ConnectRequest, ConnectionProfile, ConnectionRef, ConnectionStatusDto,
     ConnectionSummary, ConnzDto, ConsumerInfoDto, CreateConsumerRequest, CreateProfileRequest,
-    CreateStreamRequest, DeleteConsumerRequest, DeleteMessageRequest, DeleteObjectRequest,
-    DeleteProfileRequest, DeleteStreamRequest, FetchMessagesRequest, FetchMessagesResponse,
-    GetMessagesRequest, GetMessagesResponse, GetObjectRequest, GetObjectResponse, GetStreamRequest,
-    HealthStatus, IpcError, KvCreateBucketRequest, KvDeleteRequest, KvGetRequest, KvGetResponse,
-    KvPutRequest, KvPutResponse, ListBucketsRequest, ListBucketsResponse, ListConnectionsResponse,
+    CreateSavedRequestRequest, CreateStreamRequest, DeleteConsumerRequest, DeleteMessageRequest,
+    DeleteObjectRequest, DeleteProfileRequest, DeleteSavedRequestRequest, DeleteStreamRequest,
+    FetchMessagesRequest, FetchMessagesResponse, GetMessagesRequest, GetMessagesResponse,
+    GetObjectRequest, GetObjectResponse, GetStreamRequest, HealthStatus, IpcError,
+    KvCreateBucketRequest, KvDeleteRequest, KvGetRequest, KvGetResponse, KvPutRequest,
+    KvPutResponse, ListBucketsRequest, ListBucketsResponse, ListConnectionsResponse,
     ListConsumersRequest, ListConsumersResponse, ListKeysRequest, ListKeysResponse,
     ListObjectBucketsRequest, ListObjectBucketsResponse, ListObjectsRequest, ListObjectsResponse,
-    ListProfilesResponse, ListStreamsRequest, ListStreamsResponse, LogRecordDto, MessageView,
-    MonitorRequest, ObjectCreateBucketRequest, ObjectInfoDto, ObjectProgress, ObjectPutRequest,
-    ObjectStreamRequest, PublishRequest, PurgeStreamRequest, PurgeStreamResponse, RequestRequest,
-    Settings, StreamInfoDto, SubStreamEvent, SubscribeRequest, SubscriptionHandle,
-    UnsubscribeRequest, UpdateProfileRequest, UpdateSettingsRequest, VarzDto,
+    ListProfilesResponse, ListSavedRequestsResponse, ListStreamsRequest, ListStreamsResponse,
+    LogRecordDto, MessageView, MonitorRequest, ObjectCreateBucketRequest, ObjectInfoDto,
+    ObjectProgress, ObjectPutRequest, ObjectStreamRequest, PublishRequest, PurgeStreamRequest,
+    PurgeStreamResponse, RequestRequest, SavedRequestDto, Settings, StreamInfoDto, SubStreamEvent,
+    SubscribeRequest, SubscriptionHandle, UnsubscribeRequest, UpdateProfileRequest,
+    UpdateSavedRequestRequest, UpdateSettingsRequest, VarzDto,
 };
 use tauri::ipc::Channel;
 use tauri::State;
@@ -471,4 +473,52 @@ pub async fn js_object_get_file(
         });
     };
     map_ipc(state.jetstream.object_get_file(req, &cb).await)
+}
+
+// --- saved requests -----------------------------------------------------------
+
+#[tauri::command]
+pub async fn saved_requests_list(
+    state: State<'_, AppState>,
+) -> Result<ListSavedRequestsResponse, IpcError> {
+    let requests = map_ipc(state.saved_requests.list().await)?;
+    Ok(ListSavedRequestsResponse { requests })
+}
+
+#[tauri::command]
+pub async fn saved_requests_create(
+    req: CreateSavedRequestRequest,
+    state: State<'_, AppState>,
+) -> Result<SavedRequestDto, IpcError> {
+    let input = req.saved_request;
+    let request = SavedRequestDto {
+        id: SavedRequestId::new().to_string(),
+        name: input.name,
+        subject: input.subject,
+        mode: input.mode,
+        payload: input.payload,
+        encoding: input.encoding,
+        headers: input.headers,
+        timeout_ms: input.timeout_ms,
+    };
+    map_ipc(state.saved_requests.upsert(&request).await)?;
+    Ok(request)
+}
+
+#[tauri::command]
+pub async fn saved_requests_update(
+    req: UpdateSavedRequestRequest,
+    state: State<'_, AppState>,
+) -> Result<SavedRequestDto, IpcError> {
+    let request = req.saved_request;
+    map_ipc(state.saved_requests.upsert(&request).await)?;
+    Ok(request)
+}
+
+#[tauri::command]
+pub async fn saved_requests_delete(
+    req: DeleteSavedRequestRequest,
+    state: State<'_, AppState>,
+) -> Result<(), IpcError> {
+    map_ipc(state.saved_requests.delete(&req.id).await)
 }

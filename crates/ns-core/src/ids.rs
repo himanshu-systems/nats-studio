@@ -63,6 +63,10 @@ id_newtype!(
     /// Identifies a terminal / long-lived session.
     SessionId
 );
+id_newtype!(
+    /// Identifies a saved publish/request template.
+    SavedRequestId
+);
 
 #[cfg(test)]
 mod tests {

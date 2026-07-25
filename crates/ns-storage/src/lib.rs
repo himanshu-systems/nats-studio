@@ -27,18 +27,22 @@
 mod db;
 mod error;
 mod profile_repo;
+mod saved_request_repo;
 mod settings_repo;
 
 pub use db::Db;
 pub use error::StorageError;
 pub use profile_repo::SqliteConnectionProfileRepo;
+pub use saved_request_repo::SqliteSavedRequestRepo;
 pub use settings_repo::SqliteSettingsRepo;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ns_core::{default_settings, ConnectionProfileRepo, SettingsRepo};
-    use ns_types::{ConnectionAuth, ConnectionOptions, ConnectionProfile};
+    use ns_core::{default_settings, ConnectionProfileRepo, SavedRequestRepo, SettingsRepo};
+    use ns_types::{
+        ConnectionAuth, ConnectionOptions, ConnectionProfile, SavedRequestDto, SavedRequestMode,
+    };
 
     async fn open() -> Db {
         Db::open_in_memory().await.expect("open in-memory db")
@@ -59,6 +63,19 @@ mod tests {
                 ping_interval_ms: 2_000,
                 no_echo: false,
             },
+        }
+    }
+
+    fn sample_saved_request(id: &str, name: &str) -> SavedRequestDto {
+        SavedRequestDto {
+            id: id.to_owned(),
+            name: name.to_owned(),
+            subject: "orders.new".to_owned(),
+            mode: SavedRequestMode::Publish,
+            payload: "{}".to_owned(),
+            encoding: ns_types::PayloadEncoding::Utf8,
+            headers: Vec::new(),
+            timeout_ms: 2_000,
         }
     }
 
@@ -147,6 +164,52 @@ mod tests {
 
         repo.delete("p1").await.expect("delete");
         assert!(repo.get("p1").await.expect("get").is_none());
+        assert!(repo.list().await.expect("list").is_empty());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn saved_request_get_of_missing_id_returns_none() {
+        let repo = SqliteSavedRequestRepo::new(open().await);
+        assert!(repo.get("does-not-exist").await.expect("get").is_none());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn saved_request_round_trips_upsert_get_list_update_delete() {
+        let repo = SqliteSavedRequestRepo::new(open().await);
+
+        let request = sample_saved_request("r1", "Ping");
+        repo.upsert(&request).await.expect("insert");
+
+        let fetched = repo.get("r1").await.expect("get").expect("present");
+        assert_eq!(fetched.name, "Ping");
+        assert_eq!(fetched.subject, request.subject);
+
+        let listed = repo.list().await.expect("list");
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].id, "r1");
+
+        let mut updated = request.clone();
+        updated.name = "Ping (renamed)".to_owned();
+        updated.mode = SavedRequestMode::Request;
+        updated.timeout_ms = 5_000;
+        repo.upsert(&updated).await.expect("update");
+
+        let refetched = repo
+            .get("r1")
+            .await
+            .expect("get")
+            .expect("present after update");
+        assert_eq!(refetched.name, "Ping (renamed)");
+        assert_eq!(refetched.mode, SavedRequestMode::Request);
+        assert_eq!(refetched.timeout_ms, 5_000);
+        assert_eq!(
+            repo.list().await.expect("list").len(),
+            1,
+            "an update must not duplicate the row"
+        );
+
+        repo.delete("r1").await.expect("delete");
+        assert!(repo.get("r1").await.expect("get").is_none());
         assert!(repo.list().await.expect("list").is_empty());
     }
 
