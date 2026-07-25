@@ -17,7 +17,7 @@ use ns_monitor::MonitorService;
 use ns_nats::AsyncNatsFactory;
 use ns_pubsub::PubSubService;
 use ns_security::KeyringSecretStore;
-use ns_storage::{Db, SqliteConnectionProfileRepo, SqliteSettingsRepo};
+use ns_storage::{Db, SqliteConnectionProfileRepo, SqliteSavedRequestRepo, SqliteSettingsRepo};
 use ns_telemetry::LogStore;
 use tauri::{AppHandle, Manager, Runtime};
 
@@ -28,6 +28,7 @@ pub struct AppState {
     pub jetstream: Arc<JetStreamService>,
     pub monitor: Arc<MonitorService>,
     pub settings_repo: Arc<SqliteSettingsRepo>,
+    pub saved_requests: Arc<SqliteSavedRequestRepo>,
     pub events: EventBus,
     pub log_store: LogStore,
     /// Cancellation tokens for active subscription streams, keyed by subscription id.
@@ -46,6 +47,7 @@ pub async fn build_state<R: Runtime>(app: &AppHandle<R>, log_store: LogStore) ->
 
     let profile_repo: Arc<dyn ConnectionProfileRepo> =
         Arc::new(SqliteConnectionProfileRepo::new(db.clone()));
+    let saved_requests = Arc::new(SqliteSavedRequestRepo::new(db.clone()));
     let settings_repo = Arc::new(SqliteSettingsRepo::new(db));
     let secrets: Arc<dyn SecretStore> = Arc::new(KeyringSecretStore::new());
     // Inject the rustls ClientConfig builder from ns-security (composition root
@@ -79,6 +81,7 @@ pub async fn build_state<R: Runtime>(app: &AppHandle<R>, log_store: LogStore) ->
         jetstream,
         monitor,
         settings_repo,
+        saved_requests,
         events,
         log_store,
         subscriptions: Arc::new(CancellationRegistry::new()),

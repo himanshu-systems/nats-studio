@@ -11,6 +11,7 @@ import { OverviewView } from "@/features/overview/OverviewView";
 import { ConnectionsView } from "@/features/connections/ConnectionsView";
 import { PublisherView } from "@/features/messaging/PublisherView";
 import { RequestReplyView } from "@/features/messaging/RequestReplyView";
+import { SavedRequestsView } from "@/features/messaging/SavedRequestsView";
 import { LiveTailView } from "@/features/messaging/LiveTailView";
 import { SessionRecorderView } from "@/features/messaging/SessionRecorderView";
 import { StreamsView } from "@/features/jetstream/StreamsView";
@@ -44,6 +45,8 @@ function renderView(view: string): JSX.Element {
       return <PublisherView />;
     case "requestreply":
       return <RequestReplyView />;
+    case "saved-requests":
+      return <SavedRequestsView />;
     case "browser":
       return <MessageBrowserView />;
     case "consumerlab":

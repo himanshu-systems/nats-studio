@@ -14,6 +14,7 @@ mod kv;
 mod message;
 mod monitor;
 mod objectstore;
+mod saved_request;
 mod settings;
 
 pub use app::*;
@@ -25,6 +26,7 @@ pub use kv::*;
 pub use message::*;
 pub use monitor::*;
 pub use objectstore::*;
+pub use saved_request::*;
 pub use settings::*;
 
 /// Wire alias for 64-bit unsigned integers. typeshare maps `U64` to the TS

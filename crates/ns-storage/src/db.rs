@@ -52,6 +52,18 @@ const MIGRATIONS: &[&str] = &[
         updated_at TEXT NOT NULL
     );
     "#,
+    // v2: saved publish/request templates for the Saved Requests panel, stored
+    // as JSON for the same reason as connection profiles. No secrets ever land
+    // here — templates only ever reference an already-connected server.
+    r#"
+    CREATE TABLE saved_request (
+        id         TEXT PRIMARY KEY,
+        name       TEXT NOT NULL,
+        data       TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    );
+    "#,
 ];
 
 /// A job dispatched to the worker thread: a boxed closure that runs against

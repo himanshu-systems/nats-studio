@@ -42,6 +42,7 @@ import type {
   ListObjectsRequest,
   ListObjectsResponse,
   ListProfilesResponse,
+  ListSavedRequestsResponse,
   ListStreamsRequest,
   ListStreamsResponse,
   MessageView,
@@ -55,6 +56,8 @@ import type {
   PurgeStreamRequest,
   PurgeStreamResponse,
   RequestRequest,
+  SavedRequestDto,
+  SavedRequestInput,
   Settings,
   StreamInfoDto,
   SubStreamEvent,
@@ -133,6 +136,14 @@ export const ipc = {
     getStatus: (connectionId: string) =>
       call<ConnectionStatusDto | null>("connection_get_status", { connectionId }),
     ping: (connectionId: string) => call<number>("connection_ping", { connectionId }),
+  },
+  savedRequests: {
+    list: () => call<ListSavedRequestsResponse>("saved_requests_list"),
+    create: (savedRequest: SavedRequestInput) =>
+      call<SavedRequestDto>("saved_requests_create", { savedRequest }),
+    update: (savedRequest: SavedRequestDto) =>
+      call<SavedRequestDto>("saved_requests_update", { savedRequest }),
+    delete: (id: string) => call<void>("saved_requests_delete", { id }),
   },
   pubsub: {
     publish: (req: PublishRequest) => call<void>("pubsub_publish", req),

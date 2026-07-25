@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use ns_types::{ConnectionProfile, ServerInfoDto, Settings};
+use ns_types::{ConnectionProfile, SavedRequestDto, ServerInfoDto, Settings};
 
 use crate::{CoreError, IncomingMessage, JetStreamManager, OutgoingMessage, SecretString};
 
@@ -39,6 +39,15 @@ pub trait ConnectionProfileRepo: Send + Sync {
 pub trait SettingsRepo: Send + Sync {
     async fn load(&self) -> Result<Option<Settings>, CoreError>;
     async fn save(&self, settings: &Settings) -> Result<(), CoreError>;
+}
+
+/// Persistence for saved publish/request templates (implemented in `ns-storage`).
+#[async_trait]
+pub trait SavedRequestRepo: Send + Sync {
+    async fn list(&self) -> Result<Vec<SavedRequestDto>, CoreError>;
+    async fn get(&self, id: &str) -> Result<Option<SavedRequestDto>, CoreError>;
+    async fn upsert(&self, request: &SavedRequestDto) -> Result<(), CoreError>;
+    async fn delete(&self, id: &str) -> Result<(), CoreError>;
 }
 
 /// A fully-resolved dial spec: profile + materialized secrets + TLS, ready to hand

@@ -23,12 +23,12 @@ pub use clock::{Clock, SystemClock};
 pub use config::default_settings;
 pub use error::{CoreError, DomainError};
 pub use event::{Event, EventPublisher, Topic};
-pub use ids::{ConnectionId, SessionId, SubscriptionId, TaskId};
+pub use ids::{ConnectionId, SavedRequestId, SessionId, SubscriptionId, TaskId};
 pub use jetstream::{JetStreamManager, PurgeSpec};
 pub use message::{IncomingMessage, OutgoingMessage};
 pub use ports::{
     ConnectSpec, ConnectionProfileRepo, NatsClient, NatsClientFactory, NatsClientProvider,
-    ResolvedAuth, ResolvedTls, SecretStore, SettingsRepo, Subscription,
+    ResolvedAuth, ResolvedTls, SavedRequestRepo, SecretStore, SettingsRepo, Subscription,
 };
 pub use redact::{Redacted, SecretString};
 pub use runtime::{CancellationRegistry, TaskRegistry};

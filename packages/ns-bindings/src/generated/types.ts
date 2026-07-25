@@ -238,6 +238,38 @@ export interface CreateProfileRequest {
 	profile: ConnectionProfileInput;
 }
 
+/** How a saved template fires. */
+export enum SavedRequestMode {
+	Publish = "publish",
+	Request = "request",
+}
+
+/** How a `payload` string in a request should be interpreted into bytes. */
+export enum PayloadEncoding {
+	Utf8 = "utf8",
+	Base64 = "base64",
+}
+
+export interface MessageHeader {
+	name: string;
+	value: string;
+}
+
+/** A template being created (no `id` yet). */
+export interface SavedRequestInput {
+	name: string;
+	subject: string;
+	mode: SavedRequestMode;
+	payload: string;
+	encoding: PayloadEncoding;
+	headers: MessageHeader[];
+	timeoutMs: number;
+}
+
+export interface CreateSavedRequestRequest {
+	savedRequest: SavedRequestInput;
+}
+
 /** How messages are retained in a stream. Mirrors async-nats `RetentionPolicy`. */
 export enum StreamRetention {
 	Limits = "limits",
@@ -310,6 +342,10 @@ export interface DeleteProfileRequest {
 	id: string;
 }
 
+export interface DeleteSavedRequestRequest {
+	id: string;
+}
+
 export interface DeleteStreamRequest {
 	connectionId: string;
 	name: string;
@@ -321,11 +357,6 @@ export interface FetchMessagesRequest {
 	consumer: string;
 	/** Number of messages to pull; the adapter caps this at 100. */
 	batch: number;
-}
-
-export interface MessageHeader {
-	name: string;
-	value: string;
 }
 
 /**
@@ -600,6 +631,27 @@ export interface ListProfilesResponse {
 	profiles: ConnectionProfile[];
 }
 
+/** A stored publish/request template (has an `id`). */
+export interface SavedRequestDto {
+	id: string;
+	name: string;
+	subject: string;
+	mode: SavedRequestMode;
+	/**
+	 * The raw text as typed, not yet encoded — mirrors the Publisher /
+	 * Request-Reply compose form.
+	 */
+	payload: string;
+	encoding: PayloadEncoding;
+	headers: MessageHeader[];
+	/** Only meaningful when `mode` is `Request`. */
+	timeoutMs: number;
+}
+
+export interface ListSavedRequestsResponse {
+	requests: SavedRequestDto[];
+}
+
 export interface ListStreamsRequest {
 	connectionId: string;
 }
@@ -750,12 +802,6 @@ export interface ObjectStreamRequest {
 	path: string;
 }
 
-/** How a `payload` string in a request should be interpreted into bytes. */
-export enum PayloadEncoding {
-	Utf8 = "utf8",
-	Base64 = "base64",
-}
-
 export interface PublishRequest {
 	connectionId: string;
 	subject: string;
@@ -842,6 +888,10 @@ export interface UnsubscribeRequest {
 
 export interface UpdateProfileRequest {
 	profile: ConnectionProfile;
+}
+
+export interface UpdateSavedRequestRequest {
+	savedRequest: SavedRequestDto;
 }
 
 export interface UpdateSettingsRequest {

@@ -86,6 +86,10 @@ fn main() {
             commands::js_object_put,
             commands::js_object_put_file,
             commands::js_object_get_file,
+            commands::saved_requests_list,
+            commands::saved_requests_create,
+            commands::saved_requests_update,
+            commands::saved_requests_delete,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the NATS Studio application");
