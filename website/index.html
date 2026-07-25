@@ -96,7 +96,7 @@
 
   /* hero scroll-synced showcase: screenshot + caption pin together, centered;
      the active image and caption change to match an invisible scroll track */
-  .scroller-pin{position:sticky; top:90px; max-width:1040px; margin:66px auto 0}
+  .scroller-pin{position:sticky; top:64px; max-width:680px; margin:56px auto 0}
   .scroller-pin .halo{position:absolute; inset:-6% 8% auto 8%; height:70%; z-index:-1; filter:blur(46px); opacity:.7;
     background:radial-gradient(60% 100% at 30% 0%, #ffd6ec, transparent 70%), radial-gradient(60% 100% at 75% 20%, #c9dcff, transparent 70%)}
   .frame{position:relative; border-radius:20px; overflow:hidden; border:1px solid var(--border); box-shadow:var(--shadow-lg),var(--hi); background:var(--surface-strong); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); padding:8px;
@@ -104,13 +104,13 @@
   .scroller-shots{position:relative; aspect-ratio:1296/808; border-radius:13px; overflow:hidden; border:1px solid var(--border-alt)}
   .scroller-shots img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; opacity:0; transition:opacity .5s ease}
   .scroller-shots img.active{opacity:1}
-  .scroller-caption{position:relative; min-height:104px; margin-top:22px; text-align:center}
+  .scroller-caption{position:relative; min-height:90px; margin-top:16px; text-align:center}
   .cap{position:absolute; inset:0; opacity:0; transition:opacity .4s ease}
   .cap.active{opacity:1}
-  .cap .lab{margin-bottom:8px}
-  .cap h3{font-size:clamp(20px,2.4vw,26px); font-weight:500; letter-spacing:-.02em; margin-bottom:8px}
-  .cap p{color:var(--muted); font-size:15px; max-width:520px; margin:0 auto}
-  .scroller-steps{max-width:1040px; margin:0 auto}
+  .cap .lab{margin-bottom:6px}
+  .cap h3{font-size:clamp(18px,2vw,22px); font-weight:500; letter-spacing:-.02em; margin-bottom:6px}
+  .cap p{color:var(--muted); font-size:14px; max-width:480px; margin:0 auto}
+  .scroller-steps{max-width:680px; margin:0 auto}
   .step{min-height:55vh}
   @media (max-width:900px){
     .scroller-pin{position:relative; top:0}
