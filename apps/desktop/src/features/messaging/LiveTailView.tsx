@@ -3,7 +3,7 @@ import { ipc, type MessageView, type SubStreamEvent } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Button, Badge, SectionLabel, cx } from "../../components/ui";
 import { Icon } from "../../components/Icon";
-import { errorMessage, fmtBytes, MessageMeta, PayloadView } from "./message";
+import { errorMessage, exportMessages, fmtBytes, MessageMeta, PayloadView } from "./message";
 
 const MAX_MESSAGES = 1000;
 
@@ -145,6 +145,24 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
         <div className="flex items-center gap-1">
           <Button size="sm" variant="ghost" icon={paused ? "signal" : "clock"} onClick={() => setPaused((p) => !p)}>
             {paused ? "Resume" : "Pause"}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            icon="inbox"
+            onClick={() => exportMessages(messages.map((m) => m.view), subject, "json")}
+            disabled={messages.length === 0}
+          >
+            Export JSON
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            icon="inbox"
+            onClick={() => exportMessages(messages.map((m) => m.view), subject, "csv")}
+            disabled={messages.length === 0}
+          >
+            Export CSV
           </Button>
           <Button
             size="sm"

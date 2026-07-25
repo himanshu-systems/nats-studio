@@ -399,6 +399,65 @@ export function encodeProtoWire(obj: Record<string, unknown>): Uint8Array {
   return new Uint8Array(out);
 }
 
+// --- message export (JSON / CSV) --------------------------------------------
+
+/** The payload as it should appear in an export: decoded text for anything
+ *  that isn't raw binary (same `preview` a non-binary format already carries),
+ *  base64 for genuinely binary payloads. */
+function exportPayload(view: MessageView): string {
+  return view.format === "binary" ? view.payloadBase64 : view.preview;
+}
+
+/** RFC 4180 field quoting — wrap in quotes (doubling embedded quotes) whenever
+ *  the value contains a comma, quote, or newline. */
+function csvField(v: string | number): string {
+  const s = String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function toCsv(views: MessageView[]): string {
+  const lines = views.map((v) =>
+    [v.seq, v.subject, v.ts, v.size, exportPayload(v)].map(csvField).join(","),
+  );
+  return ["seq,subject,timestamp,size,payload", ...lines].join("\r\n");
+}
+
+function toJson(views: MessageView[]): string {
+  const rows = views.map((v) => ({
+    seq: v.seq,
+    subject: v.subject,
+    headers: v.headers,
+    timestamp: v.ts,
+    size: v.size,
+    payload: exportPayload(v),
+  }));
+  return JSON.stringify(rows, null, 2);
+}
+
+/** Text -> Blob download via a synthetic anchor (same pattern as the
+ *  base64 -> Blob download used for Object Store downloads). */
+function downloadText(name: string, content: string, mime: string): void {
+  const url = URL.createObjectURL(new Blob([content], { type: mime }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/** Export a list of already-decoded messages as pretty JSON or flattened CSV,
+ *  triggering a browser download. `namePart` seeds the filename (e.g. the
+ *  stream or subject currently being viewed). */
+export function exportMessages(views: MessageView[], namePart: string, format: "json" | "csv"): void {
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const safe = namePart.trim().replace(/[^a-zA-Z0-9._-]+/g, "_") || "messages";
+  const name = `nats-studio-messages-${safe}-${stamp}.${format}`;
+  if (format === "json") downloadText(name, toJson(views), "application/json");
+  else downloadText(name, toCsv(views), "text/csv");
+}
+
 /** Payload viewer: format tabs (JSON / Text / Hex / Protobuf / MessagePack / Base64) + copy. */
 export function PayloadView({ view, className }: { view: MessageView; className?: string }): JSX.Element {
   const bytes = useMemo(() => b64ToBytes(view.payloadBase64), [view.payloadBase64]);
