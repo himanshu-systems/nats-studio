@@ -99,12 +99,7 @@
   .shot .halo{position:absolute; inset:-6% 8% auto 8%; height:70%; z-index:-1; filter:blur(46px); opacity:.7;
     background:radial-gradient(60% 100% at 30% 0%, #ffd6ec, transparent 70%), radial-gradient(60% 100% at 75% 20%, #c9dcff, transparent 70%)}
   .frame{border-radius:20px; overflow:hidden; border:1px solid var(--border); box-shadow:var(--shadow-lg),var(--hi); background:var(--surface-strong); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); padding:8px}
-  .shots{position:relative; aspect-ratio:1296/808; border-radius:13px; overflow:hidden; border:1px solid var(--border-alt)}
-  .shots img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; opacity:0; animation:shotfade 16s infinite}
-  .shots img:nth-child(1){animation-delay:0s} .shots img:nth-child(2){animation-delay:4s}
-  .shots img:nth-child(3){animation-delay:8s} .shots img:nth-child(4){animation-delay:12s}
-  @keyframes shotfade{0%{opacity:0} 4%{opacity:1} 22%{opacity:1} 26%{opacity:0} 100%{opacity:0}}
-  @media (prefers-reduced-motion:reduce){.shots img{animation:none; opacity:0}.shots img:first-child{opacity:1}}
+  .frame img{display:block; width:100%; height:auto; border-radius:13px; border:1px solid var(--border-alt)}
 
   /* scroll-synced showcase: screenshot pins in place, active image follows the step in view */
   .scroller{display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:start}
@@ -235,14 +230,7 @@
 
   <div class="shot reveal in">
     <div class="halo"></div>
-    <div class="frame">
-      <div class="shots">
-        <img src="app-overview.png" alt="NATS Studio — Overview dashboard with server health, live throughput and round-trip charts" />
-        <img src="app-streams.png" alt="NATS Studio — Streams view showing JetStream streams, message counts, and stream creation" />
-        <img src="app-messages.png" alt="NATS Studio — Message Browser with a JSON payload pretty-printed" />
-        <img src="app-consumers.png" alt="NATS Studio — Consumers view with pending, ack-pending, and redelivery counts" />
-      </div>
-    </div>
+    <div class="frame"><img src="app-overview.png" alt="NATS Studio — Overview dashboard with server health, live throughput and round-trip charts" /></div>
   </div>
 </section>
 
