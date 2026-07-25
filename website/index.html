@@ -106,6 +106,25 @@
   @keyframes shotfade{0%{opacity:0} 4%{opacity:1} 22%{opacity:1} 26%{opacity:0} 100%{opacity:0}}
   @media (prefers-reduced-motion:reduce){.shots img{animation:none; opacity:0}.shots img:first-child{opacity:1}}
 
+  /* scroll-synced showcase: screenshot pins in place, active image follows the step in view */
+  .scroller{display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:start}
+  .scroller-pin{position:sticky; top:96px}
+  .scroller-shots{position:relative; aspect-ratio:1296/808; border-radius:13px; overflow:hidden; border:1px solid var(--border-alt)}
+  .scroller-shots img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; opacity:0; transition:opacity .5s ease}
+  .scroller-shots img.active{opacity:1}
+  .step{min-height:64vh; display:flex; flex-direction:column; justify-content:center; opacity:.3; transition:opacity .4s ease}
+  .step.active{opacity:1}
+  .step:last-child{min-height:40vh}
+  .step .lab{margin-bottom:10px}
+  .step h3{font-size:clamp(22px,2.6vw,30px); font-weight:500; letter-spacing:-.02em; margin-bottom:12px}
+  .step p{color:var(--muted); font-size:16px; max-width:420px; margin:0}
+  @media (max-width:900px){
+    .scroller{grid-template-columns:1fr; gap:24px}
+    .scroller-pin{position:relative; top:0}
+    .step{min-height:auto; opacity:1; padding:8px 0 32px}
+    .step:last-child{min-height:auto}
+  }
+
   /* sections */
   section.s{padding:130px 0}
   .lab{color:var(--accent); font-weight:600; font-size:13px; letter-spacing:.14em; text-transform:uppercase}
@@ -227,6 +246,49 @@
   </div>
 </section>
 
+<section class="s" style="padding-top:0">
+  <div class="wrap">
+    <div class="shead">
+      <div class="lab reveal">See it in action</div>
+      <h2 class="h2 reveal">A closer look.</h2>
+    </div>
+    <div class="scroller">
+      <div class="scroller-pin">
+        <div class="frame">
+          <div class="scroller-shots">
+            <img data-step="0" class="active" src="app-overview.png" alt="NATS Studio — Overview dashboard with server health, live throughput and round-trip charts" />
+            <img data-step="1" src="app-streams.png" alt="NATS Studio — Streams view showing JetStream streams, message counts, and stream creation" />
+            <img data-step="2" src="app-messages.png" alt="NATS Studio — Message Browser with a JSON payload pretty-printed" />
+            <img data-step="3" src="app-consumers.png" alt="NATS Studio — Consumers view with pending, ack-pending, and redelivery counts" />
+          </div>
+        </div>
+      </div>
+      <div class="scroller-steps">
+        <div class="step active" data-step="0">
+          <div class="lab">Overview</div>
+          <h3>Everything at a glance.</h3>
+          <p>Connection health, live throughput, and round-trip latency — one dashboard, updated in real time as messages flow.</p>
+        </div>
+        <div class="step" data-step="1">
+          <div class="lab">Streams</div>
+          <h3>JetStream, without the CLI.</h3>
+          <p>Create, browse, and purge streams visually. Message counts, storage, and subjects at a glance.</p>
+        </div>
+        <div class="step" data-step="2">
+          <div class="lab">Message Browser</div>
+          <h3>Every payload, decoded.</h3>
+          <p>JSON pretty-prints automatically — Protobuf, MessagePack, hex, and Base64 are one tab away.</p>
+        </div>
+        <div class="step" data-step="3">
+          <div class="lab">Consumers</div>
+          <h3>Know exactly what's pending.</h3>
+          <p>Ack-pending, redelivery, and unprocessed counts per consumer — no more guessing why a message didn't land.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="s" id="features">
   <div class="wrap">
     <div class="shead">
@@ -330,6 +392,22 @@
   const io = new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.14});
   document.querySelectorAll('.reveal:not(.in)').forEach(el=>io.observe(el));
   document.getElementById('yr').textContent=new Date().getFullYear();
+
+  // Scroll-synced showcase: whichever step is centered in the viewport
+  // drives the active screenshot in the pinned frame beside it.
+  const steps = document.querySelectorAll('.step');
+  const scrollerShots = document.querySelectorAll('.scroller-shots img');
+  if (steps.length && scrollerShots.length) {
+    const activate = (n) => {
+      steps.forEach(s => s.classList.toggle('active', s.dataset.step === n));
+      scrollerShots.forEach(s => s.classList.toggle('active', s.dataset.step === n));
+    };
+    const stepIO = new IntersectionObserver(
+      (es) => es.forEach(e => { if (e.isIntersecting) activate(e.target.dataset.step); }),
+      { rootMargin: '-45% 0px -45% 0px', threshold: 0 },
+    );
+    steps.forEach(s => stepIO.observe(s));
+  }
 </script>
 </body>
 </html>
