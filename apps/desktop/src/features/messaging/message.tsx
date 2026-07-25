@@ -98,6 +98,11 @@ export function parseHeaders(raw: string): MessageHeader[] {
     .filter((h) => h.name.length > 0);
 }
 
+/** Render headers back into the `Key: Value` per-line shape the form edits — inverse of `parseHeaders`. */
+export function headersToRaw(headers: MessageHeader[]): string {
+  return headers.map((h) => `${h.name}: ${h.value}`).join("\n");
+}
+
 const FORMAT_TONE: Record<string, "accent" | "positive" | "neutral" | "warning"> = {
   json: "accent",
   text: "positive",

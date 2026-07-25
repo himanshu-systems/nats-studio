@@ -3,10 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ipc, NatsStudioError, PayloadEncoding } from "@bindings";
 import type { FetchedMessageDto, MessageView } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
-import { Badge, Button, EmptyState, Panel, SectionLabel } from "../../components/ui";
+import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../components/ui";
 import { Select } from "../../components/Select";
 import { ErrorNote } from "../../components/ErrorNote";
 import { useConfirm } from "../../components/ConfirmDialog";
+import { Icon } from "../../components/Icon";
 import { PayloadView } from "../messaging/message";
 
 const streamsKey = (connId: string): [string, string] => ["streams", connId];
@@ -262,6 +263,8 @@ function MessageRow({
   onAct: (msg: FetchedMessageDto, action: AckAction) => void;
 }): JSX.Element {
   const confirm = useConfirm();
+  const [open, setOpen] = useState(false);
+  const view = toView(msg);
   return (
     <Panel className={acted ? "space-y-3 p-4 opacity-60" : "space-y-3 p-4"}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -308,7 +311,19 @@ function MessageRow({
         )}
       </div>
       {error !== undefined && <ErrorNote error={error} />}
-      <PayloadView view={toView(msg)} />
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-1.5 rounded-md text-left text-xs text-muted transition-colors hover:text-content"
+      >
+        <Icon
+          name="chevron-down"
+          size={12}
+          className={cx("shrink-0 transition-transform", open && "rotate-180")}
+        />
+        {open ? <span>Hide payload</span> : <span className="truncate font-mono">{view.preview || "(empty payload)"}</span>}
+      </button>
+      {open && <PayloadView view={view} />}
     </Panel>
   );
 }

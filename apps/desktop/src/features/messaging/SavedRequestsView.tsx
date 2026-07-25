@@ -4,7 +4,6 @@ import {
   ipc,
   PayloadEncoding,
   SavedRequestMode,
-  type MessageHeader,
   type MessageView,
   type SavedRequestDto,
   type SavedRequestInput,
@@ -14,14 +13,9 @@ import { Badge, Button, EmptyState, Panel, SectionLabel } from "../../components
 import { Select } from "../../components/Select";
 import { ErrorNote } from "../../components/ErrorNote";
 import { useConfirm } from "../../components/ConfirmDialog";
-import { errorMessage, MessageMeta, parseHeaders, PayloadView } from "./message";
+import { errorMessage, headersToRaw, MessageMeta, parseHeaders, PayloadView } from "./message";
 
 const SAVED_REQUESTS_KEY = ["savedRequests"] as const;
-
-/** Render headers back into the `Key: Value` per-line shape the form edits. */
-function headersToRaw(headers: MessageHeader[]): string {
-  return headers.map((h) => `${h.name}: ${h.value}`).join("\n");
-}
 
 export function SavedRequestsView(): JSX.Element {
   return <RequireConnection>{(connId) => <SavedRequests connId={connId} />}</RequireConnection>;
