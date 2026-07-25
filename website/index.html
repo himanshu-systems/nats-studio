@@ -17,7 +17,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
 <style>
   :root{
@@ -42,7 +42,7 @@
   html{scroll-behavior:smooth; -webkit-text-size-adjust:100%}
   body{
     margin:0; color:var(--text); background:var(--bg);
-    font-family:"Inter",system-ui,-apple-system,sans-serif; font-weight:400; font-size:16px;
+    font-family:"Manrope",system-ui,-apple-system,sans-serif; font-weight:400; font-size:16px;
     line-height:1.6; letter-spacing:-.006em; -webkit-font-smoothing:antialiased; overflow-x:hidden;
   }
   /* fixed pastel gradient field */
@@ -78,13 +78,13 @@
   .brand{display:flex; align-items:center; gap:9px; font-weight:600; font-size:16px; letter-spacing:-.02em}
   .brand img{width:26px;height:26px;border-radius:7px}
   .nlinks{display:flex; align-items:center; gap:26px}
-  .nlinks a.lk{color:var(--muted); font-size:14.5px; font-weight:450; transition:.2s}
+  .nlinks a.lk{color:var(--muted); font-size:14.5px; font-weight:500; transition:.2s}
   .nlinks a.lk:hover{color:var(--text)}
   .nav .btn{padding:9px 18px; font-size:14px}
 
   /* hero */
   .hero{text-align:center; padding:150px 0 0}
-  .pill{display:inline-flex; align-items:center; gap:9px; font-size:13px; font-weight:450; color:var(--muted); padding:7px 15px 7px 9px; border-radius:999px; margin-bottom:28px}
+  .pill{display:inline-flex; align-items:center; gap:9px; font-size:13px; font-weight:500; color:var(--muted); padding:7px 15px 7px 9px; border-radius:999px; margin-bottom:28px}
   .pill b{display:inline-flex; align-items:center; gap:6px; color:var(--accent); font-weight:600}
   .pill .dot{width:6px;height:6px;border-radius:50%;background:var(--accent); box-shadow:0 0 0 4px rgba(139,92,246,.16)}
   h1.title{font-size:clamp(44px,7vw,72px); font-weight:500; letter-spacing:-.035em}
@@ -95,13 +95,14 @@
   .meta b{color:var(--muted); font-weight:500}
 
   /* hero scroll-synced showcase: screenshot + caption pin together, centered;
-     the active image and caption change to match an invisible scroll track */
-  .scroller-pin{position:sticky; top:64px; max-width:680px; margin:56px auto 0}
+     the image height scales with the viewport instead of a fixed guess, so
+     there's always room left for the caption under it */
+  .scroller-pin{position:sticky; top:52px; width:fit-content; max-width:100%; margin:56px auto 0; text-align:center}
   .scroller-pin .halo{position:absolute; inset:-6% 8% auto 8%; height:70%; z-index:-1; filter:blur(46px); opacity:.7;
     background:radial-gradient(60% 100% at 30% 0%, #ffd6ec, transparent 70%), radial-gradient(60% 100% at 75% 20%, #c9dcff, transparent 70%)}
-  .frame{position:relative; border-radius:20px; overflow:hidden; border:1px solid var(--border); box-shadow:var(--shadow-lg),var(--hi); background:var(--surface-strong); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); padding:8px;
+  .frame{position:relative; display:inline-block; border-radius:20px; overflow:hidden; border:1px solid var(--border); box-shadow:var(--shadow-lg),var(--hi); background:var(--surface-strong); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); padding:8px;
     transition:transform .15s ease-out; transform:perspective(900px) rotateX(0) rotateY(0) scale3d(1,1,1); will-change:transform}
-  .scroller-shots{position:relative; aspect-ratio:1296/808; border-radius:13px; overflow:hidden; border:1px solid var(--border-alt)}
+  .scroller-shots{position:relative; height:min(50vh,600px); aspect-ratio:1296/808; border-radius:13px; overflow:hidden; border:1px solid var(--border-alt)}
   .scroller-shots img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; opacity:0; transition:opacity .5s ease}
   .scroller-shots img.active{opacity:1}
   .scroller-caption{position:relative; min-height:90px; margin-top:16px; text-align:center}
@@ -111,9 +112,11 @@
   .cap h3{font-size:clamp(18px,2vw,22px); font-weight:500; letter-spacing:-.02em; margin-bottom:6px}
   .cap p{color:var(--muted); font-size:14px; max-width:480px; margin:0 auto}
   .scroller-steps{max-width:680px; margin:0 auto}
-  .step{min-height:55vh}
+  .step{min-height:70vh}
   @media (max-width:900px){
-    .scroller-pin{position:relative; top:0}
+    .scroller-pin{position:relative; top:0; width:auto}
+    .frame{display:block}
+    .scroller-shots{height:auto; width:100%}
     .scroller-caption{position:static; min-height:auto}
     .cap{position:static; opacity:1; margin-bottom:28px}
     .cap:last-child{margin-bottom:0}
@@ -388,7 +391,7 @@
     };
     const stepIO = new IntersectionObserver(
       (es) => es.forEach(e => { if (e.isIntersecting) activate(e.target.dataset.step); }),
-      { rootMargin: '-45% 0px -45% 0px', threshold: 0 },
+      { rootMargin: '-20% 0px -60% 0px', threshold: 0 },
     );
     steps.forEach(s => stepIO.observe(s));
   }
