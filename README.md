@@ -100,11 +100,11 @@ This is a layered Rust workspace that inverts dependencies (18 crates): typed wi
 
 Recently shipped:
 
-- ✅ Auto-update with a signed update manifest
-- ✅ Object Store streaming upload/download for large objects
-- ✅ Dead Letters: redeliver and purge actions
-- ✅ Services: per-endpoint stats and schema
-- ✅ TLS and mTLS connection profiles in the UI
+- ✅ Push & pull JetStream consumers, with replay from a specific sequence or timestamp
+- ✅ Manual reply panel in Live Tail — respond to requests by hand, including service-style error replies
+- ✅ Saved Requests: reusable Publish / Request-Reply templates with variables
+- ✅ Save & Replay message sessions — record live traffic, replay it back at 1×–5× speed
+- ✅ Export message history to JSON/CSV from Live Tail and Message Browser
 
 Planned:
 
