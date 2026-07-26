@@ -5,7 +5,7 @@ import { Button, Badge, EmptyState, cx } from "../../components/ui";
 import { Select } from "../../components/Select";
 import { ErrorNote } from "../../components/ErrorNote";
 import { useConfirm } from "../../components/ConfirmDialog";
-import { errorMessage, fmtBytes, MessageMeta, PayloadView } from "./message";
+import { errorMessage, fmtBytes, FlashBadge, MessageMeta, PayloadView, useFlash } from "./message";
 
 /** One recorded message: the decoded view plus its arrival offset (ms) from
  *  the moment recording started. Exactly what gets written to / read from disk. */
@@ -56,6 +56,14 @@ function SessionRecorder({ connId }: { connId: string }): JSX.Element {
   // --- recording -----------------------------------------------------------
   const [subject, setSubject] = useState("events.>");
   const [recording, setRecording] = useState(false);
+  const [starting, setStarting] = useState(false);
+  // Stop and Start-recording swap in the same toolbar slot, so a reflexive
+  // second click right after Stop can land on the fresh Start button and
+  // immediately re-open the "unsaved session" prompt. Briefly disable it so
+  // that click has nowhere to land.
+  // ponytail: fixed cooldown window, not real click-intent detection — bump
+  // the delay if reports of this keep coming in.
+  const [justStopped, setJustStopped] = useState(false);
   const [subId, setSubId] = useState<string | null>(null);
   const [buffer, setBuffer] = useState<SessionMessage[]>([]);
   const [recordError, setRecordError] = useState<string | null>(null);
@@ -71,26 +79,28 @@ function SessionRecorder({ connId }: { connId: string }): JSX.Element {
   const [dirty, setDirty] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [saved, flashSaved] = useFlash();
 
   const startRecording = async (): Promise<void> => {
     const subj = subject.trim();
-    if (subj === "" || recording) return;
-    if (dirty) {
-      const ok = await confirm({
-        title: "Start a new recording?",
-        description: `The current session isn't saved yet — ${session?.messages.length ?? 0} message(s) will be lost.`,
-        consequences: ["The unsaved session will be discarded."],
-        confirmLabel: "Start recording",
-        confirmIcon: "signal",
-      });
-      if (!ok) return;
-    }
-    setRecordError(null);
-    setBuffer([]);
-    setSession(null);
-    setDirty(false);
-    startRef.current = Date.now();
+    if (subj === "" || recording || starting) return;
+    setStarting(true);
     try {
+      if (dirty) {
+        const ok = await confirm({
+          title: "Start a new recording?",
+          description: `The current session isn't saved yet — ${session?.messages.length ?? 0} message(s) will be lost.`,
+          consequences: ["The unsaved session will be discarded."],
+          confirmLabel: "Start recording",
+          confirmIcon: "signal",
+        });
+        if (!ok) return;
+      }
+      setRecordError(null);
+      setBuffer([]);
+      setSession(null);
+      setDirty(false);
+      startRef.current = Date.now();
       const handle = await ipc.pubsub.subscribe({ connectionId: connId, subject: subj }, (event) => {
         if (event.kind === "message") {
           setBuffer((prev) => [...prev, { message: event.data, receivedAtMs: Date.now() - startRef.current }]);
@@ -102,6 +112,8 @@ function SessionRecorder({ connId }: { connId: string }): JSX.Element {
       setRecording(true);
     } catch (e) {
       setRecordError(errorMessage(e));
+    } finally {
+      setStarting(false);
     }
   };
 
@@ -111,11 +123,15 @@ function SessionRecorder({ connId }: { connId: string }): JSX.Element {
     setRecording(false);
     setSession({ subject: subject.trim(), createdAt: new Date().toISOString(), messages: buffer });
     setDirty(buffer.length > 0);
+    setJustStopped(true);
+    window.setTimeout(() => setJustStopped(false), 600);
   };
 
   const saveSession = (): void => {
     if (!session) return;
-    downloadJson(`session-${sanitizeForFilename(session.subject)}-${Date.now()}.json`, session);
+    const name = `session-${sanitizeForFilename(session.subject)}-${Date.now()}.json`;
+    downloadJson(name, session);
+    flashSaved(`Downloaded ${name}`);
     setDirty(false);
   };
 
@@ -161,13 +177,13 @@ function SessionRecorder({ connId }: { connId: string }): JSX.Element {
   const genRef = useRef(0);
 
   const filtered = useMemo((): SessionMessage[] => {
-    if (!session) return [];
+    const messages = session?.messages ?? (recording ? buffer : []);
     const needle = filterText.trim();
-    if (needle === "") return session.messages;
-    return session.messages.filter((m) =>
+    if (needle === "") return messages;
+    return messages.filter((m) =>
       filterExact ? m.message.subject === needle : m.message.subject.includes(needle),
     );
-  }, [session, filterText, filterExact]);
+  }, [session, recording, buffer, filterText, filterExact]);
 
   const pause = (): void => {
     cancelRef.current?.();
@@ -271,8 +287,8 @@ function SessionRecorder({ connId }: { connId: string }): JSX.Element {
             disabled={recording}
           />
           {!recording ? (
-            <Button type="submit" icon="signal" disabled={subject.trim() === ""}>
-              Start recording
+            <Button type="submit" icon="signal" disabled={subject.trim() === "" || starting || justStopped}>
+              {starting ? "Starting…" : "Start recording"}
             </Button>
           ) : (
             <Button type="button" variant="danger" icon="x" onClick={stopRecording}>
@@ -285,9 +301,10 @@ function SessionRecorder({ connId }: { connId: string }): JSX.Element {
               <Badge tone={dirty ? "warning" : "neutral"}>
                 {session.messages.length} message(s){dirty ? " — unsaved" : ""}
               </Badge>
-              <Button size="sm" variant="outline" icon="archive" onClick={saveSession}>
+              <Button type="button" size="sm" variant="outline" icon="archive" onClick={saveSession}>
                 Save session
               </Button>
+              <FlashBadge message={saved} />
             </>
           )}
           <input
@@ -301,7 +318,7 @@ function SessionRecorder({ connId }: { connId: string }): JSX.Element {
               e.target.value = "";
             }}
           />
-          <Button size="sm" variant="outline" icon="inbox" onClick={() => fileRef.current?.click()}>
+          <Button type="button" size="sm" variant="outline" icon="inbox" onClick={() => fileRef.current?.click()}>
             Load session
           </Button>
         </div>
@@ -309,7 +326,7 @@ function SessionRecorder({ connId }: { connId: string }): JSX.Element {
         {loadError && <p className="text-xs text-danger">{loadError}</p>}
       </form>
 
-      {session === null ? (
+      {session === null && !recording ? (
         <EmptyState icon="replay" title="No session loaded">
           Record live messages above, or load a previously saved session to replay it.
         </EmptyState>
@@ -335,7 +352,12 @@ function SessionRecorder({ connId }: { connId: string }): JSX.Element {
                 options={SPEED_OPTIONS}
               />
               {!playing ? (
-                <Button size="sm" icon="signal" onClick={() => void play()} disabled={filtered.length === 0}>
+                <Button
+                  size="sm"
+                  icon="signal"
+                  onClick={() => void play()}
+                  disabled={filtered.length === 0 || recording}
+                >
                   Play
                 </Button>
               ) : (
@@ -362,7 +384,13 @@ function SessionRecorder({ connId }: { connId: string }): JSX.Element {
           <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] divide-x divide-border overflow-hidden">
             <ul className="min-h-0 overflow-auto">
               {filtered.length === 0 && (
-                <li className="p-4 text-xs text-muted">No messages match this filter.</li>
+                <li className="p-4 text-xs text-muted">
+                  {recording
+                    ? "Waiting for messages on this subject…"
+                    : session && session.messages.length === 0
+                      ? "No messages were captured during this recording — nothing was published to this subject while it ran."
+                      : "No messages match this filter."}
+                </li>
               )}
               {filtered.map((m, i) => (
                 <li key={`${m.message.subject}-${m.receivedAtMs}-${i}`}>

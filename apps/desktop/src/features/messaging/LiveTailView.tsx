@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { ipc, type MessageView, type SubStreamEvent } from "@bindings";
+import { useMutation } from "@tanstack/react-query";
+import { ipc, PayloadEncoding, type MessageView, type SubStreamEvent } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
-import { Button, Badge, SectionLabel, cx } from "../../components/ui";
+import { Button, Badge, Panel, SectionLabel, cx } from "../../components/ui";
 import { Icon } from "../../components/Icon";
-import { errorMessage, exportMessages, fmtBytes, MessageMeta, PayloadView } from "./message";
+import { ErrorNote } from "../../components/ErrorNote";
+import { errorMessage, exportMessages, FlashBadge, fmtBytes, MessageMeta, parseHeaders, PayloadView, useFlash } from "./message";
 
 const MAX_MESSAGES = 1000;
 
@@ -36,6 +38,7 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
   const [paused, setPaused] = useState(false);
   // null = show all subscriptions; otherwise a subscription's client id.
   const [filter, setFilter] = useState<string | null>(null);
+  const [downloaded, flash] = useFlash();
 
   const pausedRef = useRef(false);
   pausedRef.current = paused;
@@ -143,6 +146,7 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
           <Badge tone={paused ? "warning" : "positive"}>{shown.length}</Badge>
         </div>
         <div className="flex items-center gap-1">
+          <FlashBadge message={downloaded} />
           <Button size="sm" variant="ghost" icon={paused ? "signal" : "clock"} onClick={() => setPaused((p) => !p)}>
             {paused ? "Resume" : "Pause"}
           </Button>
@@ -150,7 +154,7 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
             size="sm"
             variant="ghost"
             icon="inbox"
-            onClick={() => exportMessages(messages.map((m) => m.view), subject, "json")}
+            onClick={() => flash(`Downloaded ${exportMessages(messages.map((m) => m.view), subject, "json")}`)}
             disabled={messages.length === 0}
           >
             Export JSON
@@ -159,7 +163,7 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
             size="sm"
             variant="ghost"
             icon="inbox"
-            onClick={() => exportMessages(messages.map((m) => m.view), subject, "csv")}
+            onClick={() => flash(`Downloaded ${exportMessages(messages.map((m) => m.view), subject, "csv")}`)}
             disabled={messages.length === 0}
           >
             Export CSV
@@ -216,6 +220,9 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
             <div className="space-y-2">
               <MessageMeta view={selected} />
               <PayloadView view={selected} />
+              {selected.reply && (
+                <ReplyPanel key={`${selected.reply}-${selected.seq}-${selected.ts}`} connId={connId} replyTo={selected.reply} />
+              )}
             </div>
           ) : (
             <div className="flex h-full items-center justify-center">
@@ -225,6 +232,93 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Manually respond to a request-reply message. Covers the NATS reply
+ * conventions that don't have a home elsewhere in the app: a plain reply,
+ * a Services-framework-style error reply (`Nats-Service-Error` headers, the
+ * same convention `$SRV` responders use — see the Services page), and
+ * multiple replies to the same inbox (the streaming/multi-response pattern).
+ */
+function ReplyPanel({ connId, replyTo }: { connId: string; replyTo: string }): JSX.Element {
+  const [payload, setPayload] = useState("");
+  const [headersRaw, setHeadersRaw] = useState("");
+  const [asError, setAsError] = useState(false);
+  const [errorCode, setErrorCode] = useState("500");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [sent, setSent] = useState(0);
+
+  const send = useMutation({
+    mutationFn: () => {
+      const headers = parseHeaders(headersRaw);
+      if (asError) {
+        headers.push({ name: "Nats-Service-Error", value: errorMsg.trim() || "error" });
+        headers.push({ name: "Nats-Service-Error-Code", value: errorCode.trim() || "500" });
+      }
+      return ipc.pubsub.publish({
+        connectionId: connId,
+        subject: replyTo,
+        payload,
+        encoding: PayloadEncoding.Utf8,
+        headers,
+      });
+    },
+    onSuccess: () => setSent((n) => n + 1),
+  });
+
+  return (
+    <Panel className="space-y-2.5 p-3">
+      <div className="flex items-center justify-between">
+        <SectionLabel>Reply</SectionLabel>
+        {sent > 0 && <Badge tone="positive">{sent} sent</Badge>}
+      </div>
+      <div className="truncate font-mono text-xs text-muted">→ {replyTo}</div>
+      <textarea
+        className="field-mono min-h-[70px]"
+        value={payload}
+        onChange={(e) => setPayload(e.target.value)}
+        placeholder={asError ? "Optional error detail payload" : "Reply payload"}
+        spellCheck={false}
+      />
+      <label className="flex items-center gap-1.5 text-xs text-muted">
+        <input type="checkbox" checked={asError} onChange={(e) => setAsError(e.target.checked)} />
+        Reply as a service error (adds Nats-Service-Error headers)
+      </label>
+      {asError && (
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            className="field"
+            value={errorCode}
+            onChange={(e) => setErrorCode(e.target.value)}
+            placeholder="Error code (e.g. 500)"
+          />
+          <input
+            className="field"
+            value={errorMsg}
+            onChange={(e) => setErrorMsg(e.target.value)}
+            placeholder="Error message"
+          />
+        </div>
+      )}
+      <textarea
+        className="field-mono min-h-[44px]"
+        value={headersRaw}
+        onChange={(e) => setHeadersRaw(e.target.value)}
+        placeholder="X-Trace-Id: abc123"
+        spellCheck={false}
+      />
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" icon="swap" onClick={() => send.mutate()} disabled={send.isPending}>
+          {send.isPending ? "Sending…" : "Send reply"}
+        </Button>
+        <span className="text-[11px] text-faint">
+          Sending more than once is fine — useful for streaming/multi-response replies.
+        </span>
+      </div>
+      {send.isError && <ErrorNote error={send.error} />}
+    </Panel>
   );
 }
 

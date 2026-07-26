@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MessageView, MessageHeader } from "@bindings";
 import { NatsStudioError } from "@bindings";
 import { Badge, cx } from "../../components/ui";
@@ -129,7 +129,7 @@ export function MessageMeta({ view }: { view: MessageView }): JSX.Element {
 const MAX_RENDER = 64 * 1024;
 type Mode = "json" | "text" | "hex" | "proto" | "msgpack" | "base64";
 
-function b64ToBytes(b64: string): Uint8Array {
+export function b64ToBytes(b64: string): Uint8Array {
   try {
     const bin = atob(b64);
     const arr = new Uint8Array(bin.length);
@@ -150,7 +150,7 @@ function prettyJson(bytes: Uint8Array): string | null {
   }
 }
 
-function hexdump(bytes: Uint8Array): string {
+export function hexdump(bytes: Uint8Array): string {
   const lines: string[] = [];
   const n = Math.min(bytes.length, MAX_RENDER);
   for (let o = 0; o < n; o += 16) {
@@ -180,7 +180,7 @@ function readVarint(bytes: Uint8Array, start: number): [bigint, number] | null {
 const toHex = (b: Uint8Array): string => Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 
 /** Schema-less protobuf wire-format decode: field number, wire type, raw value. */
-function decodeProto(bytes: Uint8Array): string | null {
+export function decodeProto(bytes: Uint8Array): string | null {
   const out: string[] = [];
   let i = 0;
   let guard = 0;
@@ -227,7 +227,7 @@ function decodeProto(bytes: Uint8Array): string | null {
 
 /** Minimal MessagePack decoder (common subset). Returns the decoded value, or
  *  throws if the bytes aren't valid / fully-consumed MessagePack. */
-function decodeMsgpack(bytes: Uint8Array): unknown {
+export function decodeMsgpack(bytes: Uint8Array): unknown {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let pos = 0;
   const big = (v: bigint): number | string =>
@@ -420,14 +420,14 @@ function csvField(v: string | number): string {
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-function toCsv(views: MessageView[]): string {
+export function toCsv(views: MessageView[]): string {
   const lines = views.map((v) =>
     [v.seq, v.subject, v.ts, v.size, exportPayload(v)].map(csvField).join(","),
   );
   return ["seq,subject,timestamp,size,payload", ...lines].join("\r\n");
 }
 
-function toJson(views: MessageView[]): string {
+export function toJson(views: MessageView[]): string {
   const rows = views.map((v) => ({
     seq: v.seq,
     subject: v.subject,
@@ -454,13 +454,43 @@ function downloadText(name: string, content: string, mime: string): void {
 
 /** Export a list of already-decoded messages as pretty JSON or flattened CSV,
  *  triggering a browser download. `namePart` seeds the filename (e.g. the
- *  stream or subject currently being viewed). */
-export function exportMessages(views: MessageView[], namePart: string, format: "json" | "csv"): void {
+ *  stream or subject currently being viewed). Returns the filename so callers
+ *  can confirm the download happened — see `useFlash`. */
+export function exportMessages(views: MessageView[], namePart: string, format: "json" | "csv"): string {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const safe = namePart.trim().replace(/[^a-zA-Z0-9._-]+/g, "_") || "messages";
   const name = `nats-studio-messages-${safe}-${stamp}.${format}`;
   if (format === "json") downloadText(name, toJson(views), "application/json");
   else downloadText(name, toCsv(views), "text/csv");
+  return name;
+}
+
+/** A brief, self-clearing confirmation message — e.g. "Downloaded foo.json".
+ *  Tauri windows have no browser chrome (no download bar/toast), so a Blob
+ *  download otherwise gives no visible sign it worked. */
+export function useFlash(ms = 2500): [string | null, (msg: string) => void] {
+  const [message, setMessage] = useState<string | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const show = (msg: string): void => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setMessage(msg);
+    timerRef.current = setTimeout(() => setMessage(null), ms);
+  };
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+  return [message, show];
+}
+
+/** Inline confirmation badge for a `useFlash` message — renders nothing while idle. */
+export function FlashBadge({ message }: { message: string | null }): JSX.Element | null {
+  if (!message) return null;
+  return (
+    <Badge tone="positive">
+      <Icon name="check" size={12} />
+      {message}
+    </Badge>
+  );
 }
 
 /** Payload viewer: format tabs (JSON / Text / Hex / Protobuf / MessagePack / Base64) + copy. */
