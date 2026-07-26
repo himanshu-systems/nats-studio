@@ -71,6 +71,7 @@ function ProfilesPanel(): JSX.Element {
             <Panel key={p.id} className="p-3">
               <ProfileForm
                 initial={p}
+                existing={profiles.data?.profiles ?? []}
                 pending={update.isPending}
                 error={update.isError ? errorMessage(update.error) : null}
                 submitLabel="Save changes"
@@ -122,6 +123,7 @@ function ProfilesPanel(): JSX.Element {
         <SectionLabel>New profile</SectionLabel>
         <div className="mt-2">
           <ProfileForm
+            existing={profiles.data?.profiles ?? []}
             pending={create.isPending}
             error={create.isError ? errorMessage(create.error) : null}
             submitLabel="Create profile"
@@ -138,8 +140,15 @@ function ProfilesPanel(): JSX.Element {
  * inline "Edit" action on a profile card) — this is also where the
  * Monitoring URL lives, so it's set once per connection instead of being
  * retyped in every view that needs it (Overview, Metrics, …). */
+/** Normalize a server URL for duplicate detection — trim, lowercase, and drop
+ *  a trailing slash so `nats://Host:4222/` and `nats://host:4222` match. */
+function normalizeServerUrl(s: string): string {
+  return s.trim().toLowerCase().replace(/\/+$/, "");
+}
+
 function ProfileForm(props: {
   initial?: ConnectionProfile;
+  existing: ConnectionProfile[];
   pending: boolean;
   error: string | null;
   submitLabel: string;
@@ -162,6 +171,12 @@ function ProfileForm(props: {
   const [clientKeyPath, setClientKeyPath] = useState(init?.tls?.clientKeyPath ?? "");
   const [insecureSkipVerify, setInsecureSkipVerify] = useState(init?.tls?.insecureSkipVerify ?? false);
   const [sni, setSni] = useState(init?.tls?.sni ?? "");
+
+  // Flag (don't block — different creds/roles against the same server is a
+  // legitimate setup) when this server URL matches another saved profile.
+  const duplicate = props.existing.find(
+    (p) => p.id !== init?.id && normalizeServerUrl(p.servers[0] ?? "") === normalizeServerUrl(server),
+  );
 
   const buildAuth = (): ConnectionAuth => {
     if (authKind === "userPassword") return { kind: "userPassword", data: { username, password: password || undefined } };
@@ -202,6 +217,13 @@ function ProfileForm(props: {
     >
       <input className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
       <input className="field font-mono" value={server} onChange={(e) => setServer(e.target.value)} placeholder="nats://host:4222" />
+      {duplicate && (
+        <p className="rounded-lg border border-warning/25 bg-warning/10 px-3 py-2 text-[11px] text-content">
+          <span className="font-medium">Heads up:</span> profile "{duplicate.name}" already points at {server.trim()}.
+          That's fine if intentional (e.g. separate credentials for the same server) — just flagging it in case it
+          isn't.
+        </p>
+      )}
       <div className="space-y-1">
         <TipLabel tip="HTTP monitoring endpoint for this server (varz/connz). Leave blank to auto-derive http://<host>:8222 from the server URL above.">
           Monitoring URL (optional)
