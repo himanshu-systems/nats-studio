@@ -520,6 +520,7 @@ mod tests {
             stream_name: stream.to_owned(),
             durable_name: Some(name.to_owned()),
             is_pull: true,
+            deliver_subject: None,
             deliver_policy: "all".to_owned(),
             ack_policy: "explicit".to_owned(),
             filter_subject: None,
@@ -538,6 +539,10 @@ mod tests {
             filter_subject: None,
             ack_policy: "explicit".to_owned(),
             deliver_policy: "all".to_owned(),
+            opt_start_seq: None,
+            opt_start_time: None,
+            deliver_subject: None,
+            deliver_group: None,
             max_deliver: None,
             ack_wait_seconds: None,
         }

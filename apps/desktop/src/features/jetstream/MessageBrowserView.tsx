@@ -7,7 +7,7 @@ import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../compon
 import { Select } from "../../components/Select";
 import { ErrorNote } from "../../components/ErrorNote";
 import { useConfirm } from "../../components/ConfirmDialog";
-import { PayloadView, exportMessages, fmtBytes } from "../messaging/message";
+import { PayloadView, exportMessages, FlashBadge, fmtBytes, useFlash } from "../messaging/message";
 
 const PAGE = 50;
 
@@ -61,6 +61,7 @@ function Browser({ connId }: { connId: string }): JSX.Element {
 
   const [startSeq, setStartSeq] = useState(1);
   const [selected, setSelected] = useState<number | null>(null);
+  const [downloaded, flash] = useFlash();
 
   const page = useQuery({
     queryKey: messagesKey(connId, stream ?? "", startSeq),
@@ -122,7 +123,7 @@ function Browser({ connId }: { connId: string }): JSX.Element {
             size="sm"
             variant="outline"
             icon="inbox"
-            onClick={() => exportMessages(messages.map(toView), stream ?? "messages", "json")}
+            onClick={() => flash(`Downloaded ${exportMessages(messages.map(toView), stream ?? "messages", "json")}`)}
             disabled={messages.length === 0}
           >
             Export JSON
@@ -131,11 +132,12 @@ function Browser({ connId }: { connId: string }): JSX.Element {
             size="sm"
             variant="outline"
             icon="inbox"
-            onClick={() => exportMessages(messages.map(toView), stream ?? "messages", "csv")}
+            onClick={() => flash(`Downloaded ${exportMessages(messages.map(toView), stream ?? "messages", "csv")}`)}
             disabled={messages.length === 0}
           >
             Export CSV
           </Button>
+          <FlashBadge message={downloaded} />
         </div>
       </div>
 
@@ -148,15 +150,18 @@ function Browser({ connId }: { connId: string }): JSX.Element {
       ) : (
         <div className="grid min-h-0 gap-4 lg:grid-cols-[1fr_360px]">
           <Panel className="flex min-h-0 flex-col">
-            <div className="flex items-center justify-between gap-2 border-b border-border/60 p-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => resetTo(Math.max(firstSeq, startSeq - PAGE))}
-                disabled={!canPrev}
-              >
-                Prev
-              </Button>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 p-2">
+              <div className="flex items-center gap-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => resetTo(Math.max(firstSeq, startSeq - PAGE))}
+                  disabled={!canPrev}
+                >
+                  Prev
+                </Button>
+                <JumpToSeq disabled={stream === null} onJump={resetTo} />
+              </div>
               <span className="text-[11px] tabular-nums text-muted">
                 {messages.length > 0
                   ? `seq ${messages[0]?.seq}–${lastOnPage}`
@@ -222,6 +227,37 @@ function Browser({ connId }: { connId: string }): JSX.Element {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Jump straight to a sequence instead of paging 50-at-a-time — e.g. "seq 233"
+ *  to start reading from a known point in the stream's history. */
+function JumpToSeq({ disabled, onJump }: { disabled: boolean; onJump: (seq: number) => void }): JSX.Element {
+  const [value, setValue] = useState("");
+
+  const go = (): void => {
+    const n = Math.floor(Number(value));
+    if (Number.isFinite(n) && n > 0) onJump(n);
+  };
+
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        className="field h-8 w-20 text-xs tabular-nums"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") go();
+        }}
+        placeholder="seq #"
+        inputMode="numeric"
+        disabled={disabled}
+        aria-label="Jump to sequence"
+      />
+      <Button type="button" size="sm" variant="outline" onClick={go} disabled={disabled || value.trim() === ""}>
+        Go
+      </Button>
     </div>
   );
 }

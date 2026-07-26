@@ -209,7 +209,10 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
         isPushConsumer ? (
           <EmptyState icon="alert" title="Push consumer selected">
             “{consumer}” delivers to a subject instead of being pulled — Consumer Lab only fetches from
-            pull consumers. Pick a different one, or create a pull consumer on the Consumers page.
+            pull consumers.{" "}
+            {consumerInfo?.deliverSubject
+              ? `Watch its messages in Live Tail instead — subscribe to "${consumerInfo.deliverSubject}".`
+              : "Pick a different one, or create a pull consumer on the Consumers page."}
           </EmptyState>
         ) : lastFetch !== null ? (
           <EmptyState icon="beaker" title="Fetch completed — nothing came back">

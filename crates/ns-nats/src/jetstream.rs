@@ -28,6 +28,7 @@ use ns_types::{
     StreamInfoDto, StreamRetention, StreamStateDto, StreamStorage,
 };
 use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
 use tokio::io::{AsyncRead, AsyncReadExt as _, AsyncWriteExt as _, ReadBuf};
 
 /// Largest object we'll pull into memory for a preview/download over IPC.
@@ -160,12 +161,28 @@ impl JetStreamManager for AsyncJetStream {
             .get_stream(stream)
             .await
             .map_err(|e| js_err("get stream", &e, ErrorCode::StreamNotFound))?;
-        let consumer = stream_h
-            .create_consumer(dto_to_consumer_config(config))
-            .await
-            .map_err(|e| js_err("create consumer", &e, ErrorCode::Internal))?;
         // `create_consumer` returns the server's info already cached on the handle.
-        Ok(consumer_to_dto(consumer.cached_info()))
+        let dto = match config
+            .deliver_subject
+            .clone()
+            .filter(|s| !s.trim().is_empty())
+        {
+            Some(deliver_subject) => {
+                let consumer = stream_h
+                    .create_consumer(dto_to_push_config(config, deliver_subject)?)
+                    .await
+                    .map_err(|e| js_err("create consumer", &e, ErrorCode::Internal))?;
+                consumer_to_dto(consumer.cached_info())
+            }
+            None => {
+                let consumer = stream_h
+                    .create_consumer(dto_to_pull_config(config)?)
+                    .await
+                    .map_err(|e| js_err("create consumer", &e, ErrorCode::Internal))?;
+                consumer_to_dto(consumer.cached_info())
+            }
+        };
+        Ok(dto)
     }
 
     async fn delete_consumer(&self, stream: &str, name: &str) -> Result<(), CoreError> {
@@ -705,6 +722,7 @@ fn consumer_to_dto(info: &consumer::Info) -> ConsumerInfoDto {
         stream_name: info.stream_name.clone(),
         durable_name: info.config.durable_name.clone(),
         is_pull: info.config.deliver_subject.is_none(),
+        deliver_subject: info.config.deliver_subject.clone(),
         deliver_policy: deliver_policy_str(&info.config.deliver_policy).to_owned(),
         ack_policy: ack_policy_str(&info.config.ack_policy).to_owned(),
         filter_subject: (!filter.is_empty()).then(|| filter.to_owned()),
@@ -717,24 +735,52 @@ fn consumer_to_dto(info: &consumer::Info) -> ConsumerInfoDto {
     }
 }
 
-/// Build a durable pull consumer config from the DTO. Unknown policy tags fall
-/// back to the safe defaults (`explicit` ack, `all` deliver); `maxDeliver` None
-/// -> `-1` (unlimited) matching the stream limits convention.
-fn dto_to_consumer_config(dto: ConsumerConfigDto) -> consumer::pull::Config {
-    consumer::pull::Config {
+/// Ack + deliver policy, shared between pull and push config builders. Unknown
+/// policy tags fall back to the safe defaults (`explicit` ack, `all` deliver).
+///
+/// `byStartSequence` / `byStartTime` are how JetStream replays history: they
+/// point a (durable or ephemeral) consumer's delivery cursor at a specific
+/// stream sequence or timestamp instead of the beginning/end/latest-per-subject
+/// shortcuts, so it walks forward from there like it's live traffic.
+fn map_policies(dto: &ConsumerConfigDto) -> Result<(AckPolicy, DeliverPolicy), CoreError> {
+    let ack_policy = match dto.ack_policy.as_str() {
+        "none" => AckPolicy::None,
+        "all" => AckPolicy::All,
+        _ => AckPolicy::Explicit,
+    };
+    let deliver_policy = match dto.deliver_policy.as_str() {
+        "last" => DeliverPolicy::Last,
+        "new" => DeliverPolicy::New,
+        "lastPerSubject" => DeliverPolicy::LastPerSubject,
+        "byStartSequence" => DeliverPolicy::ByStartSequence {
+            start_sequence: dto.opt_start_seq.unwrap_or(1),
+        },
+        "byStartTime" => {
+            let raw = dto.opt_start_time.clone().unwrap_or_default();
+            let start_time = OffsetDateTime::parse(&raw, &Rfc3339).map_err(|e| {
+                CoreError::coded(
+                    ErrorCode::InvalidArgument,
+                    format!("optStartTime \"{raw}\" is not a valid RFC 3339 timestamp: {e}"),
+                    false,
+                )
+            })?;
+            DeliverPolicy::ByStartTime { start_time }
+        }
+        _ => DeliverPolicy::All,
+    };
+    Ok((ack_policy, deliver_policy))
+}
+
+/// Build a durable pull consumer config from the DTO — fetched on demand from
+/// Consumer Lab. `maxDeliver` `None` -> `-1` (unlimited), matching the stream
+/// limits convention.
+fn dto_to_pull_config(dto: ConsumerConfigDto) -> Result<consumer::pull::Config, CoreError> {
+    let (ack_policy, deliver_policy) = map_policies(&dto)?;
+    Ok(consumer::pull::Config {
         durable_name: Some(dto.durable_name),
         filter_subject: dto.filter_subject.unwrap_or_default(),
-        ack_policy: match dto.ack_policy.as_str() {
-            "none" => AckPolicy::None,
-            "all" => AckPolicy::All,
-            _ => AckPolicy::Explicit,
-        },
-        deliver_policy: match dto.deliver_policy.as_str() {
-            "last" => DeliverPolicy::Last,
-            "new" => DeliverPolicy::New,
-            "lastPerSubject" => DeliverPolicy::LastPerSubject,
-            _ => DeliverPolicy::All,
-        },
+        ack_policy,
+        deliver_policy,
         max_deliver: dto.max_deliver.map_or(-1, |v| v as i64),
         ack_wait: dto
             .ack_wait_seconds
@@ -742,7 +788,32 @@ fn dto_to_consumer_config(dto: ConsumerConfigDto) -> consumer::pull::Config {
             .map(Duration::from_secs)
             .unwrap_or_default(),
         ..Default::default()
-    }
+    })
+}
+
+/// Build a durable push consumer config from the DTO — the server delivers
+/// messages to `deliver_subject` as they arrive (watch it with Live Tail),
+/// instead of the client pulling batches on demand.
+fn dto_to_push_config(
+    dto: ConsumerConfigDto,
+    deliver_subject: String,
+) -> Result<consumer::push::Config, CoreError> {
+    let (ack_policy, deliver_policy) = map_policies(&dto)?;
+    Ok(consumer::push::Config {
+        deliver_subject,
+        deliver_group: dto.deliver_group,
+        durable_name: Some(dto.durable_name),
+        filter_subject: dto.filter_subject.unwrap_or_default(),
+        ack_policy,
+        deliver_policy,
+        max_deliver: dto.max_deliver.map_or(-1, |v| v as i64),
+        ack_wait: dto
+            .ack_wait_seconds
+            .filter(|s| *s > 0)
+            .map(Duration::from_secs)
+            .unwrap_or_default(),
+        ..Default::default()
+    })
 }
 
 fn deliver_policy_str(p: &DeliverPolicy) -> &'static str {
@@ -937,5 +1008,170 @@ mod tests {
         assert_eq!(e.code(), ErrorCode::JetstreamNotEnabled);
         let e = js_err("x", &"boom", ErrorCode::Internal);
         assert_eq!(e.code(), ErrorCode::Internal);
+    }
+
+    #[test]
+    fn map_policies_deliver_policy_tags() {
+        let mut dto = base_consumer_config("d");
+
+        dto.deliver_policy = "unknown-tag".into();
+        assert!(matches!(map_policies(&dto).unwrap().1, DeliverPolicy::All));
+
+        dto.deliver_policy = "last".into();
+        assert!(matches!(map_policies(&dto).unwrap().1, DeliverPolicy::Last));
+
+        dto.deliver_policy = "new".into();
+        assert!(matches!(map_policies(&dto).unwrap().1, DeliverPolicy::New));
+
+        dto.deliver_policy = "lastPerSubject".into();
+        assert!(matches!(
+            map_policies(&dto).unwrap().1,
+            DeliverPolicy::LastPerSubject
+        ));
+
+        dto.deliver_policy = "byStartSequence".into();
+        dto.opt_start_seq = Some(42);
+        assert!(matches!(
+            map_policies(&dto).unwrap().1,
+            DeliverPolicy::ByStartSequence { start_sequence: 42 }
+        ));
+
+        dto.opt_start_seq = None;
+        assert!(
+            matches!(
+                map_policies(&dto).unwrap().1,
+                DeliverPolicy::ByStartSequence { start_sequence: 1 }
+            ),
+            "no opt_start_seq -> defaults to sequence 1"
+        );
+
+        dto.deliver_policy = "byStartTime".into();
+        dto.opt_start_time = Some("2026-01-01T00:00:00Z".into());
+        assert!(matches!(
+            map_policies(&dto).unwrap().1,
+            DeliverPolicy::ByStartTime { .. }
+        ));
+
+        dto.opt_start_time = Some("not a timestamp".into());
+        let err = map_policies(&dto).unwrap_err();
+        assert_eq!(err.code(), ErrorCode::InvalidArgument);
+    }
+
+    fn base_consumer_config(durable: &str) -> ConsumerConfigDto {
+        ConsumerConfigDto {
+            durable_name: durable.to_owned(),
+            filter_subject: None,
+            ack_policy: "explicit".to_owned(),
+            deliver_policy: "all".to_owned(),
+            opt_start_seq: None,
+            opt_start_time: None,
+            deliver_subject: None,
+            deliver_group: None,
+            max_deliver: None,
+            ack_wait_seconds: None,
+        }
+    }
+
+    /// End-to-end against a live server: pull consumer with `byStartSequence`
+    /// actually starts delivery at that sequence (not the beginning), and a
+    /// push consumer actually delivers to its subject and reports itself
+    /// correctly (`isPull: false`, `deliverSubject` set) — exercising the
+    /// exact DTOs the Consumers page sends. Ignored by default; run with a
+    /// local `nats-server` on 127.0.0.1:4222 via `cargo test -p ns-nats -- --ignored`.
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "requires a local nats-server on 127.0.0.1:4222"]
+    async fn live_pull_by_start_sequence_and_push_consumer_deliver() {
+        let client = async_nats::connect("127.0.0.1:4222")
+            .await
+            .expect("connect");
+        let js = AsyncJetStream::new(client.clone());
+
+        let stream_name = "ns_studio_consumer_verify";
+        let subject = "ns.studio.consumer_verify.>";
+        // Best-effort cleanup from a previous failed run.
+        let _ = js.delete_stream(stream_name).await;
+
+        js.create_stream(StreamConfigDto {
+            name: stream_name.into(),
+            subjects: vec![subject.into()],
+            retention: StreamRetention::Limits,
+            storage: StreamStorage::Memory,
+            discard: StreamDiscard::Old,
+            max_messages: None,
+            max_bytes: None,
+            max_age_ms: None,
+            max_message_size: None,
+            num_replicas: 1,
+            duplicate_window_ms: None,
+            description: None,
+        })
+        .await
+        .expect("create stream");
+
+        // Publish 5 messages (stream sequences 1..=5) before any consumer exists.
+        for i in 1..=5u32 {
+            client
+                .publish(
+                    "ns.studio.consumer_verify.push",
+                    format!("msg-{i}").into_bytes().into(),
+                )
+                .await
+                .expect("publish");
+        }
+        client.flush().await.expect("flush");
+
+        // --- pull consumer, byStartSequence starting at 3 ---
+        let mut pull_cfg = base_consumer_config("verify-pull");
+        pull_cfg.deliver_policy = "byStartSequence".into();
+        pull_cfg.opt_start_seq = Some(3);
+        let pull_info = js
+            .create_consumer(stream_name, pull_cfg)
+            .await
+            .expect("create pull consumer");
+        assert!(pull_info.is_pull, "no deliver_subject -> pull consumer");
+        assert!(pull_info.deliver_subject.is_none());
+        assert_eq!(pull_info.deliver_policy, "byStartSequence");
+
+        let fetched = js
+            .fetch_messages(stream_name, "verify-pull", 10)
+            .await
+            .expect("fetch");
+        let seqs: Vec<u64> = fetched.messages.iter().map(|m| m.stream_seq).collect();
+        assert_eq!(
+            seqs,
+            vec![3, 4, 5],
+            "byStartSequence(3) must skip seq 1 and 2, not replay from the start"
+        );
+
+        // --- push consumer delivering to a subject ---
+        let mut push_cfg = base_consumer_config("verify-push");
+        push_cfg.deliver_subject = Some("ns.studio.consumer_verify_out".into());
+        let push_info = js
+            .create_consumer(stream_name, push_cfg)
+            .await
+            .expect("create push consumer");
+        assert!(!push_info.is_pull, "deliver_subject set -> push consumer");
+        assert_eq!(
+            push_info.deliver_subject.as_deref(),
+            Some("ns.studio.consumer_verify_out")
+        );
+
+        let mut sub = client
+            .subscribe("ns.studio.consumer_verify_out")
+            .await
+            .expect("subscribe to push deliver subject");
+        let pushed = tokio::time::timeout(Duration::from_secs(3), sub.next())
+            .await
+            .expect("push consumer delivered within timeout")
+            .expect("a message arrived on the deliver subject");
+        assert_eq!(
+            pushed.payload.as_ref(),
+            b"msg-1",
+            "push consumer replays from the beginning (default deliver policy)"
+        );
+
+        js.delete_stream(stream_name)
+            .await
+            .expect("cleanup: delete stream");
     }
 }

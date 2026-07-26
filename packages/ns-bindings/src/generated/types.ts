@@ -183,9 +183,9 @@ export interface ConnzDto {
 }
 
 /**
- * The editable configuration for creating a durable pull consumer. `ackPolicy`
- * / `deliverPolicy` are lowercase string tags mapped to the async-nats enums by
- * the adapter (unknown -> `explicit` / `all`).
+ * The editable configuration for creating a durable consumer, pull or push.
+ * `ackPolicy` / `deliverPolicy` are lowercase string tags mapped to the
+ * async-nats enums by the adapter (unknown -> `explicit` / `all`).
  */
 export interface ConsumerConfigDto {
 	durableName: string;
@@ -193,8 +193,23 @@ export interface ConsumerConfigDto {
 	filterSubject?: string;
 	/** One of `none` | `all` | `explicit`. */
 	ackPolicy: string;
-	/** One of `all` | `last` | `new` | `lastPerSubject`. */
+	/** One of `all` | `last` | `new` | `lastPerSubject` | `byStartSequence` | `byStartTime`. */
 	deliverPolicy: string;
+	/** Starting stream sequence when `deliver_policy` is `byStartSequence`. Ignored otherwise. */
+	optStartSeq?: number;
+	/** Starting time (RFC 3339) when `deliver_policy` is `byStartTime`. Ignored otherwise. */
+	optStartTime?: string;
+	/**
+	 * `Some(subject)` creates a push consumer that delivers to that subject
+	 * as messages arrive; `None` creates a pull consumer (fetched on demand
+	 * from Consumer Lab).
+	 */
+	deliverSubject?: string;
+	/**
+	 * Push consumers only: queue group for load-balancing across multiple
+	 * subscribers to `deliver_subject`. Ignored for pull consumers.
+	 */
+	deliverGroup?: string;
 	/** Max delivery attempts before giving up. `None` = unlimited (`-1` on the wire). */
 	maxDeliver?: number;
 	/** Redelivery wait, in seconds. `None` / `0` = server default. */
@@ -216,6 +231,11 @@ export interface ConsumerInfoDto {
 	 * it; messages arrive on its deliver subject instead.
 	 */
 	isPull: boolean;
+	/**
+	 * Push consumers only: the subject messages are delivered to — watch it
+	 * with Live Tail. `None` for pull consumers.
+	 */
+	deliverSubject?: string;
 	deliverPolicy: string;
 	ackPolicy: string;
 	/** The single subject filter, if any (empty on the wire -> `None`). */

@@ -162,6 +162,9 @@ pub struct ConsumerInfoDto {
     /// configured). `false` = a push consumer — Consumer Lab can't pull from
     /// it; messages arrive on its deliver subject instead.
     pub is_pull: bool,
+    /// Push consumers only: the subject messages are delivered to — watch it
+    /// with Live Tail. `None` for pull consumers.
+    pub deliver_subject: Option<String>,
     pub deliver_policy: String,
     pub ack_policy: String,
     /// The single subject filter, if any (empty on the wire -> `None`).
@@ -198,9 +201,9 @@ pub struct DeleteConsumerRequest {
     pub name: String,
 }
 
-/// The editable configuration for creating a durable pull consumer. `ackPolicy`
-/// / `deliverPolicy` are lowercase string tags mapped to the async-nats enums by
-/// the adapter (unknown -> `explicit` / `all`).
+/// The editable configuration for creating a durable consumer, pull or push.
+/// `ackPolicy` / `deliverPolicy` are lowercase string tags mapped to the
+/// async-nats enums by the adapter (unknown -> `explicit` / `all`).
 #[typeshare]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -210,8 +213,19 @@ pub struct ConsumerConfigDto {
     pub filter_subject: Option<String>,
     /// One of `none` | `all` | `explicit`.
     pub ack_policy: String,
-    /// One of `all` | `last` | `new` | `lastPerSubject`.
+    /// One of `all` | `last` | `new` | `lastPerSubject` | `byStartSequence` | `byStartTime`.
     pub deliver_policy: String,
+    /// Starting stream sequence when `deliver_policy` is `byStartSequence`. Ignored otherwise.
+    pub opt_start_seq: Option<U64>,
+    /// Starting time (RFC 3339) when `deliver_policy` is `byStartTime`. Ignored otherwise.
+    pub opt_start_time: Option<String>,
+    /// `Some(subject)` creates a push consumer that delivers to that subject
+    /// as messages arrive; `None` creates a pull consumer (fetched on demand
+    /// from Consumer Lab).
+    pub deliver_subject: Option<String>,
+    /// Push consumers only: queue group for load-balancing across multiple
+    /// subscribers to `deliver_subject`. Ignored for pull consumers.
+    pub deliver_group: Option<String>,
     /// Max delivery attempts before giving up. `None` = unlimited (`-1` on the wire).
     pub max_deliver: Option<U64>,
     /// Redelivery wait, in seconds. `None` / `0` = server default.

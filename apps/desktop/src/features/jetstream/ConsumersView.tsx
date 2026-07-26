@@ -202,7 +202,10 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
         )}
       </div>
 
-      <CreateConsumerForm connId={connId} streams={streamList.map((s) => ({ name: s.config.name, retention: s.config.retention }))} />
+      <CreateConsumerForm
+        connId={connId}
+        streams={streamList.map((s) => ({ name: s.config.name, retention: s.config.retention, subjects: s.config.subjects }))}
+      />
     </div>
   );
 }
@@ -215,17 +218,39 @@ function parseOptInt(raw: string): number | undefined {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined;
 }
 
+/** Could some concrete subject match both `a` and `b`? Used to warn when a
+ *  consumer's filter subject doesn't overlap with anything the stream actually
+ *  carries — it'll create fine but silently never receive a message.
+ *  ponytail: treats `>` as "overlaps from here on" without checking that at
+ *  least one token remains on the other side (the true NATS rule) — a soft
+ *  heads-up, not a validator, so that corner case just means an occasional
+ *  missed warning, never a false one. */
+export function subjectsOverlap(a: string, b: string): boolean {
+  const at = a.split(".");
+  const bt = b.split(".");
+  const n = Math.max(at.length, bt.length);
+  for (let i = 0; i < n; i++) {
+    const x = at[i];
+    const y = bt[i];
+    if (x === ">" || y === ">") return true;
+    if (x === undefined || y === undefined) return false;
+    if (x !== "*" && y !== "*" && x !== y) return false;
+  }
+  return true;
+}
+
 function CreateConsumerForm({
   connId,
   streams,
 }: {
   connId: string;
-  streams: { name: string; retention: StreamRetention }[];
+  streams: { name: string; retention: StreamRetention; subjects: string[] }[];
 }): JSX.Element {
   const qc = useQueryClient();
   const streamNames = streams.map((s) => s.name);
   const [pickedStream, setPickedStream] = useState<string | null>(null);
   const stream = pickedStream ?? streamNames[0] ?? null;
+  const streamSubjects = streams.find((s) => s.name === stream)?.subjects ?? [];
   // Work Queue streams enforce "exactly one consumer per message": the server
   // rejects any ack policy but explicit, and rejects overlapping consumers.
   // Force explicit ack here so that specific rejection can't happen — the
@@ -233,13 +258,36 @@ function CreateConsumerForm({
   // server, since it depends on what else already exists on the stream.
   const isWorkQueue = streams.find((s) => s.name === stream)?.retention === StreamRetention.WorkQueue;
 
+  const [consumerType, setConsumerType] = useState<"pull" | "push">("pull");
   const [durableName, setDurableName] = useState("");
   const [filterSubject, setFilterSubject] = useState("");
   const [ackPolicy, setAckPolicy] = useState("explicit");
   const [deliverPolicy, setDeliverPolicy] = useState("all");
+  const [startSeq, setStartSeq] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [deliverSubject, setDeliverSubject] = useState("");
+  const [deliverGroup, setDeliverGroup] = useState("");
   const [maxDeliver, setMaxDeliver] = useState("");
   const [ackWaitSec, setAckWaitSec] = useState("");
   const effectiveAckPolicy = isWorkQueue ? "explicit" : ackPolicy;
+
+  // Doesn't overlap anything the stream carries -> the consumer creates fine
+  // but will never receive a message. Flag it, don't block it (the filter
+  // might target subjects the stream just hasn't seen yet).
+  const filterTrimmed = filterSubject.trim();
+  const filterMismatch =
+    filterTrimmed !== "" && streamSubjects.length > 0 && !streamSubjects.some((s) => subjectsOverlap(s, filterTrimmed));
+
+  // Unlike the filter mismatch above, this one IS always wrong, not just
+  // maybe: a push consumer delivering back into a subject its own stream
+  // captures is a delivery loop, and the server unconditionally rejects it
+  // ("consumer deliver subject forms a cycle") — verified live against a real
+  // server, not just read off the docs. Block submit instead of warning.
+  const deliverSubjectTrimmed = deliverSubject.trim();
+  const deliverSubjectCycle =
+    consumerType === "push" &&
+    deliverSubjectTrimmed !== "" &&
+    streamSubjects.some((s) => subjectsOverlap(s, deliverSubjectTrimmed));
 
   const create = useMutation({
     mutationFn: (config: ConsumerConfigDto) =>
@@ -247,6 +295,10 @@ function CreateConsumerForm({
     onSuccess: () => {
       setDurableName("");
       setFilterSubject("");
+      setStartSeq("");
+      setStartTime("");
+      setDeliverSubject("");
+      setDeliverGroup("");
       setMaxDeliver("");
       setAckWaitSec("");
       void qc.invalidateQueries({ queryKey: consumersKey(connId, stream ?? "") });
@@ -260,13 +312,28 @@ function CreateConsumerForm({
       filterSubject: filter === "" ? undefined : filter,
       ackPolicy: effectiveAckPolicy,
       deliverPolicy,
+      optStartSeq: deliverPolicy === "byStartSequence" ? parseOptInt(startSeq) : undefined,
+      // <input type="datetime-local"> has no timezone — treat it as local time.
+      optStartTime:
+        deliverPolicy === "byStartTime" && startTime !== ""
+          ? new Date(startTime).toISOString()
+          : undefined,
+      deliverSubject: consumerType === "push" ? deliverSubject.trim() : undefined,
+      deliverGroup: consumerType === "push" && deliverGroup.trim() !== "" ? deliverGroup.trim() : undefined,
       maxDeliver: parseOptInt(maxDeliver),
       ackWaitSeconds: parseOptInt(ackWaitSec),
     };
     create.mutate(config);
   };
 
-  const canSubmit = stream !== null && durableName.trim() !== "" && !create.isPending;
+  const canSubmit =
+    stream !== null &&
+    durableName.trim() !== "" &&
+    !create.isPending &&
+    (deliverPolicy !== "byStartSequence" || parseOptInt(startSeq) !== undefined) &&
+    (deliverPolicy !== "byStartTime" || startTime !== "") &&
+    (consumerType !== "push" || deliverSubject.trim() !== "") &&
+    !deliverSubjectCycle;
 
   return (
     <Panel className="h-fit space-y-3 p-4">
@@ -281,6 +348,52 @@ function CreateConsumerForm({
           placeholder="No streams"
         />
       </label>
+      <label className="block space-y-1.5">
+        <TipLabel tip="Pull: the client fetches batches on demand (Consumer Lab) — good for workers processing at their own pace. Push: the server delivers messages to a subject as they arrive — watch it with Live Tail, like a live subscription with JetStream's durability/replay on top.">
+          Consumer type
+        </TipLabel>
+        <Select
+          value={consumerType}
+          onChange={(v) => setConsumerType(v as "pull" | "push")}
+          options={[
+            { value: "pull", label: "Pull — fetch batches on demand" },
+            { value: "push", label: "Push — server delivers to a subject" },
+          ]}
+        />
+      </label>
+      {consumerType === "push" && (
+        <>
+          <label className="block space-y-1.5">
+            <TipLabel tip="The subject the server delivers messages to as they arrive. Subscribe to this exact subject in Live Tail to watch them. Must NOT overlap this stream's own subjects — delivering back into a subject the stream captures is a loop, and the server rejects it.">
+              Deliver subject
+            </TipLabel>
+            <input
+              className="field font-mono"
+              value={deliverSubject}
+              onChange={(e) => setDeliverSubject(e.target.value)}
+              placeholder="orders.pushed"
+            />
+            {deliverSubjectCycle && (
+              <p className="rounded-lg border border-danger/25 bg-danger/10 px-3 py-2 text-[11px] text-content">
+                <span className="font-medium">Not allowed:</span> "{deliverSubjectTrimmed}" overlaps this stream's own
+                subjects ({streamSubjects.join(", ")}) — delivering back into a subject the stream captures forms a
+                loop. The server rejects this outright; pick a deliver subject outside the stream's subject space.
+              </p>
+            )}
+          </label>
+          <label className="block space-y-1.5">
+            <TipLabel tip="Optional: share this consumer across multiple subscribers to the deliver subject — the server load-balances between them instead of delivering to all of them.">
+              Queue group (optional)
+            </TipLabel>
+            <input
+              className="field font-mono"
+              value={deliverGroup}
+              onChange={(e) => setDeliverGroup(e.target.value)}
+              placeholder="workers"
+            />
+          </label>
+        </>
+      )}
       {isWorkQueue && (
         <p className="rounded-lg border border-warning/25 bg-warning/10 px-3 py-2 text-[11px] text-content">
           <span className="font-medium">Work Queue stream:</span> each message goes to exactly one
@@ -310,6 +423,13 @@ function CreateConsumerForm({
           onChange={(e) => setFilterSubject(e.target.value)}
           placeholder="orders.>"
         />
+        {filterMismatch && (
+          <p className="rounded-lg border border-warning/25 bg-warning/10 px-3 py-2 text-[11px] text-content">
+            <span className="font-medium">Heads up:</span> "{filterTrimmed}" doesn't match any of this stream's
+            subjects ({streamSubjects.join(", ")}). It'll create fine but never receive anything until you fix the
+            filter — this is a NATS quirk: mismatched filters aren't rejected at creation time.
+          </p>
+        )}
       </label>
       <div className="grid grid-cols-2 gap-3">
         <label className="block space-y-1.5">
@@ -334,7 +454,7 @@ function CreateConsumerForm({
           />
         </label>
         <label className="block space-y-1.5">
-          <TipLabel tip="Where delivery starts. All = from the first message. New = only messages arriving from now. Last = start at the last message. Last per subject = the newest message of each subject.">
+          <TipLabel tip="Where delivery starts. All = from the first message (replay the whole stream). New = only messages arriving from now. Last = start at the last message. Last per subject = the newest message of each subject. From sequence / From time = replay starting at a specific point in the stream's history.">
             Deliver policy
           </TipLabel>
           <Select
@@ -345,10 +465,39 @@ function CreateConsumerForm({
               { value: "last", label: "Last" },
               { value: "new", label: "New" },
               { value: "lastPerSubject", label: "Last per subject" },
+              { value: "byStartSequence", label: "From sequence" },
+              { value: "byStartTime", label: "From time" },
             ]}
           />
         </label>
       </div>
+      {deliverPolicy === "byStartSequence" && (
+        <label className="block space-y-1.5">
+          <TipLabel tip="Replay starts at this stream sequence number (inclusive) and delivers forward from there, like it's live traffic. Pair with Consumer Lab's batch size to bound how far you pull — e.g. start at 233 and fetch a batch of ~4767 to land around seq 5000.">
+            Start sequence
+          </TipLabel>
+          <input
+            className="field tabular-nums"
+            value={startSeq}
+            onChange={(e) => setStartSeq(e.target.value)}
+            placeholder="233"
+            inputMode="numeric"
+          />
+        </label>
+      )}
+      {deliverPolicy === "byStartTime" && (
+        <label className="block space-y-1.5">
+          <TipLabel tip="Replay starts at the first message timestamped at or after this moment (your local timezone) and delivers forward from there.">
+            Start time
+          </TipLabel>
+          <input
+            type="datetime-local"
+            className="field tabular-nums"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+          />
+        </label>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <label className="block space-y-1.5">
           <TipLabel tip="Max redelivery attempts before a message is considered failed (and a poison advisory fires — see Dead Letters). Blank = unlimited (∞).">
@@ -402,12 +551,18 @@ function ConsumerCard({
             <Badge tone={info.durableName ? "accent" : "neutral"}>
               {info.durableName ? "Durable" : "Ephemeral"}
             </Badge>
+            <Badge tone={info.isPull ? "neutral" : "accent"}>{info.isPull ? "Pull" : "Push"}</Badge>
             <Badge tone="neutral">deliver: {info.deliverPolicy}</Badge>
             <Badge tone="neutral">ack: {info.ackPolicy}</Badge>
           </div>
           <div className="mt-1 truncate font-mono text-xs text-muted">
             {info.filterSubject ? info.filterSubject : "(all subjects)"}
           </div>
+          {info.deliverSubject && (
+            <div className="mt-0.5 truncate font-mono text-[11px] text-faint">
+              delivers to: {info.deliverSubject} — watch it in Live Tail
+            </div>
+          )}
         </div>
         <Button
           size="sm"
