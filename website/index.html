@@ -98,9 +98,11 @@
   .shot{position:relative; margin:56px auto 0; width:min(88vw,1080px); padding:0 16px}
   .shot .halo{position:absolute; inset:-6% 8% auto 8%; height:70%; z-index:-1; filter:blur(46px); opacity:.7;
     background:radial-gradient(60% 100% at 30% 0%, #ffd6ec, transparent 70%), radial-gradient(60% 100% at 75% 20%, #c9dcff, transparent 70%)}
-  .frame{position:relative; border-radius:20px; overflow:hidden; border:1px solid var(--border); box-shadow:var(--shadow-lg),var(--hi); background:var(--surface-strong); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); padding:8px;
+  .frame{position:relative; aspect-ratio:1296/808; border-radius:20px; overflow:hidden; border:1px solid var(--border); box-shadow:var(--shadow-lg),var(--hi); background:var(--surface-strong); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); padding:8px;
     transition:transform .15s ease-out; transform:perspective(900px) rotateX(0) rotateY(0) scale3d(1,1,1); will-change:transform}
-  .frame img{display:block; width:100%; height:auto; border-radius:13px; border:1px solid var(--border-alt)}
+  .frame img{position:absolute; inset:8px; width:calc(100% - 16px); height:calc(100% - 16px); object-fit:cover; border-radius:13px; border:1px solid var(--border-alt);
+    opacity:0; transition:opacity 1s ease}
+  .frame img.active{opacity:1}
 
   /* sections */
   section.s{padding:130px 0}
@@ -212,7 +214,12 @@
 
   <div class="shot reveal in">
     <div class="halo"></div>
-    <div class="frame"><img src="app-overview.png" alt="NATS Studio — Overview dashboard with server health, live throughput and round-trip charts" /></div>
+    <div class="frame">
+      <img class="active" src="app-overview.png" alt="NATS Studio — Overview dashboard with server health, live throughput and round-trip charts" />
+      <img src="app-streams.png" alt="NATS Studio — JetStream streams, browsable and manageable without the CLI" />
+      <img src="app-consumers.png" alt="NATS Studio — JetStream consumers, created and monitored visually" />
+      <img src="app-messages.png" alt="NATS Studio — live message tail with a multi-format payload viewer" />
+    </div>
   </div>
 </section>
 
@@ -335,6 +342,22 @@
     heroFrame.addEventListener('mouseleave', () => {
       heroFrame.style.transform = 'perspective(900px) rotateX(0deg) rotateY(0deg) scale3d(1,1,1)';
     });
+  }
+
+  // Hero screenshot: auto-rotate through the app's views, paused on hover.
+  const frameShots = document.querySelectorAll('.hero .frame img');
+  if (frameShots.length > 1 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    let shotIdx = 0;
+    let shotTimer = setInterval(nextShot, 4000);
+    function nextShot() {
+      frameShots[shotIdx].classList.remove('active');
+      shotIdx = (shotIdx + 1) % frameShots.length;
+      frameShots[shotIdx].classList.add('active');
+    }
+    if (heroFrame) {
+      heroFrame.addEventListener('mouseenter', () => clearInterval(shotTimer));
+      heroFrame.addEventListener('mouseleave', () => { shotTimer = setInterval(nextShot, 4000); });
+    }
   }
 </script>
 </body>
