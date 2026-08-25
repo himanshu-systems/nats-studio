@@ -5,6 +5,7 @@ import type { ConsumerConfigDto, ConsumerInfoDto } from "@bindings";
 import { LIST_REFETCH_MS } from "../../lib/liveEvents";
 import { useUiStore } from "../../lib/uiStore";
 import { RequireConnection } from "../../components/RequireConnection";
+import { SplitPane } from "../../components/SplitPane";
 import { Badge, Button, EmptyState, Panel, SearchInput, SectionLabel, cx } from "../../components/ui";
 import { Select } from "../../components/Select";
 import { Icon } from "../../components/Icon";
@@ -115,7 +116,7 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
   }, [filtered]);
 
   return (
-    <div className="grid h-full grid-rows-[1fr] gap-4 overflow-auto p-4 lg:grid-cols-[1fr_320px]">
+    <SplitPane id="consumers" className="h-full gap-4 p-4" initial={70} min={40} max={85} stackBelow={1024}>
       <div className="min-w-0 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <SectionLabel>
@@ -214,7 +215,7 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
         connId={connId}
         streams={streamList.map((s) => ({ name: s.config.name, retention: s.config.retention, subjects: s.config.subjects }))}
       />
-    </div>
+    </SplitPane>
   );
 }
 

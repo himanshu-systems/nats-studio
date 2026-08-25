@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ipc, PayloadEncoding, SavedRequestMode, type MessageView, type SavedRequestDto } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
+import { SplitPane } from "../../components/SplitPane";
 import { Button, Panel, SectionLabel } from "../../components/ui";
 import { Select } from "../../components/Select";
 import { useConfirm } from "../../components/ConfirmDialog";
@@ -89,7 +90,7 @@ function RequestReply({ connId }: { connId: string }): JSX.Element {
   };
 
   return (
-    <div className="grid h-full gap-4 overflow-auto p-4 lg:grid-cols-2">
+    <SplitPane id="requestreply" className="h-full gap-4 p-4" initial={50} min={25} max={75} stackBelow={1024}>
       <Panel className="space-y-3 p-4">
         <div className="flex flex-wrap items-center gap-2 border-b border-border/60 pb-3">
           <SectionLabel>Templates</SectionLabel>
@@ -238,6 +239,6 @@ function RequestReply({ connId }: { connId: string }): JSX.Element {
           </div>
         )}
       </Panel>
-    </div>
+    </SplitPane>
   );
 }

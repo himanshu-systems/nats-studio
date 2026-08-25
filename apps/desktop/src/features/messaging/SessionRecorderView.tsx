@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ipc, PayloadEncoding, type MessageView } from "@bindings";
 import { RequireConnection } from "../../components/RequireConnection";
+import { SplitPane } from "../../components/SplitPane";
 import { Button, Badge, EmptyState, cx } from "../../components/ui";
 import { Select } from "../../components/Select";
 import { ErrorNote } from "../../components/ErrorNote";
@@ -381,7 +382,7 @@ function SessionRecorder({ connId }: { connId: string }): JSX.Element {
             {replayError !== null && <ErrorNote error={replayError} />}
           </div>
 
-          <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] divide-x divide-border overflow-hidden">
+          <SplitPane id="sessions" className="min-h-0 flex-1 overflow-hidden" initial={50} min={20} max={80}>
             <ul className="min-h-0 overflow-auto">
               {filtered.length === 0 && (
                 <li className="p-4 text-xs text-muted">
@@ -427,7 +428,7 @@ function SessionRecorder({ connId }: { connId: string }): JSX.Element {
                 </div>
               )}
             </div>
-          </div>
+          </SplitPane>
         </>
       )}
     </div>

@@ -4,6 +4,7 @@ import { ipc, StreamDiscard, StreamRetention, StreamStorage } from "@bindings";
 import type { StreamConfigDto, StreamInfoDto } from "@bindings";
 import { LIST_REFETCH_MS } from "../../lib/liveEvents";
 import { RequireConnection } from "../../components/RequireConnection";
+import { SplitPane } from "../../components/SplitPane";
 import { Badge, Button, EmptyState, Panel, SearchInput, SectionLabel, cx } from "../../components/ui";
 import { Icon } from "../../components/Icon";
 import { Select } from "../../components/Select";
@@ -75,7 +76,8 @@ function Streams({ connId }: { connId: string }): JSX.Element {
         );
 
   return (
-    <div className="grid h-full grid-rows-[1fr] gap-4 overflow-auto p-4 lg:grid-cols-[1fr_340px]">
+    <>
+      <SplitPane id="streams" className="h-full gap-4 p-4" initial={70} min={40} max={85} stackBelow={1024}>
       <div className="min-w-0 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <SectionLabel>
@@ -132,7 +134,8 @@ function Streams({ connId }: { connId: string }): JSX.Element {
         {remove.isError && <p className="text-xs text-danger">{errorMessage(remove.error)}</p>}
       </div>
 
-      <CreateStreamForm connId={connId} />
+        <CreateStreamForm connId={connId} />
+      </SplitPane>
 
       {purgeTarget !== null && (
         <PurgeModal
@@ -145,7 +148,7 @@ function Streams({ connId }: { connId: string }): JSX.Element {
           }}
         />
       )}
-    </div>
+    </>
   );
 }
 

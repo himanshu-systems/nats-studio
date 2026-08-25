@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { ipc, PayloadEncoding, type MessageView, type SubStreamEvent } from "@bindings";
 import { useUiStore } from "../../lib/uiStore";
 import { RequireConnection } from "../../components/RequireConnection";
+import { SplitPane } from "../../components/SplitPane";
 import { Button, Badge, Panel, SectionLabel, cx } from "../../components/ui";
 import { Icon } from "../../components/Icon";
 import { ErrorNote } from "../../components/ErrorNote";
@@ -194,7 +195,7 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] divide-x divide-border">
+      <SplitPane id="livetail" className="min-h-0 flex-1" initial={50} min={20} max={80}>
         <ul className="min-h-0 overflow-auto">
           {shown.length === 0 && (
             <li className="p-4 text-xs text-muted">
@@ -241,7 +242,7 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
             </div>
           )}
         </div>
-      </div>
+      </SplitPane>
     </div>
   );
 }

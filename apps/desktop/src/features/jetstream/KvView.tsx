@@ -4,6 +4,7 @@ import { ipc } from "@bindings";
 import type { KvEntryDto } from "@bindings";
 import { LIST_REFETCH_MS } from "../../lib/liveEvents";
 import { RequireConnection } from "../../components/RequireConnection";
+import { SplitPane } from "../../components/SplitPane";
 import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../components/ui";
 import { Select } from "../../components/Select";
 import { useConfirm } from "../../components/ConfirmDialog";
@@ -62,7 +63,7 @@ function Kv({ connId }: { connId: string }): JSX.Element {
   const keyList = keys.data?.keys ?? [];
 
   return (
-    <div className="grid h-full gap-4 overflow-hidden p-4 lg:grid-cols-[1fr_300px]">
+    <SplitPane id="kv" className="h-full gap-4 p-4" initial={72} min={40} max={85} stackBelow={1024}>
       <div className="grid min-h-0 grid-rows-[auto_1fr] gap-3 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <SectionLabel>Key-Value{bucket ? ` — ${bucket} (${keyList.length})` : ""}</SectionLabel>
@@ -145,7 +146,7 @@ function Kv({ connId }: { connId: string }): JSX.Element {
         />
         {bucket && <NewKeyForm connId={connId} bucket={bucket} onCreated={setSelectedKey} />}
       </div>
-    </div>
+    </SplitPane>
   );
 }
 

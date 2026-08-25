@@ -11,6 +11,7 @@ import {
   type TlsConfig,
 } from "@bindings";
 import { CONNECTIONS_KEY, PROFILES_KEY } from "../../lib/liveEvents";
+import { SplitPane } from "../../components/SplitPane";
 import { useActiveConnection } from "../../lib/activeConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel, StatusDot, statusMeta, cx } from "../../components/ui";
 import { Icon } from "../../components/Icon";
@@ -24,10 +25,10 @@ type AuthKind = "none" | "userPassword" | "token";
 /** Global connection management: profiles (left) and live connections (right). */
 export function ConnectionsView(): JSX.Element {
   return (
-    <div className="grid h-full min-h-0 grid-cols-[minmax(340px,400px)_1fr] divide-x divide-border">
+    <SplitPane id="connections" className="h-full" initial={32} min={22} max={60}>
       <ProfilesPanel />
       <ConnectionsPanel />
-    </div>
+    </SplitPane>
   );
 }
 

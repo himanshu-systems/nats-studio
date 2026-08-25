@@ -4,6 +4,7 @@ import { ipc } from "@bindings";
 import type { MessageView, StoredMessageDto } from "@bindings";
 import { LIST_REFETCH_MS } from "../../lib/liveEvents";
 import { RequireConnection } from "../../components/RequireConnection";
+import { SplitPane } from "../../components/SplitPane";
 import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../components/ui";
 import { Select } from "../../components/Select";
 import { ErrorNote } from "../../components/ErrorNote";
@@ -150,7 +151,7 @@ function Browser({ connId }: { connId: string }): JSX.Element {
           This account has no JetStream streams to browse.
         </EmptyState>
       ) : (
-        <div className="grid min-h-0 gap-4 lg:grid-cols-[1fr_360px]">
+        <SplitPane id="browser" className="min-h-0 gap-4" initial={70} min={40} max={85} stackBelow={1024}>
           <Panel className="flex min-h-0 flex-col">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 p-2">
               <div className="flex items-center gap-1.5">
@@ -227,7 +228,7 @@ function Browser({ connId }: { connId: string }): JSX.Element {
               </Panel>
             )}
           </div>
-        </div>
+        </SplitPane>
       )}
     </div>
   );
