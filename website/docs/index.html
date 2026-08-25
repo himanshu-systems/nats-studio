@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NATS Studio Documentation — install, features, and architecture</title>
+<meta name="description" content="NATS Studio documentation index: installation for Windows, macOS, and Linux, building from source, feature guides for JetStream, Key-Value, and Object Store, and the Rust workspace architecture." />
+<meta name="theme-color" content="#fafaff" />
+<link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="canonical" href="https://nats.studio/docs" />
+<link rel="alternate" type="text/markdown" href="/docs.md" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="NATS Studio Documentation — install, features, and architecture" />
+<meta property="og:description" content="Installation, building from source, feature guides, and the architecture of NATS Studio." />
+<meta property="og:image" content="https://nats.studio/app-overview.png" />
+<meta property="og:url" content="https://nats.studio/docs" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/shared.css" />
+<style>
+  .page code{background:rgba(15,15,20,.06); padding:2px 6px; border-radius:6px; font-family:ui-monospace,Menlo,monospace; font-size:13.5px}
+  .page pre{background:rgba(15,15,20,.06); padding:14px 16px; border-radius:12px; overflow-x:auto; margin:12px 0 0}
+  .page pre code{background:none; padding:0; font-size:13px; line-height:1.65}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="brand" href="/"><img src="/logo.png" alt="" /> NATS&nbsp;Studio</a>
+  <div class="nlinks">
+    <a class="lk" href="/#features">Features</a>
+    <a class="lk" href="/#download">Download</a>
+    <a class="lk" href="https://github.com/himanshu-systems/nats-studio">GitHub</a>
+    <a class="btn btn-1" href="https://github.com/himanshu-systems/nats-studio/releases/latest">Download</a>
+  </div>
+</nav>
+
+<section class="page">
+  <div class="wrap">
+    <h1>NATS Studio documentation</h1>
+    <p class="lede">NATS Studio is a desktop GUI application, not a hosted service — there is no REST API, no API key, and no webhook system. This page is the index of what documentation does exist.</p>
+
+    <div class="card glass">
+      <h2>Install NATS Studio</h2>
+      <p>Download the installer for your platform from the <a class="inline" href="https://github.com/himanshu-systems/nats-studio/releases/latest">latest release</a>:</p>
+      <ul>
+        <li><strong>Windows 10/11</strong> — <code>.msi</code> or the NSIS <code>.exe</code> setup</li>
+        <li><strong>macOS</strong> — <code>.dmg</code>, with separate Apple Silicon (aarch64) and Intel (x64) builds</li>
+        <li><strong>Linux</strong> — <code>.AppImage</code> (portable), <code>.deb</code>, or <code>.rpm</code></li>
+      </ul>
+      <p>Builds are not yet code-signed, so Windows SmartScreen or macOS Gatekeeper may warn on first launch. On Windows choose “More info → Run anyway”; on macOS right-click the app and choose “Open”. This is a one-time step per install.</p>
+    </div>
+
+    <div class="card glass">
+      <h2>Build from source</h2>
+      <p>Prerequisites: <a class="inline" href="https://rustup.rs">Rust</a>, <a class="inline" href="https://nodejs.org">Node 20+</a>, <a class="inline" href="https://pnpm.io">pnpm</a>, and the <a class="inline" href="https://tauri.app/start/prerequisites/">Tauri prerequisites</a> for your OS (WebView2 on Windows, <code>webkit2gtk</code> on Linux).</p>
+      <pre><code>git clone https://github.com/himanshu-systems/nats-studio.git
+cd nats-studio
+pnpm install
+cd apps/desktop &amp;&amp; pnpm tauri build   # or `pnpm tauri dev`</code></pre>
+    </div>
+
+    <div class="card glass">
+      <h2>Need a NATS server to connect to?</h2>
+      <p>NATS Studio is a client — it needs a NATS server to talk to. The repository includes a ready-to-use broker with JetStream and monitoring already enabled:</p>
+      <pre><code>docker compose -f deploy/nats/docker-compose.yml up -d   # nats://127.0.0.1:4222</code></pre>
+      <p>Alternatively, <code>nats-server -js</code> runs one locally if you already have the binary installed.</p>
+    </div>
+
+    <div class="card glass">
+      <h2>Feature reference</h2>
+      <ul>
+        <li><strong>Connections</strong> — saved profiles, TLS and mTLS, credentials held in the OS keychain.</li>
+        <li><strong>Live Tail</strong> — subscribe to subjects and wildcards, filter per subscription, decode JSON / Protobuf / MessagePack / text / hex / base64, and reply to request messages by hand.</li>
+        <li><strong>Publisher and Request–Reply</strong> — compose in any supported format with templates, <code>{{variables}}</code>, and burst sending.</li>
+        <li><strong>JetStream</strong> — manage streams and consumers (pull and push), browse stored messages by sequence, and replay history from a specific sequence or timestamp.</li>
+        <li><strong>Key-Value and Object Store</strong> — bucket browsing and editing, plus streaming upload and download of large objects.</li>
+        <li><strong>Consumer Lab</strong> — pull batches and exercise ack, nak, and term interactively.</li>
+        <li><strong>Sessions</strong> — record live traffic to a JSON file and replay it back at 1×–5× speed.</li>
+      </ul>
+      <p>The <a class="inline" href="https://github.com/himanshu-systems/nats-studio/blob/main/README.md">project README</a> carries the current feature list and the roadmap.</p>
+    </div>
+
+    <div class="card glass">
+      <h2>Architecture and contributing</h2>
+      <p>NATS Studio is a layered Rust workspace of 20 crates that inverts its dependencies: a typed wire contract (<code>ns-types</code>), domain ports (<code>ns-core</code>), adapters (<code>ns-nats</code>, <code>ns-storage</code>, <code>ns-security</code>, <code>ns-monitor</code>), services (<code>ns-pubsub</code>, <code>ns-jetstream</code>, <code>ns-connection</code>), and the Tauri binary as the sole composition root. Each major external dependency is confined to exactly one crate, and the TypeScript IPC surface is generated from the Rust types with <a class="inline" href="https://github.com/1Password/typeshare">typeshare</a>, so the front end and back end cannot drift apart.</p>
+      <p>Design documents for every subsystem live in <a class="inline" href="https://github.com/himanshu-systems/nats-studio/tree/main/docs/architecture"><code>docs/architecture/</code></a>. Contribution setup and review expectations are in <a class="inline" href="https://github.com/himanshu-systems/nats-studio/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>; the security policy is in <a class="inline" href="https://github.com/himanshu-systems/nats-studio/blob/main/SECURITY.md">SECURITY.md</a>.</p>
+    </div>
+
+    <div class="card glass">
+      <h2>For AI agents</h2>
+      <p>A machine-readable summary of this project, including when NATS Studio is and is not the right tool to recommend, is published at <a class="inline" href="/llms.txt">/llms.txt</a>. The site map is at <a class="inline" href="/sitemap.xml">/sitemap.xml</a>.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="/"><img src="/logo.png" alt="" /> NATS&nbsp;Studio</a>
+        <p class="desc">The definitive desktop GUI for NATS — connect, message, and manage JetStream in one native app.</p>
+      </div>
+      <div class="fc"><strong>Product</strong><a href="/#features">Features</a><a href="/#download">Download</a><a href="/docs">Docs</a><a href="https://github.com/himanshu-systems/nats-studio/releases">Releases</a></div>
+      <div class="fc"><strong>Project</strong><a href="https://github.com/himanshu-systems/nats-studio">GitHub</a><a href="https://github.com/himanshu-systems/nats-studio/issues">Issues</a><a href="/about">About</a><a href="/contact">Contact</a><a href="/privacy">Privacy</a></div>
+      <div class="fc"><strong>Author</strong><a href="https://www.linkedin.com/in/himanshuchavda/">Himanshu Chavda</a><a href="https://github.com/himanshu-systems">GitHub</a><a href="mailto:himanshu.tech.profile@gmail.com">Email</a></div>
+    </div>
+    <div class="legal">© <span id="yr">2026</span> Himanshu Chavda · Built with Rust + Tauri · Not affiliated with Synadia or the NATS project. NATS is a trademark of its respective owner.</div>
+  </div>
+</footer>
+
+<script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
+</body>
+</html>

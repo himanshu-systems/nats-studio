@@ -7,17 +7,116 @@
 <meta name="description" content="A fast, native, cross-platform desktop GUI for NATS. Connect, publish/subscribe, and manage JetStream, Key-Value, and Object Store in one open-source app for Windows, macOS, and Linux." />
 <meta name="theme-color" content="#fafaff" />
 <link rel="icon" type="image/png" href="favicon.png" />
+<link rel="canonical" href="https://nats.studio/" />
+<link rel="alternate" type="text/markdown" href="/index.md" />
 
 <meta property="og:type" content="website" />
+<meta property="og:site_name" content="NATS Studio" />
 <meta property="og:title" content="NATS Studio — the desktop GUI for NATS" />
 <meta property="og:description" content="Connect, publish/subscribe, and manage JetStream, KV, and Object Store in one native, open-source app for Windows, macOS, and Linux." />
-<meta property="og:image" content="https://himanshu-systems.github.io/nats-studio/app-overview.png" />
-<meta property="og:url" content="https://himanshu-systems.github.io/nats-studio/" />
+<meta property="og:image" content="https://nats.studio/app-overview.png" />
+<meta property="og:url" content="https://nats.studio/" />
 <meta name="twitter:card" content="summary_large_image" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://nats.studio/#app",
+      "name": "NATS Studio",
+      "alternateName": "NATS Studio — desktop GUI for NATS",
+      "url": "https://nats.studio/",
+      "description": "A free, open-source desktop GUI for the NATS messaging system. Connect to NATS servers, publish and subscribe to subjects, inspect message payloads, and manage JetStream streams and consumers, Key-Value buckets, and the Object Store — in one native app for Windows, macOS, and Linux.",
+      "applicationCategory": "DeveloperApplication",
+      "applicationSubCategory": "Message broker client",
+      "operatingSystem": "Windows 10, Windows 11, macOS, Linux",
+      "softwareVersion": "0.3.0",
+      "downloadUrl": "https://github.com/himanshu-systems/nats-studio/releases/latest",
+      "installUrl": "https://github.com/himanshu-systems/nats-studio/releases/latest",
+      "softwareHelp": "https://nats.studio/docs",
+      "license": "https://github.com/himanshu-systems/nats-studio/blob/main/LICENSE",
+      "isAccessibleForFree": true,
+      "screenshot": "https://nats.studio/app-overview.png",
+      "image": "https://nats.studio/app-overview.png",
+      "featureList": [
+        "Live Tail: subscribe to subjects and inspect messages in real time",
+        "Multi-format payload viewer: JSON, Protobuf, MessagePack, text, hex, base64",
+        "Publisher and Request-Reply with reusable templates and variables",
+        "JetStream stream and consumer management, pull and push",
+        "Replay JetStream history from a sequence number or timestamp",
+        "Key-Value bucket browsing and editing",
+        "Object Store streaming upload and download",
+        "TLS and mTLS connection profiles with OS keychain credential storage"
+      ],
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      },
+      "author": { "@id": "https://nats.studio/#person" },
+      "publisher": { "@id": "https://nats.studio/#org" }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://nats.studio/#org",
+      "name": "NATS Studio",
+      "url": "https://nats.studio/",
+      "logo": "https://nats.studio/logo.png",
+      "description": "Independent open-source project building NATS Studio, a free desktop GUI for the NATS messaging system.",
+      "founder": { "@id": "https://nats.studio/#person" },
+      "contactPoint": [
+        {
+          "@type": "ContactPoint",
+          "contactType": "technical support",
+          "email": "himanshu.tech.profile@gmail.com",
+          "url": "https://github.com/himanshu-systems/nats-studio/issues",
+          "availableLanguage": ["English"]
+        },
+        {
+          "@type": "ContactPoint",
+          "contactType": "security",
+          "email": "himanshu.tech.profile@gmail.com",
+          "url": "https://github.com/himanshu-systems/nats-studio/security/advisories/new",
+          "availableLanguage": ["English"]
+        }
+      ],
+      "sameAs": [
+        "https://github.com/himanshu-systems/nats-studio",
+        "https://github.com/himanshu-systems",
+        "https://www.linkedin.com/in/himanshuchavda/"
+      ]
+    },
+    {
+      "@type": "Person",
+      "@id": "https://nats.studio/#person",
+      "name": "Himanshu Chavda",
+      "url": "https://github.com/himanshu-systems",
+      "jobTitle": "Software Developer",
+      "email": "himanshu.tech.profile@gmail.com",
+      "sameAs": [
+        "https://github.com/himanshu-systems",
+        "https://www.linkedin.com/in/himanshuchavda/"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://nats.studio/#website",
+      "url": "https://nats.studio/",
+      "name": "NATS Studio",
+      "description": "The desktop GUI for NATS — connect, message, and manage JetStream in one native app.",
+      "inLanguage": "en",
+      "publisher": { "@id": "https://nats.studio/#org" }
+    }
+  ]
+}
+</script>
 
 <style>
   :root{
@@ -190,6 +289,7 @@
   <div class="nlinks">
     <a class="lk" href="#features">Features</a>
     <a class="lk" href="#download">Download</a>
+    <a class="lk" href="/docs">Docs</a>
     <a class="lk" href="https://github.com/himanshu-systems/nats-studio">GitHub</a>
     <a class="btn btn-1" href="https://github.com/himanshu-systems/nats-studio/releases/latest">Download</a>
   </div>
@@ -314,8 +414,8 @@
         <a class="brand" href="#top"><img src="logo.png" alt="" /> NATS&nbsp;Studio</a>
         <p class="desc">The definitive desktop GUI for NATS — connect, message, and manage JetStream in one native app.</p>
       </div>
-      <div class="fc"><strong>Product</strong><a href="#features">Features</a><a href="#download">Download</a><a href="https://github.com/himanshu-systems/nats-studio/releases">Releases</a></div>
-      <div class="fc"><strong>Project</strong><a href="https://github.com/himanshu-systems/nats-studio">GitHub</a><a href="https://github.com/himanshu-systems/nats-studio/issues">Issues</a><a href="https://github.com/himanshu-systems/nats-studio/blob/main/LICENSE">License</a></div>
+      <div class="fc"><strong>Product</strong><a href="#features">Features</a><a href="#download">Download</a><a href="/docs">Docs</a><a href="https://github.com/himanshu-systems/nats-studio/releases">Releases</a></div>
+      <div class="fc"><strong>Project</strong><a href="https://github.com/himanshu-systems/nats-studio">GitHub</a><a href="https://github.com/himanshu-systems/nats-studio/issues">Issues</a><a href="/about">About</a><a href="/contact">Contact</a><a href="/privacy">Privacy</a><a href="https://github.com/himanshu-systems/nats-studio/blob/main/LICENSE">License</a></div>
       <div class="fc"><strong>Author</strong><a href="https://www.linkedin.com/in/himanshuchavda/">Himanshu Chavda</a><a href="https://github.com/himanshu-systems">GitHub</a><a href="mailto:himanshu.tech.profile@gmail.com">Email</a></div>
     </div>
     <div class="legal">© <span id="yr">2026</span> Himanshu Chavda · Built with Rust + Tauri · Not affiliated with Synadia or the NATS project. NATS is a trademark of its respective owner.</div>

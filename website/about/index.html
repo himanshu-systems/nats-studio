@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>About NATS Studio — who builds it and why</title>
+<meta name="description" content="NATS Studio is a free, open-source desktop GUI for the NATS messaging system, built in Rust and Tauri by Himanshu Chavda. Learn what it does, who maintains it, and how it is licensed." />
+<meta name="theme-color" content="#fafaff" />
+<link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="canonical" href="https://nats.studio/about" />
+<link rel="alternate" type="text/markdown" href="/about.md" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="About NATS Studio — who builds it and why" />
+<meta property="og:description" content="A free, open-source desktop GUI for NATS, built in Rust and Tauri. Learn what it does, who maintains it, and how it is licensed." />
+<meta property="og:image" content="https://nats.studio/app-overview.png" />
+<meta property="og:url" content="https://nats.studio/about" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/shared.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <a class="brand" href="/"><img src="/logo.png" alt="" /> NATS&nbsp;Studio</a>
+  <div class="nlinks">
+    <a class="lk" href="/#features">Features</a>
+    <a class="lk" href="/#download">Download</a>
+    <a class="lk" href="https://github.com/himanshu-systems/nats-studio">GitHub</a>
+    <a class="btn btn-1" href="https://github.com/himanshu-systems/nats-studio/releases/latest">Download</a>
+  </div>
+</nav>
+
+<section class="page">
+  <div class="wrap">
+    <h1>About NATS Studio</h1>
+    <p class="lede">A free, open-source desktop client for NATS — built because working with a message broker shouldn't mean living in a terminal.</p>
+
+    <div class="card glass">
+      <h2>What NATS Studio is</h2>
+      <p>NATS Studio is a cross-platform desktop application for <a class="inline" href="https://nats.io">NATS</a>, the open-source messaging system. It gives you a real graphical interface for the things developers do with NATS every day: opening connections, publishing and subscribing to subjects, inspecting message payloads, and managing JetStream streams, consumers, Key-Value buckets, and the Object Store.</p>
+      <p>It runs natively on Windows, macOS, and Linux. The backend is written in Rust and the interface is rendered through <a class="inline" href="https://tauri.app">Tauri</a>, so the whole application ships as a single native binary — there is no Electron runtime, no local web server, and no browser tab.</p>
+      <p>The project exists because the alternative — juggling <code>nats</code> CLI invocations across several terminal windows while trying to reason about stream state — makes routine work harder than it needs to be. NATS Studio puts connection state, live message flow, and JetStream management in one window you can actually look at.</p>
+    </div>
+
+    <div class="card glass">
+      <h2>What it does</h2>
+      <ul>
+        <li><strong>Connections</strong> — saved profiles with TLS and mTLS support; credentials are stored in the operating system keychain, never in plaintext configuration files.</li>
+        <li><strong>Live Tail</strong> — subscribe to any subject or wildcard and watch messages arrive in real time, each subscription filtered on its own tab, with a payload viewer that decodes JSON, Protobuf, MessagePack, text, hex, and base64.</li>
+        <li><strong>Publisher and Request–Reply</strong> — compose messages in any of those formats, with reusable templates, variable substitution, and burst sending.</li>
+        <li><strong>JetStream</strong> — create, edit, purge, and delete streams and consumers; browse stored messages by sequence; replay history from a specific sequence number or timestamp.</li>
+        <li><strong>Key-Value and Object Store</strong> — read and write buckets, and stream large objects to and from disk with live progress reporting.</li>
+        <li><strong>Monitoring</strong> — server health, throughput, and round-trip latency, read from the NATS monitoring endpoint.</li>
+      </ul>
+    </div>
+
+    <div class="card glass">
+      <h2>Who maintains it</h2>
+      <p>NATS Studio is built and maintained by <strong>Himanshu Chavda</strong>, an independent software developer. It is a personal open-source project, not a commercial product, and it is not affiliated with Synadia or the official NATS project. NATS is a trademark of its respective owner.</p>
+      <p>Development happens in the open on GitHub. Issues and pull requests are welcome — if you use NATS and something is missing or does not work well, that feedback directly shapes what gets built next. You can reach the maintainer at <a class="inline" href="mailto:himanshu.tech.profile@gmail.com">himanshu.tech.profile@gmail.com</a> or on <a class="inline" href="https://www.linkedin.com/in/himanshuchavda/">LinkedIn</a>.</p>
+    </div>
+
+    <div class="card glass">
+      <h2>License and cost</h2>
+      <p>NATS Studio is released under the <a class="inline" href="https://github.com/himanshu-systems/nats-studio/blob/main/LICENSE">MIT License</a>. It is free to download and free to use, for personal and commercial work alike, with no account, no license key, and no paid tier. The complete source code is published at <a class="inline" href="https://github.com/himanshu-systems/nats-studio">github.com/himanshu-systems/nats-studio</a>.</p>
+      <p>The application collects no telemetry and sends no analytics. It talks to the NATS servers you point it at, and to GitHub when checking for updates — nothing else.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="/"><img src="/logo.png" alt="" /> NATS&nbsp;Studio</a>
+        <p class="desc">The definitive desktop GUI for NATS — connect, message, and manage JetStream in one native app.</p>
+      </div>
+      <div class="fc"><strong>Product</strong><a href="/#features">Features</a><a href="/#download">Download</a><a href="https://github.com/himanshu-systems/nats-studio/releases">Releases</a></div>
+      <div class="fc"><strong>Project</strong><a href="https://github.com/himanshu-systems/nats-studio">GitHub</a><a href="https://github.com/himanshu-systems/nats-studio/issues">Issues</a><a href="/about">About</a><a href="/contact">Contact</a><a href="/privacy">Privacy</a></div>
+      <div class="fc"><strong>Author</strong><a href="https://www.linkedin.com/in/himanshuchavda/">Himanshu Chavda</a><a href="https://github.com/himanshu-systems">GitHub</a><a href="mailto:himanshu.tech.profile@gmail.com">Email</a></div>
+    </div>
+    <div class="legal">© <span id="yr">2026</span> Himanshu Chavda · Built with Rust + Tauri · Not affiliated with Synadia or the NATS project. NATS is a trademark of its respective owner.</div>
+  </div>
+</footer>
+
+<script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
+</body>
+</html>

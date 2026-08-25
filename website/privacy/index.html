@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Privacy Policy — NATS Studio</title>
+<meta name="description" content="NATS Studio collects no telemetry and no analytics. What the app stores locally, what leaves your machine, and how credentials are handled." />
+<meta name="theme-color" content="#fafaff" />
+<link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="canonical" href="https://nats.studio/privacy" />
+<link rel="alternate" type="text/markdown" href="/privacy.md" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Privacy Policy — NATS Studio" />
+<meta property="og:description" content="NATS Studio collects no telemetry and no analytics. What the app stores locally, what leaves your machine, and how credentials are handled." />
+<meta property="og:image" content="https://nats.studio/app-overview.png" />
+<meta property="og:url" content="https://nats.studio/privacy" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/shared.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <a class="brand" href="/"><img src="/logo.png" alt="" /> NATS&nbsp;Studio</a>
+  <div class="nlinks">
+    <a class="lk" href="/#features">Features</a>
+    <a class="lk" href="/#download">Download</a>
+    <a class="lk" href="https://github.com/himanshu-systems/nats-studio">GitHub</a>
+    <a class="btn btn-1" href="https://github.com/himanshu-systems/nats-studio/releases/latest">Download</a>
+  </div>
+</nav>
+
+<section class="page">
+  <div class="wrap">
+    <h1>Privacy Policy</h1>
+    <p class="lede">Short version: NATS Studio collects nothing about you. There is no telemetry, no analytics, no crash reporting, and no account. This page explains exactly what that means.</p>
+
+    <div class="card glass">
+      <h2>What the application collects</h2>
+      <p>Nothing. NATS Studio does not collect, transmit, or store any personal data, usage data, or diagnostic data about you or how you use it. There is no analytics SDK, no crash reporter, no telemetry endpoint, and no "anonymous usage statistics" toggle, because there is nothing to toggle.</p>
+      <p>The application has no user accounts, no sign-in, and no license activation. You download it, run it, and it works. Nothing is registered anywhere.</p>
+    </div>
+
+    <div class="card glass">
+      <h2>What is stored on your machine</h2>
+      <p>NATS Studio stores its configuration locally, in your operating system's standard application-data directory. This includes your saved connection profiles (server URLs, TLS settings, and monitoring URLs), saved request and publish templates, and interface preferences such as your theme choice.</p>
+      <p><strong>Connection credentials — passwords, tokens, and NKey seeds — are stored in your operating system's keychain</strong> (Keychain on macOS, Credential Manager on Windows, Secret Service on Linux), never in plaintext configuration files. Message sessions you record and save are written only to the file location you choose, when you choose to save them.</p>
+      <p>All of this data stays on your computer. Deleting the application's data directory removes it.</p>
+    </div>
+
+    <div class="card glass">
+      <h2>What leaves your machine</h2>
+      <p>Two things, both of which you control:</p>
+      <ul>
+        <li><strong>Your NATS servers.</strong> The application connects to whichever NATS servers you configure, and exchanges exactly the messages and management commands you ask it to. That traffic goes to your infrastructure — never through any server operated by this project.</li>
+        <li><strong>Update checks.</strong> The application periodically checks GitHub for a newer release. That request tells GitHub your IP address and the current version, the same as any download would; it is handled under <a class="inline" href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>. No identifier for you or your installation is sent.</li>
+      </ul>
+      <p>There are no other outbound connections. The application does not phone home.</p>
+    </div>
+
+    <div class="card glass">
+      <h2>This website</h2>
+      <p>The nats.studio website is a set of static files hosted on GitHub Pages. It sets no cookies, runs no analytics, and embeds no tracking pixels or third-party advertising scripts. The only third-party request the page makes is to Google Fonts to load its typeface, which is subject to <a class="inline" href="https://policies.google.com/privacy">Google's privacy policy</a>.</p>
+      <p>As with any web host, GitHub processes standard server request logs (including IP addresses) to serve the site — see <a class="inline" href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>. This project neither receives nor has access to those logs.</p>
+    </div>
+
+    <div class="card glass">
+      <h2>Verifying any of this</h2>
+      <p>NATS Studio is MIT-licensed open source. Every claim on this page can be checked against the source code at <a class="inline" href="https://github.com/himanshu-systems/nats-studio">github.com/himanshu-systems/nats-studio</a> — you do not have to take it on trust, and you can build the application from source yourself if you prefer.</p>
+      <p>Questions about privacy, or corrections to this page, can go to <a class="inline" href="mailto:himanshu.tech.profile@gmail.com">himanshu.tech.profile@gmail.com</a>. If this policy ever changes materially, the change will be noted in the project changelog.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="/"><img src="/logo.png" alt="" /> NATS&nbsp;Studio</a>
+        <p class="desc">The definitive desktop GUI for NATS — connect, message, and manage JetStream in one native app.</p>
+      </div>
+      <div class="fc"><strong>Product</strong><a href="/#features">Features</a><a href="/#download">Download</a><a href="https://github.com/himanshu-systems/nats-studio/releases">Releases</a></div>
+      <div class="fc"><strong>Project</strong><a href="https://github.com/himanshu-systems/nats-studio">GitHub</a><a href="https://github.com/himanshu-systems/nats-studio/issues">Issues</a><a href="/about">About</a><a href="/contact">Contact</a><a href="/privacy">Privacy</a></div>
+      <div class="fc"><strong>Author</strong><a href="https://www.linkedin.com/in/himanshuchavda/">Himanshu Chavda</a><a href="https://github.com/himanshu-systems">GitHub</a><a href="mailto:himanshu.tech.profile@gmail.com">Email</a></div>
+    </div>
+    <div class="legal">© <span id="yr">2026</span> Himanshu Chavda · Built with Rust + Tauri · Not affiliated with Synadia or the NATS project. NATS is a trademark of its respective owner.</div>
+  </div>
+</footer>
+
+<script>document.getElementById('yr').textContent=new Date().getFullYear();</script>
+</body>
+</html>
