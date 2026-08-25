@@ -257,6 +257,18 @@ function Services({ connId }: { connId: string }): JSX.Element {
   // Tear down any in-flight scan on unmount / connection switch.
   useEffect(() => cleanup, []);
 
+  // Scan once when the page is first opened for a connection, so it shows the
+  // services that are running instead of an empty panel until you find the
+  // Discover button. `App` keeps views mounted and keys them by connection,
+  // so this fires once per connection rather than on every visit.
+  const autoScanned = useRef(false);
+  useEffect(() => {
+    if (autoScanned.current) return;
+    autoScanned.current = true;
+    void discover();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /** Scatter-gather one `$SRV.*` request: subscribe an inbox, publish, collect until quiet. */
   const scatter = <T,>(subject: string): Promise<T[]> =>
     new Promise((resolve) => {
@@ -364,13 +376,22 @@ function Services({ connId }: { connId: string }): JSX.Element {
             title={scanned ? "No services responded" : "Discover NATS micro-services"}
             action={
               <Button icon="grid" onClick={() => void discover()}>
-                Discover
+                {scanned ? "Scan again" : "Discover"}
               </Button>
             }
           >
-            {scanned
-              ? "No services responded — is anyone running a NATS micro service?"
-              : "Send $SRV.PING / STATS / INFO / SCHEMA and list every micro-service, its instances, per-endpoint stats and schema."}
+            {scanned ? (
+              <>
+                Nothing answered <span className="font-mono">$SRV.PING</span> within{" "}
+                {SCAN_WINDOW_MS / 1000}s. This page only finds services built with the NATS{" "}
+                <span className="font-medium">micro</span> framework — those register themselves and
+                reply to <span className="font-mono">$SRV.*</span>. A plain subscriber, even one doing
+                request–reply, won&apos;t appear here. To try it against a real one, run{" "}
+                <span className="font-mono">nats micro serve demo</span>, then scan again.
+              </>
+            ) : (
+              "Send $SRV.PING / STATS / INFO / SCHEMA and list every micro-service, its instances, per-endpoint stats and schema."
+            )}
           </EmptyState>
         ) : (
           <ul className="space-y-2">

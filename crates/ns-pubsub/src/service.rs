@@ -82,6 +82,12 @@ impl PubSubService {
         let sub = client
             .subscribe(&req.subject, req.queue_group.clone())
             .await?;
+        // `subscribe` only queues the SUB on the outbound connection, so a
+        // publish issued right after it can reach the server first and be
+        // delivered to nobody. Flush to make the subscription live before we
+        // hand the caller a handle — request/reply patterns built on an inbox
+        // subscription (the Services page's $SRV scatter-gather) depend on it.
+        client.flush().await?;
         Ok(sub)
     }
 
@@ -148,13 +154,16 @@ mod tests {
 
     use async_trait::async_trait;
     use ns_core::{CoreError, NatsClient, SystemClock};
-    use ns_types::{ErrorCode, ServerInfoDto};
+    use ns_types::ServerInfoDto;
 
     use super::*;
 
     #[derive(Default)]
     struct RecordingClient {
         published: Mutex<Vec<OutgoingMessage>>,
+        /// Ordered log of the client calls the service made ("subscribe",
+        /// "flush", ...), so ordering-sensitive behaviour can be asserted.
+        calls: Mutex<Vec<&'static str>>,
     }
 
     #[async_trait]
@@ -166,6 +175,7 @@ mod tests {
             Ok(Duration::from_millis(1))
         }
         async fn flush(&self) -> Result<(), CoreError> {
+            self.calls.lock().unwrap().push("flush");
             Ok(())
         }
         async fn drain(&self) -> Result<(), CoreError> {
@@ -180,11 +190,8 @@ mod tests {
             _subject: &str,
             _queue_group: Option<String>,
         ) -> Result<Box<dyn Subscription>, CoreError> {
-            Err(CoreError::coded(
-                ErrorCode::Internal,
-                "no sub in test",
-                false,
-            ))
+            self.calls.lock().unwrap().push("subscribe");
+            Ok(Box::new(EmptySubscription))
         }
         async fn request(
             &self,
@@ -198,6 +205,20 @@ mod tests {
                 reply: None,
                 headers: vec![],
             })
+        }
+    }
+
+    /// A subscription that never yields — `open_subscription` only needs a
+    /// handle back, the tests here assert on the calls made to get it.
+    struct EmptySubscription;
+
+    #[async_trait]
+    impl Subscription for EmptySubscription {
+        async fn next(&mut self) -> Option<IncomingMessage> {
+            None
+        }
+        async fn unsubscribe(&mut self) -> Result<(), CoreError> {
+            Ok(())
         }
     }
 
@@ -294,5 +315,53 @@ mod tests {
         assert_eq!(view.format, "text");
         assert_eq!(view.payload_base64, "aGVsbG8=");
         assert_eq!(view.size, 5);
+    }
+
+    /// A subscription is only live once the SUB has actually reached the
+    /// server. `subscribe` merely queues it, so without an explicit flush a
+    /// publish issued immediately afterwards can overtake it and be delivered
+    /// to nobody — which is exactly what broke the Services page's
+    /// `$SRV` scatter-gather (subscribe to an inbox, then publish a request
+    /// carrying that inbox as its reply subject).
+    #[tokio::test]
+    async fn open_subscription_flushes_so_the_sub_is_live_before_returning() {
+        let (svc, client) = service();
+        let _sub = svc
+            .open_subscription(&SubscribeRequest {
+                connection_id: "c1".into(),
+                subject: "_INBOX.svc.test".into(),
+                queue_group: None,
+            })
+            .await
+            .expect("subscription opens");
+
+        let calls = client.calls.lock().unwrap().clone();
+        assert_eq!(
+            calls,
+            vec!["subscribe", "flush"],
+            "open_subscription must flush after subscribing, so callers can              publish a request against the inbox without racing the SUB"
+        );
+    }
+
+    #[tokio::test]
+    async fn open_subscription_rejects_an_empty_subject() {
+        let (svc, client) = service();
+        // `Box<dyn Subscription>` isn't Debug, so match rather than expect_err.
+        let result = svc
+            .open_subscription(&SubscribeRequest {
+                connection_id: "c1".into(),
+                subject: "   ".into(),
+                queue_group: None,
+            })
+            .await;
+        match result {
+            Err(PubSubError::InvalidSubject(_)) => {}
+            Err(other) => panic!("expected InvalidSubject, got {other:?}"),
+            Ok(_) => panic!("expected an empty subject to be rejected"),
+        }
+        assert!(
+            client.calls.lock().unwrap().is_empty(),
+            "an invalid subject must not touch the connection"
+        );
     }
 }

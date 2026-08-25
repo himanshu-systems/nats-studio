@@ -520,4 +520,63 @@ mod tests {
         assert_eq!(msg.payload, b"hello nats");
         sub.unsubscribe().await.expect("unsubscribe");
     }
+
+    /// The Services page discovers micro-services by scatter-gather: subscribe
+    /// to a private inbox, publish `$SRV.PING` carrying that inbox as its reply
+    /// subject, then collect whatever answers within a short window. This is
+    /// that exact flow against a live server.
+    ///
+    /// Needs a running micro-service as well as a server:
+    ///     nats micro serve demo-svc
+    ///     cargo test -p ns-nats live_srv_ping -- --ignored --nocapture
+    #[tokio::test(flavor = "multi_thread")]
+    #[ignore = "requires a local nats-server AND `nats micro serve demo-svc`"]
+    async fn live_srv_ping_scatter_gather_reaches_a_micro_service() {
+        let spec = ConnectSpec {
+            servers: vec!["nats://127.0.0.1:4222".to_owned()],
+            auth: ResolvedAuth::None,
+            tls: None,
+            name: Some("srv-scan-test".to_owned()),
+            connect_timeout: Duration::from_secs(5),
+            ping_interval: Duration::from_secs(30),
+            no_echo: false,
+        };
+        let client = AsyncNatsFactory::new(unused_tls_builder())
+            .connect(&spec)
+            .await
+            .expect("connect");
+
+        let inbox = format!(
+            "_INBOX.svc.test.{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let mut sub = client
+            .subscribe(&inbox, None)
+            .await
+            .expect("subscribe inbox");
+        // The publish below must not overtake the SUB — this is the flush that
+        // `PubSubService::open_subscription` now performs for every caller.
+        client.flush().await.expect("flush the inbox SUB");
+
+        let mut ping = OutgoingMessage::new("$SRV.PING", Vec::new());
+        ping.reply = Some(inbox.clone());
+        client.publish(ping).await.expect("publish $SRV.PING");
+        client.flush().await.expect("flush the request");
+
+        let reply = tokio::time::timeout(Duration::from_secs(3), sub.next())
+            .await
+            .expect("a micro-service answered $SRV.PING within 3s")
+            .expect("the reply carries a message");
+
+        let body: serde_json::Value =
+            serde_json::from_slice(&reply.payload).expect("PING replies are JSON");
+        assert!(
+            body.get("name").and_then(|v| v.as_str()).is_some(),
+            "a $SRV.PING reply names its service: {body}"
+        );
+        assert_eq!(reply.subject, inbox, "the reply lands on our inbox");
+    }
 }
