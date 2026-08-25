@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { ipc } from "@bindings";
 import type { ObjectInfoDto, ObjectProgress } from "@bindings";
+import { LIST_REFETCH_MS } from "../../lib/liveEvents";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../components/ui";
 import { Select } from "../../components/Select";
@@ -92,6 +93,7 @@ function ObjectStore({ connId }: { connId: string }): JSX.Element {
   const buckets = useQuery({
     queryKey: bucketsKey(connId),
     queryFn: () => ipc.jetstream.listObjectBuckets({ connectionId: connId }),
+    refetchInterval: LIST_REFETCH_MS,
   });
   const bucketNames = (buckets.data?.buckets ?? []).map((b) => b.bucket);
 
@@ -104,6 +106,7 @@ function ObjectStore({ connId }: { connId: string }): JSX.Element {
     queryKey: objectsKey(connId, bucket ?? ""),
     queryFn: () => ipc.jetstream.listObjects({ connectionId: connId, bucket: bucket ?? "" }),
     enabled: bucket !== null,
+    refetchInterval: LIST_REFETCH_MS,
   });
   const objectList = objects.data?.objects ?? [];
   const selectedObject = objectList.find((o) => o.name === selected) ?? null;

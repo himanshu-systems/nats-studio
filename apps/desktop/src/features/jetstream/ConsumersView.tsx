@@ -2,9 +2,12 @@ import { useMemo, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ipc, StreamRetention } from "@bindings";
 import type { ConsumerConfigDto, ConsumerInfoDto } from "@bindings";
+import { LIST_REFETCH_MS } from "../../lib/liveEvents";
+import { useUiStore } from "../../lib/uiStore";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SearchInput, SectionLabel, cx } from "../../components/ui";
 import { Select } from "../../components/Select";
+import { Icon } from "../../components/Icon";
 import { TipLabel } from "../../components/InfoTip";
 import { useConfirm } from "../../components/ConfirmDialog";
 import { errorMessage } from "../messaging/message";
@@ -27,9 +30,11 @@ export function ConsumersView(): JSX.Element {
 
 function Consumers({ connId }: { connId: string }): JSX.Element {
   const qc = useQueryClient();
+  const openLiveTail = useUiStore((s) => s.openLiveTail);
   const streams = useQuery({
     queryKey: streamsKey(connId),
     queryFn: () => ipc.jetstream.listStreams({ connectionId: connId }),
+    refetchInterval: LIST_REFETCH_MS,
   });
   const streamList = streams.data?.streams ?? [];
   const streamNames = streamList.map((s) => s.config.name);
@@ -41,6 +46,7 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
     queries: streamNames.map((name) => ({
       queryKey: consumersKey(connId, name),
       queryFn: () => ipc.jetstream.listConsumers({ connectionId: connId, streamName: name }),
+      refetchInterval: LIST_REFETCH_MS,
     })),
   });
   const allConsumers: StreamConsumer[] = streamNames.flatMap(
@@ -175,6 +181,7 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
                 stream={stream}
                 info={info}
                 onDelete={() => confirmDelete(stream, info)}
+                openLiveTail={openLiveTail}
               />
             ))}
           </ul>
@@ -193,6 +200,7 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
                       stream={stream}
                       info={info}
                       onDelete={() => confirmDelete(stream, info)}
+                      openLiveTail={openLiveTail}
                     />
                   ))}
                 </ul>
@@ -536,10 +544,12 @@ function ConsumerCard({
   stream,
   info,
   onDelete,
+  openLiveTail,
 }: {
   stream: string;
   info: ConsumerInfoDto;
   onDelete: () => void;
+  openLiveTail: (subject: string) => void;
 }): JSX.Element {
   return (
     <Panel className="p-4">
@@ -559,9 +569,15 @@ function ConsumerCard({
             {info.filterSubject ? info.filterSubject : "(all subjects)"}
           </div>
           {info.deliverSubject && (
-            <div className="mt-0.5 truncate font-mono text-[11px] text-faint">
-              delivers to: {info.deliverSubject} — watch it in Live Tail
-            </div>
+            <button
+              type="button"
+              onClick={() => openLiveTail(info.deliverSubject!)}
+              className="mt-0.5 flex max-w-full items-center gap-1 truncate font-mono text-[11px] text-faint transition-colors hover:text-accent"
+              title={`Watch ${info.deliverSubject} in Live Tail`}
+            >
+              <Icon name="signal" size={11} className="shrink-0" />
+              <span className="truncate">delivers to: {info.deliverSubject}</span>
+            </button>
           )}
         </div>
         <Button

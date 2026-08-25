@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ipc } from "@bindings";
 import type { KvEntryDto } from "@bindings";
+import { LIST_REFETCH_MS } from "../../lib/liveEvents";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../components/ui";
 import { Select } from "../../components/Select";
@@ -43,6 +44,7 @@ function Kv({ connId }: { connId: string }): JSX.Element {
   const buckets = useQuery({
     queryKey: bucketsKey(connId),
     queryFn: () => ipc.jetstream.listBuckets({ connectionId: connId }),
+    refetchInterval: LIST_REFETCH_MS,
   });
   const bucketNames = (buckets.data?.buckets ?? []).map((b) => b.bucket);
 
@@ -55,6 +57,7 @@ function Kv({ connId }: { connId: string }): JSX.Element {
     queryKey: keysKey(connId, bucket ?? ""),
     queryFn: () => ipc.jetstream.listKeys({ connectionId: connId, bucket: bucket ?? "" }),
     enabled: bucket !== null,
+    refetchInterval: LIST_REFETCH_MS,
   });
   const keyList = keys.data?.keys ?? [];
 

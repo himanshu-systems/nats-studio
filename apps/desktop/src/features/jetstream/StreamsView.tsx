@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ipc, StreamDiscard, StreamRetention, StreamStorage } from "@bindings";
 import type { StreamConfigDto, StreamInfoDto } from "@bindings";
+import { LIST_REFETCH_MS } from "../../lib/liveEvents";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SearchInput, SectionLabel, cx } from "../../components/ui";
 import { Icon } from "../../components/Icon";
@@ -51,6 +52,7 @@ function Streams({ connId }: { connId: string }): JSX.Element {
   const streams = useQuery({
     queryKey: streamsKey(connId),
     queryFn: () => ipc.jetstream.listStreams({ connectionId: connId }),
+    refetchInterval: LIST_REFETCH_MS,
   });
 
   const remove = useMutation({

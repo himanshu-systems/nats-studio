@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ipc, NatsStudioError, PayloadEncoding } from "@bindings";
 import type { FetchedMessageDto, MessageView } from "@bindings";
+import { LIST_REFETCH_MS } from "../../lib/liveEvents";
+import { useUiStore } from "../../lib/uiStore";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../components/ui";
 import { Select } from "../../components/Select";
@@ -53,9 +55,11 @@ export function ConsumerLabView(): JSX.Element {
 
 function ConsumerLab({ connId }: { connId: string }): JSX.Element {
   const qc = useQueryClient();
+  const openLiveTail = useUiStore((s) => s.openLiveTail);
   const streams = useQuery({
     queryKey: streamsKey(connId),
     queryFn: () => ipc.jetstream.listStreams({ connectionId: connId }),
+    refetchInterval: LIST_REFETCH_MS,
   });
   const streamNames = (streams.data?.streams ?? []).map((s) => s.config.name);
 
@@ -66,6 +70,7 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
     queryKey: consumersKey(connId, stream ?? ""),
     queryFn: () => ipc.jetstream.listConsumers({ connectionId: connId, streamName: stream ?? "" }),
     enabled: stream !== null,
+    refetchInterval: LIST_REFETCH_MS,
   });
   const consumerList = consumers.data?.consumers ?? [];
   const consumerNames = consumerList.map((c) => c.name);
@@ -207,12 +212,21 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
 
       {messages.length === 0 ? (
         isPushConsumer ? (
-          <EmptyState icon="alert" title="Push consumer selected">
-            “{consumer}” delivers to a subject instead of being pulled — Consumer Lab only fetches from
-            pull consumers.{" "}
-            {consumerInfo?.deliverSubject
-              ? `Watch its messages in Live Tail instead — subscribe to "${consumerInfo.deliverSubject}".`
-              : "Pick a different one, or create a pull consumer on the Consumers page."}
+          <EmptyState
+            icon="alert"
+            title="Push consumer — messages arrive on a subject"
+            action={
+              consumerInfo?.deliverSubject ? (
+                <Button icon="signal" onClick={() => openLiveTail(consumerInfo.deliverSubject!)}>
+                  Watch “{consumerInfo.deliverSubject}” in Live Tail
+                </Button>
+              ) : undefined
+            }
+          >
+            The server pushes this consumer’s messages to its deliver subject as they arrive, so there
+            is nothing to fetch here — that’s how NATS works, not a limit of this app. Pull consumers
+            hand you a batch on request; push consumers deliver on their own, and you read them by
+            subscribing to that subject.
           </EmptyState>
         ) : lastFetch !== null ? (
           <EmptyState icon="beaker" title="Fetch completed — nothing came back">

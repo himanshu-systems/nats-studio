@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ipc } from "@bindings";
 import type { MessageView, StoredMessageDto } from "@bindings";
+import { LIST_REFETCH_MS } from "../../lib/liveEvents";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Badge, Button, EmptyState, Panel, SectionLabel, cx } from "../../components/ui";
 import { Select } from "../../components/Select";
@@ -53,6 +54,7 @@ function Browser({ connId }: { connId: string }): JSX.Element {
   const streams = useQuery({
     queryKey: streamsKey(connId),
     queryFn: () => ipc.jetstream.listStreams({ connectionId: connId }),
+    refetchInterval: LIST_REFETCH_MS,
   });
   const streamNames = (streams.data?.streams ?? []).map((s) => s.config.name);
 

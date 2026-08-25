@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { ipc, PayloadEncoding, type MessageView, type SubStreamEvent } from "@bindings";
+import { useUiStore } from "../../lib/uiStore";
 import { RequireConnection } from "../../components/RequireConnection";
 import { Button, Badge, Panel, SectionLabel, cx } from "../../components/ui";
 import { Icon } from "../../components/Icon";
@@ -39,6 +40,16 @@ function LiveTail({ connId }: { connId: string }): JSX.Element {
   // null = show all subscriptions; otherwise a subscription's client id.
   const [filter, setFilter] = useState<string | null>(null);
   const [downloaded, flash] = useFlash();
+
+  // Another view (e.g. a push consumer in Consumer Lab) asked us to watch a
+  // specific subject — pre-fill the input and hand the request back.
+  const tailSubject = useUiStore((s) => s.tailSubject);
+  const clearTailSubject = useUiStore((s) => s.clearTailSubject);
+  useEffect(() => {
+    if (tailSubject === null) return;
+    setSubject(tailSubject);
+    clearTailSubject();
+  }, [tailSubject, clearTailSubject]);
 
   const pausedRef = useRef(false);
   pausedRef.current = paused;
