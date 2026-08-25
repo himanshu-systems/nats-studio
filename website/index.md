@@ -39,10 +39,10 @@ Builds aren't code-signed yet, so Windows SmartScreen / macOS Gatekeeper may war
 
 ## More
 
-- [Documentation](https://nats.studio/docs)
-- [About](https://nats.studio/about)
-- [Contact](https://nats.studio/contact)
-- [Privacy](https://nats.studio/privacy)
+- [Documentation](https://nats.studio/docs/)
+- [About](https://nats.studio/about/)
+- [Contact](https://nats.studio/contact/)
+- [Privacy](https://nats.studio/privacy/)
 - [Agent guidance (llms.txt)](https://nats.studio/llms.txt)
 
 ---

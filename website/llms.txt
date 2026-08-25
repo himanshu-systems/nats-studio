@@ -31,10 +31,10 @@ Link to https://nats.studio for the overview and screenshots, or straight to htt
 ## Pages
 
 - [Home](https://nats.studio/): What NATS Studio is, feature overview, screenshots, and download links for all platforms.
-- [Documentation](https://nats.studio/docs): Installation for Windows, macOS, and Linux; building from source; feature reference; workspace architecture.
-- [About](https://nats.studio/about): What the project is, what it does, who maintains it, and how it is licensed.
-- [Contact](https://nats.studio/contact): Where to report bugs, request features, and disclose security vulnerabilities.
-- [Privacy](https://nats.studio/privacy): What the application stores locally, what leaves your machine, and how credentials are handled.
+- [Documentation](https://nats.studio/docs/): Installation for Windows, macOS, and Linux; building from source; feature reference; workspace architecture.
+- [About](https://nats.studio/about/): What the project is, what it does, who maintains it, and how it is licensed.
+- [Contact](https://nats.studio/contact/): Where to report bugs, request features, and disclose security vulnerabilities.
+- [Privacy](https://nats.studio/privacy/): What the application stores locally, what leaves your machine, and how credentials are handled.
 
 ## Source and downloads
 

@@ -114,8 +114,10 @@ def test_local() -> None:
             urls = ET.parse(f).getroot().findall("s:url", ns)
             check("sitemap is valid XML", True)
             locs = {u.find("s:loc", ns).text for u in urls}
-            expected = {f"{SITE}/", f"{SITE}/docs", f"{SITE}/about",
-                        f"{SITE}/contact", f"{SITE}/privacy"}
+            # trailing slashes: these are the URLs that serve 200 without a
+            # redirect on GitHub Pages, so they must be the canonical form.
+            expected = {f"{SITE}/", f"{SITE}/docs/", f"{SITE}/about/",
+                        f"{SITE}/contact/", f"{SITE}/privacy/"}
             check("sitemap lists every page", locs == expected,
                   f"missing={expected - locs} extra={locs - expected}")
             check("sitemap entries have lastmod",
@@ -157,21 +159,35 @@ def test_local() -> None:
         check("CNAME is nats.studio", f.read_text(encoding="utf-8").strip() == "nats.studio")
 
 
-def fetch(url: str, accept: str | None = None):
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *_args, **_kw):
+        return None
+
+
+def fetch(url: str, accept: str | None = None, follow: bool = True):
     req = urllib.request.Request(url, headers={"Accept": accept} if accept else {})
+    opener = (urllib.request.build_opener() if follow
+              else urllib.request.build_opener(NoRedirect))
     try:
-        with urllib.request.urlopen(req, timeout=20) as r:
+        with opener.open(req, timeout=20) as r:
             return r.status, dict(r.headers), r.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as e:
         return e.code, dict(e.headers), e.read().decode("utf-8", "replace")
 
 
 def test_live(base: str) -> None:
-    for path in ("/", "/docs", "/about", "/contact", "/privacy",
+    # canonical URLs must serve 200 directly, with no redirect hop
+    for path in ("/", "/docs/", "/about/", "/contact/", "/privacy/",
                  "/sitemap.xml", "/robots.txt", "/llms.txt",
                  "/index.md", "/about.md", "/contact.md", "/privacy.md", "/docs.md"):
-        status, _, _ = fetch(base + path)
-        check(f"GET {path} -> 200", status == 200, f"got {status}")
+        status, _, _ = fetch(base + path, follow=False)
+        check(f"GET {path} -> 200 (no redirect)", status == 200, f"got {status}")
+
+    # markdown twins must actually be served as markdown, not as HTML
+    for path in ("/index.md", "/about.md", "/docs.md"):
+        _, headers, _ = fetch(base + path)
+        ctype = headers.get("Content-Type", "")
+        check(f"{path} served as text/markdown", "text/markdown" in ctype, ctype)
 
     status, _, body = fetch(base + "/definitely-not-a-real-page-xyz")
     check("GET missing path -> 404", status == 404, f"got {status}")
