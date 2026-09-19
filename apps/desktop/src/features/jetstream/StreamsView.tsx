@@ -88,6 +88,7 @@ function Streams({ connId }: { connId: string }): JSX.Element {
             size="sm"
             variant="outline"
             icon="replay"
+            iconClassName={streams.isFetching ? "animate-spin" : undefined}
             onClick={() => void streams.refetch()}
             disabled={streams.isFetching}
           >
@@ -117,8 +118,8 @@ function Streams({ connId }: { connId: string }): JSX.Element {
                     title: `Delete stream "${s.config.name}"?`,
                     description: "This cannot be undone.",
                     consequences: [
-                      `All ${s.state.messages.toLocaleString()} stored message(s) will be permanently deleted.`,
-                      `Its ${s.state.consumerCount.toLocaleString()} consumer(s) will be deleted along with it.`,
+                      `All ${(s.state.messages ?? 0).toLocaleString()} stored message(s) will be permanently deleted.`,
+                      `Its ${(s.state.consumerCount ?? 0).toLocaleString()} consumer(s) will be deleted along with it.`,
                     ],
                     confirmLabel: "Delete stream",
                     confirmIcon: "x",
@@ -185,10 +186,10 @@ function StreamCard({
         </div>
       </div>
       <dl className="mt-3 grid grid-cols-4 gap-x-4 gap-y-1 border-t border-border/60 pt-3 text-xs">
-        <Metric label="Messages" value={state.messages.toLocaleString()} />
-        <Metric label="Bytes" value={fmtBytes(state.bytes)} />
-        <Metric label="Subjects" value={state.numSubjects.toLocaleString()} />
-        <Metric label="Consumers" value={state.consumerCount.toLocaleString()} />
+        <Metric label="Messages" value={(state.messages ?? 0).toLocaleString()} />
+        <Metric label="Bytes" value={fmtBytes(state.bytes ?? 0)} />
+        <Metric label="Subjects" value={(state.numSubjects ?? 0).toLocaleString()} />
+        <Metric label="Consumers" value={(state.consumerCount ?? 0).toLocaleString()} />
       </dl>
     </Panel>
   );

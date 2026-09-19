@@ -28,6 +28,7 @@ export function Button({
   variant = "primary",
   size = "md",
   icon,
+  iconClassName,
   className,
   children,
   ...rest
@@ -35,6 +36,7 @@ export function Button({
   variant?: Variant;
   size?: Size;
   icon?: string;
+  iconClassName?: string;
 }): JSX.Element {
   return (
     <button
@@ -46,7 +48,7 @@ export function Button({
       )}
       {...rest}
     >
-      {icon && <Icon name={icon} size={size === "sm" ? 15 : 16} />}
+      {icon && <Icon name={icon} size={size === "sm" ? 15 : 16} className={iconClassName} />}
       {children}
     </button>
   );

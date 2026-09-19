@@ -72,8 +72,8 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
       title: `Delete consumer "${info.name}"?`,
       description: `On stream "${stream}". This cannot be undone.`,
       consequences: [
-        info.numPending > 0
-          ? `${info.numPending.toLocaleString()} pending message(s) will stop being delivered to it.`
+        (info.numPending ?? 0) > 0
+          ? `${(info.numPending ?? 0).toLocaleString()} pending message(s) will stop being delivered to it.`
           : "Any messages published after this will never reach it.",
         "Anything relying on its delivery/ack progress will lose that state.",
       ],
@@ -148,6 +148,7 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
               size="sm"
               variant="outline"
               icon="replay"
+              iconClassName={consumersFetching ? "animate-spin" : undefined}
               onClick={refetchAll}
               disabled={streamNames.length === 0 || consumersFetching}
             >
@@ -591,9 +592,9 @@ function ConsumerCard({
         />
       </div>
       <dl className="mt-3 grid grid-cols-3 gap-x-4 gap-y-1 border-t border-border/60 pt-3 text-xs">
-        <Metric label="Pending" value={info.numPending.toLocaleString()} />
-        <Metric label="Ack pending" value={info.numAckPending.toLocaleString()} />
-        <Metric label="Redelivered" value={info.numRedelivered.toLocaleString()} />
+        <Metric label="Pending" value={(info.numPending ?? 0).toLocaleString()} />
+        <Metric label="Ack pending" value={(info.numAckPending ?? 0).toLocaleString()} />
+        <Metric label="Redelivered" value={(info.numRedelivered ?? 0).toLocaleString()} />
       </dl>
     </Panel>
   );

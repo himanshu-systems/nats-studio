@@ -177,7 +177,7 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
             options={consumerList.map((c) => ({
               value: c.name,
               label: c.name,
-              hint: c.isPull ? `${c.numPending} pending` : "push — can't fetch",
+              hint: c.isPull ? `${(c.numPending ?? 0)} pending` : "push — can't fetch",
             }))}
             disabled={consumerList.length === 0}
             placeholder="No consumers"
