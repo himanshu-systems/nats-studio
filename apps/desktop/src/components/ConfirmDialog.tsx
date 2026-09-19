@@ -73,8 +73,10 @@ export function ConfirmProvider({ children }: { children: ReactNode }): JSX.Elem
               className="w-full max-w-sm rounded-xl border border-border bg-surface shadow-panel"
             >
               <div className="flex items-start gap-3 px-5 pt-5">
-                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-danger/15 text-danger">
-                  <Icon name="alert" size={16} />
+                <span className={pending.opts.danger === false
+                  ? "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent"
+                  : "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-danger/15 text-danger"}>
+                  <Icon name={pending.opts.danger === false ? "info" : "alert"} size={16} />
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-semibold text-content">{pending.opts.title}</div>
@@ -85,7 +87,9 @@ export function ConfirmProvider({ children }: { children: ReactNode }): JSX.Elem
               </div>
 
               {pending.opts.consequences && pending.opts.consequences.length > 0 && (
-                <ul className="mx-5 mt-3 space-y-1 rounded-lg border border-danger/20 bg-danger/5 p-3 text-xs text-danger">
+                <ul className={pending.opts.danger === false
+                  ? "mx-5 mt-3 space-y-1 rounded-lg border border-accent/20 bg-accent/5 p-3 text-xs text-accent"
+                  : "mx-5 mt-3 space-y-1 rounded-lg border border-danger/20 bg-danger/5 p-3 text-xs text-danger"}>
                   {pending.opts.consequences.map((c, i) => (
                     <li key={i} className="flex gap-1.5">
                       <span aria-hidden>•</span>

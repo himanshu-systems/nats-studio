@@ -81,6 +81,8 @@ function SessionRecorder({ connId }: { connId: string }): JSX.Element {
   const [loadError, setLoadError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [saved, flashSaved] = useFlash();
+  const [republishFlash, flashRepublish] = useFlash();
+  const [republishError, setRepublishError] = useState<unknown>(null);
 
   const startRecording = async (): Promise<void> => {
     const subj = subject.trim();
@@ -227,6 +229,23 @@ function SessionRecorder({ connId }: { connId: string }): JSX.Element {
         reply: m.reply,
       })
       .catch((e: unknown) => setReplayError(e));
+  };
+
+  /** Republish a single selected message immediately (no confirmation needed —
+   *  it's one message, not a whole session, so the risk is low). */
+  const republishOne = (m: MessageView): void => {
+    setRepublishError(null);
+    ipc.pubsub
+      .publish({
+        connectionId: connId,
+        subject: m.subject,
+        payload: m.payloadBase64,
+        encoding: PayloadEncoding.Base64,
+        headers: m.headers,
+        reply: m.reply,
+      })
+      .then(() => flashRepublish(`Published to ${m.subject}`))
+      .catch((e: unknown) => setRepublishError(e));
   };
 
   const runPlayback = async (startIdx: number): Promise<void> => {
@@ -418,7 +437,19 @@ function SessionRecorder({ connId }: { connId: string }): JSX.Element {
 
             <div className="min-h-0 overflow-auto p-4">
               {current ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      size="sm"
+                      icon="replay"
+                      onClick={() => republishOne(current.message)}
+                      disabled={recording}
+                    >
+                      Republish
+                    </Button>
+                    <FlashBadge message={republishFlash} />
+                  </div>
+                  {republishError !== null && <ErrorNote error={republishError} />}
                   <MessageMeta view={current.message} />
                   <PayloadView view={current.message} />
                 </div>
