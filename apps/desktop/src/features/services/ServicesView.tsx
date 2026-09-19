@@ -269,39 +269,51 @@ function Services({ connId }: { connId: string }): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** Scatter-gather one `$SRV.*` request: subscribe an inbox, publish, collect until quiet. */
-  const scatter = <T,>(subject: string): Promise<T[]> =>
-    new Promise((resolve) => {
-      const inbox = `_INBOX.svc.${crypto.randomUUID()}`;
-      const collected: T[] = [];
-      ipc.pubsub
-        .subscribe({ connectionId: connId, subject: inbox }, (event: SubStreamEvent) => {
-          if (event.kind === "message") {
-            const v = decodeJson<T>(event.data.payloadBase64);
-            if (v) collected.push(v);
-          } else if (event.kind === "error") {
-            setError(`${event.data.code}: ${event.data.message}`);
-          }
-        })
-        .then((handle) => {
-          activeRef.current.handles.push(handle.subscriptionId);
-          return ipc.pubsub.publish({
-            connectionId: connId,
-            subject,
-            payload: "",
-            encoding: PayloadEncoding.Utf8,
-            headers: [],
-            reply: inbox,
-          });
-        })
-        .then(() => {
-          activeRef.current.timers.push(setTimeout(() => resolve(collected), SCAN_WINDOW_MS));
-        })
-        .catch((e) => {
-          setError(e instanceof Error ? e.message : String(e));
-          resolve(collected);
-        });
+  /**
+   * Scatter-gather one `$SRV.*` request: subscribe a unique inbox, publish the
+   * request with that inbox as the reply subject, wait SCAN_WINDOW_MS for all
+   * running instances to reply, then return everything collected.
+   *
+   * Written as a plain async function (not the Promise-constructor antipattern)
+   * so any error always surfaces and the promise always settles — previously a
+   * subscribe/publish failure would silently hang Promise.all forever, leaving
+   * the UI stuck in "Scanning…" on every platform.
+   */
+  const scatter = async <T,>(subject: string): Promise<T[]> => {
+    const inbox = `_INBOX.svc.${crypto.randomUUID()}`;
+    const collected: T[] = [];
+
+    // Open the inbox subscription first, then publish — the service flushes
+    // after subscribe so the SUB is live on the server before we send the request.
+    const handle = await ipc.pubsub.subscribe(
+      { connectionId: connId, subject: inbox },
+      (event: SubStreamEvent) => {
+        if (event.kind === "message") {
+          const v = decodeJson<T>(event.data.payloadBase64);
+          if (v) collected.push(v);
+        } else if (event.kind === "error") {
+          setError(`${event.data.code}: ${event.data.message}`);
+        }
+      },
+    );
+    activeRef.current.handles.push(handle.subscriptionId);
+
+    await ipc.pubsub.publish({
+      connectionId: connId,
+      subject,
+      payload: "",
+      encoding: PayloadEncoding.Utf8,
+      headers: [],
+      reply: inbox,
     });
+
+    // Collect replies for the scan window, then resolve.
+    await new Promise<void>((res) => {
+      activeRef.current.timers.push(setTimeout(res, SCAN_WINDOW_MS));
+    });
+
+    return collected;
+  };
 
   const discover = async (): Promise<void> => {
     cleanup();
