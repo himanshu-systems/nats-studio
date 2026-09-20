@@ -55,6 +55,7 @@ export function ConsumerLabView(): JSX.Element {
 
 function ConsumerLab({ connId }: { connId: string }): JSX.Element {
   const qc = useQueryClient();
+  const setView = useUiStore((s) => s.setView);
   const openLiveTail = useUiStore((s) => s.openLiveTail);
   const streams = useQuery({
     queryKey: streamsKey(connId),
@@ -225,6 +226,32 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
       {consumers.isError && <ErrorNote error={consumers.error} />}
       {fetch.isError && <ErrorNote error={fetch.error} />}
 
+      {consumerInfo && (
+        <Panel className="p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium text-content">{consumerInfo.name}</span>
+              <Badge tone={consumerInfo.isPull ? "neutral" : "warning"}>
+                {consumerInfo.isPull ? "Pull" : "Push"}
+              </Badge>
+              <Badge tone="neutral">Deliver: {consumerInfo.deliverPolicy}</Badge>
+              <Badge tone="neutral">Ack: {consumerInfo.ackPolicy}</Badge>
+              <span className="font-mono text-muted">
+                {consumerInfo.filterSubject ? `filter: ${consumerInfo.filterSubject}` : "(all subjects)"}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-muted">
+              <span>Ack floor: <strong className="tabular-nums text-content">#{consumerInfo.ackFloorStreamSeq}</strong></span>
+              <span>Last delivered: <strong className="tabular-nums text-content">#{consumerInfo.deliveredStreamSeq}</strong></span>
+              <span>Pending: <strong className="tabular-nums text-content">{consumerInfo.numPending}</strong></span>
+              {consumerInfo.numAckPending > 0 && (
+                <span>Un-acked: <strong className="tabular-nums text-warning">{consumerInfo.numAckPending}</strong></span>
+              )}
+            </div>
+          </div>
+        </Panel>
+      )}
+
       {messages.length === 0 ? (
         isPushConsumer ? (
           <EmptyState
@@ -243,15 +270,39 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
             hand you a batch on request; push consumers deliver on their own, and you read them by
             subscribing to that subject.
           </EmptyState>
-        ) : lastFetch !== null ? (
-          <EmptyState icon="beaker" title="Fetch completed — nothing came back">
-            Requested {lastFetch.requested}, received 0. Either nothing is pending right now, another
-            puller already claimed it, or the wait expired before anything arrived. Safe to try again.
+        ) : lastFetch !== null && lastFetch.received === 0 ? (
+          <EmptyState
+            icon="beaker"
+            title="Fetch completed — 0 messages returned"
+            action={
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" icon="inbox" onClick={() => setView("browser")}>
+                  Check stream in Message Browser
+                </Button>
+                <Button size="sm" icon="replay" onClick={() => fetch.mutate()} disabled={fetch.isPending}>
+                  Try fetching again
+                </Button>
+              </div>
+            }
+          >
+            Requested {lastFetch.requested}, received 0. Either nothing is pending right now for this consumer (all messages up to #{consumerInfo?.deliveredStreamSeq ?? 0} have been delivered), another puller claimed them, or the 2s wait expired.
           </EmptyState>
         ) : consumer !== null && pending === 0 ? (
-          <EmptyState icon="beaker" title="No pending messages">
-            Consumer “{consumer}” has nothing waiting to pull. Publish to its stream, or pick a
-            consumer that shows a pending count.
+          <EmptyState
+            icon="beaker"
+            title="No pending messages for this consumer"
+            action={
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" icon="inbox" onClick={() => setView("browser")}>
+                  View all stream messages in Message Browser
+                </Button>
+                <Button size="sm" icon="send" onClick={() => setView("publisher")}>
+                  Publish to stream
+                </Button>
+              </div>
+            }
+          >
+            Consumer “{consumer}” is caught up (ack floor #{consumerInfo?.ackFloorStreamSeq ?? 0}, last delivered #{consumerInfo?.deliveredStreamSeq ?? 0}). All existing messages matching filter “{consumerInfo?.filterSubject || "*"}” have been delivered. Publish a new message or check Message Browser to see stream history.
           </EmptyState>
         ) : (
           <EmptyState icon="beaker" title="No messages fetched yet">
@@ -301,7 +352,7 @@ function MessageRow({
     <Panel className={acted ? "space-y-3 p-4 opacity-60" : "space-y-3 p-4"}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <Badge tone="neutral">#{msg.streamSeq}</Badge>
+          <Badge tone="neutral">{msg.streamSeq > 0 ? `#${msg.streamSeq}` : "#—"}</Badge>
           <Badge tone={msg.numDelivered > 1 ? "warning" : "neutral"}>
             delivered ×{msg.numDelivered}
           </Badge>
@@ -310,6 +361,8 @@ function MessageRow({
         </div>
         {acted ? (
           <Badge tone={ACTED_TONE[acted]}>{ACTED_LABEL[acted]}</Badge>
+        ) : !msg.ackSubject ? (
+          <Badge tone="neutral">Ack not required</Badge>
         ) : (
           <div className="flex shrink-0 items-center gap-1.5">
             <Button size="sm" icon="check" onClick={() => onAct(msg, "ack")}>
