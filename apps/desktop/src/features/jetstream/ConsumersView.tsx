@@ -54,9 +54,10 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
     (stream, i) => (consumerQueries[i]?.data?.consumers ?? []).map((info) => ({ stream, info })),
   );
   const consumersLoading = streams.isLoading || consumerQueries.some((q) => q.isLoading);
-  const consumersFetching = consumerQueries.some((q) => q.isFetching);
+  const consumersFetching = streams.isFetching || consumerQueries.some((q) => q.isFetching);
   const firstConsumerError = consumerQueries.find((q) => q.isError)?.error;
   const refetchAll = (): void => {
+    void streams.refetch();
     consumerQueries.forEach((q) => void q.refetch());
   };
 
@@ -150,7 +151,7 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
               icon="replay"
               iconClassName={consumersFetching ? "animate-spin" : undefined}
               onClick={refetchAll}
-              disabled={streamNames.length === 0 || consumersFetching}
+              disabled={consumersFetching}
             >
               {consumersFetching ? "Refreshing…" : "Refresh"}
             </Button>

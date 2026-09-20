@@ -61,6 +61,11 @@ function Kv({ connId }: { connId: string }): JSX.Element {
     refetchInterval: LIST_REFETCH_MS,
   });
   const keyList = keys.data?.keys ?? [];
+  const isRefreshing = buckets.isFetching || keys.isFetching;
+  const refetchAll = (): void => {
+    void buckets.refetch();
+    if (bucket !== null) void keys.refetch();
+  };
 
   return (
     <SplitPane id="kv" className="h-full gap-4 p-4" initial={72} min={40} max={85} stackBelow={1024}>
@@ -83,10 +88,11 @@ function Kv({ connId }: { connId: string }): JSX.Element {
               size="sm"
               variant="outline"
               icon="replay"
-              onClick={() => void keys.refetch()}
-              disabled={bucket === null || keys.isFetching}
+              iconClassName={isRefreshing ? "animate-spin" : undefined}
+              onClick={refetchAll}
+              disabled={isRefreshing}
             >
-              {keys.isFetching ? "…" : "Refresh"}
+              {isRefreshing ? "Refreshing…" : "Refresh"}
             </Button>
           </div>
         </div>
@@ -361,10 +367,11 @@ function KeyDetail({
           size="sm"
           variant="outline"
           icon="replay"
+          iconClassName={entry.isFetching ? "animate-spin" : undefined}
           onClick={() => void entry.refetch()}
           disabled={entry.isFetching}
         >
-          Reload
+          {entry.isFetching ? "Reloading…" : "Reload"}
         </Button>
       </div>
       {save.isError && <p className="text-xs text-danger">{errorMessage(save.error)}</p>}

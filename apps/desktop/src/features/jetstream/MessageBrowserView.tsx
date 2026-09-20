@@ -93,6 +93,11 @@ function Browser({ connId }: { connId: string }): JSX.Element {
   };
 
   const selectedMsg = messages.find((m) => m.seq === selected) ?? null;
+  const isRefreshing = streams.isFetching || page.isFetching;
+  const refetchAll = (): void => {
+    void streams.refetch();
+    if (stream !== null) void page.refetch();
+  };
 
   return (
     <div className="grid h-full grid-rows-[auto_1fr] gap-4 overflow-hidden p-4">
@@ -117,10 +122,11 @@ function Browser({ connId }: { connId: string }): JSX.Element {
             size="sm"
             variant="outline"
             icon="replay"
-            onClick={() => void page.refetch()}
-            disabled={stream === null || page.isFetching}
+            iconClassName={isRefreshing ? "animate-spin" : undefined}
+            onClick={refetchAll}
+            disabled={isRefreshing}
           >
-            {page.isFetching ? "Refreshing…" : "Refresh"}
+            {isRefreshing ? "Refreshing…" : "Refresh"}
           </Button>
           <Button
             size="sm"

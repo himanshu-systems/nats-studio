@@ -72,6 +72,11 @@ export function MetricsView(): JSX.Element {
 
   const data = varz.data;
   const traffic = sumClientTraffic(connz.data);
+  const isRefreshing = varz.isFetching || connz.isFetching;
+  const refetchAll = (): void => {
+    void varz.refetch();
+    void connz.refetch();
+  };
 
   // Compute per-refresh rates from the delta against the previous sample.
   useEffect(() => {
@@ -117,10 +122,11 @@ export function MetricsView(): JSX.Element {
             size="sm"
             variant="outline"
             icon="replay"
-            onClick={() => void varz.refetch()}
-            disabled={varz.isFetching}
+            iconClassName={isRefreshing ? "animate-spin" : undefined}
+            onClick={refetchAll}
+            disabled={isRefreshing}
           >
-            {varz.isFetching ? "Refreshing…" : "Refresh"}
+            {isRefreshing ? "Refreshing…" : "Refresh"}
           </Button>
         </div>
       </div>

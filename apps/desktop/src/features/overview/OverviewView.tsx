@@ -148,6 +148,13 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
   const topStreams = [...items].sort((a, b) => b.state.bytes - a.state.bytes).slice(0, 6);
   const maxStreamBytes = Math.max(1, ...topStreams.map((s) => s.state.bytes));
 
+  const isRefreshing = streams.isFetching || varz.isFetching || connz.isFetching;
+  const refetchAll = (): void => {
+    void streams.refetch();
+    void varz.refetch();
+    void connz.refetch();
+  };
+
   const checks: { label: string; tone: "positive" | "warning" | "danger"; icon: string }[] = [
     connected ? { label: "Connected", tone: "positive", icon: "check" } : { label: meta.label, tone: "danger", icon: "x" },
     info?.jetstream ? { label: "JetStream", tone: "positive", icon: "check" } : { label: "No JetStream", tone: "warning", icon: "alert" },
@@ -175,12 +182,24 @@ function Dashboard({ connId }: { connId: string }): JSX.Element {
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {checks.map((c) => (
-              <Badge key={c.label} tone={c.tone}>
-                <Icon name={c.icon} size={12} /> {c.label}
-              </Badge>
-            ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap gap-1.5">
+              {checks.map((c) => (
+                <Badge key={c.label} tone={c.tone}>
+                  <Icon name={c.icon} size={12} /> {c.label}
+                </Badge>
+              ))}
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              icon="replay"
+              iconClassName={isRefreshing ? "animate-spin" : undefined}
+              onClick={refetchAll}
+              disabled={isRefreshing}
+            >
+              {isRefreshing ? "Refreshing…" : "Refresh"}
+            </Button>
           </div>
         </div>
         {active?.lastError && <p className="mt-3 rounded-lg border border-danger/25 bg-danger/10 px-3 py-2 text-xs text-danger">{active.lastError}</p>}

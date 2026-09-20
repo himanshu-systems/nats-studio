@@ -60,8 +60,18 @@ function ProfilesPanel(): JSX.Element {
 
   return (
     <section className="flex min-h-0 flex-col bg-surface">
-      <div className="px-4 pt-4">
+      <div className="flex items-center justify-between px-4 pt-4">
         <SectionLabel>Connection profiles</SectionLabel>
+        <Button
+          size="sm"
+          variant="outline"
+          icon="replay"
+          iconClassName={profiles.isFetching ? "animate-spin" : undefined}
+          onClick={() => void profiles.refetch()}
+          disabled={profiles.isFetching}
+        >
+          {profiles.isFetching ? "Refreshing…" : "Refresh"}
+        </Button>
       </div>
       <div className="min-h-0 flex-1 space-y-2 overflow-auto p-4">
         {profiles.data?.profiles.length === 0 && (
@@ -367,8 +377,18 @@ function ConnectionsPanel(): JSX.Element {
 
   return (
     <section className="flex min-h-0 flex-col">
-      <div className="px-4 pt-4">
+      <div className="flex items-center justify-between px-4 pt-4">
         <SectionLabel>Active connections</SectionLabel>
+        <Button
+          size="sm"
+          variant="outline"
+          icon="replay"
+          iconClassName={connections.isFetching ? "animate-spin" : undefined}
+          onClick={() => void connections.refetch()}
+          disabled={connections.isFetching}
+        >
+          {connections.isFetching ? "Refreshing…" : "Refresh"}
+        </Button>
       </div>
       <div className="min-h-0 flex-1 space-y-2.5 overflow-auto p-4">
         {items.length === 0 ? (

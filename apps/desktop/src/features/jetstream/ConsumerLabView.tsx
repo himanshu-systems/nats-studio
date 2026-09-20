@@ -80,6 +80,11 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
   const consumerInfo = consumerList.find((c) => c.name === consumer) ?? null;
   const pending = consumerInfo?.numPending ?? null;
   const isPushConsumer = consumerInfo !== null && !consumerInfo.isPull;
+  const isRefreshing = streams.isFetching || consumers.isFetching;
+  const refetchAll = (): void => {
+    void streams.refetch();
+    if (stream) void consumers.refetch();
+  };
   const refreshConsumers = (): void => {
     void qc.invalidateQueries({ queryKey: consumersKey(connId, stream ?? "") });
   };
@@ -182,6 +187,16 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
             disabled={consumerList.length === 0}
             placeholder="No consumers"
           />
+          <Button
+            size="sm"
+            variant="outline"
+            icon="replay"
+            iconClassName={isRefreshing ? "animate-spin" : undefined}
+            onClick={refetchAll}
+            disabled={isRefreshing}
+          >
+            {isRefreshing ? "Refreshing…" : "Refresh"}
+          </Button>
           {consumer && isPushConsumer && <Badge tone="warning">push consumer</Badge>}
           {consumer && !isPushConsumer && pending != null && (
             <Badge tone={pending > 0 ? "positive" : "neutral"}>{pending} pending</Badge>

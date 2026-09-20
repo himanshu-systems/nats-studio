@@ -93,11 +93,23 @@ function SavedRequests({ connId }: { connId: string }): JSX.Element {
     <div className="h-full space-y-3 overflow-auto p-4">
       <div className="flex items-center justify-between">
         <SectionLabel>Saved requests{requests.length > 0 ? ` (${requests.length})` : ""}</SectionLabel>
-        {!creating && (
-          <Button size="sm" icon="plus" onClick={() => setCreating(true)}>
-            New template
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            icon="replay"
+            iconClassName={list.isFetching ? "animate-spin" : undefined}
+            onClick={() => void list.refetch()}
+            disabled={list.isFetching}
+          >
+            {list.isFetching ? "Refreshing…" : "Refresh"}
           </Button>
-        )}
+          {!creating && (
+            <Button size="sm" icon="plus" onClick={() => setCreating(true)}>
+              New template
+            </Button>
+          )}
+        </div>
       </div>
 
       {list.isError && <ErrorNote error={list.error} />}

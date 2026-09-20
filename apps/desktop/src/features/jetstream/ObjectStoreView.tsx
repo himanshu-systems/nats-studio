@@ -111,6 +111,11 @@ function ObjectStore({ connId }: { connId: string }): JSX.Element {
   });
   const objectList = objects.data?.objects ?? [];
   const selectedObject = objectList.find((o) => o.name === selected) ?? null;
+  const isRefreshing = buckets.isFetching || objects.isFetching;
+  const refetchAll = (): void => {
+    void buckets.refetch();
+    if (bucket !== null) void objects.refetch();
+  };
 
   const fileRef = useRef<HTMLInputElement>(null);
   const upload = useMutation({
@@ -202,10 +207,11 @@ function ObjectStore({ connId }: { connId: string }): JSX.Element {
               size="sm"
               variant="outline"
               icon="replay"
-              onClick={() => void objects.refetch()}
-              disabled={bucket === null || objects.isFetching}
+              iconClassName={isRefreshing ? "animate-spin" : undefined}
+              onClick={refetchAll}
+              disabled={isRefreshing}
             >
-              {objects.isFetching ? "…" : "Refresh"}
+              {isRefreshing ? "Refreshing…" : "Refresh"}
             </Button>
           </div>
         </div>

@@ -369,7 +369,7 @@ function Services({ connId }: { connId: string }): JSX.Element {
             </Badge>
           )}
         </div>
-        <Button icon="grid" onClick={() => void discover()} disabled={scanning}>
+        <Button icon="grid" iconClassName={scanning ? "animate-spin" : undefined} onClick={() => void discover()} disabled={scanning}>
           {scanning ? "Scanning…" : "Discover"}
         </Button>
       </div>
