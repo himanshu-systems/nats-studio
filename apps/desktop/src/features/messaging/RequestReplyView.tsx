@@ -219,7 +219,7 @@ function RequestReply({ connId }: { connId: string }): JSX.Element {
           />
         </label>
         <div className="flex items-center gap-3 pt-1">
-          <Button icon="swap" onClick={() => request.mutate()} disabled={request.isPending || subject.trim() === ""}>
+          <Button icon="swap" iconClassName={request.isPending ? "animate-spin" : undefined} onClick={() => request.mutate()} disabled={request.isPending || subject.trim() === ""}>
             {request.isPending ? "Awaiting reply…" : "Send request"}
           </Button>
           {request.isError && <span className="text-xs text-danger">{errorMessage(request.error)}</span>}
