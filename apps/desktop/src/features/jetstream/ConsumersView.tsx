@@ -64,7 +64,10 @@ function Consumers({ connId }: { connId: string }): JSX.Element {
   const remove = useMutation({
     mutationFn: ({ stream, name }: { stream: string; name: string }) =>
       ipc.jetstream.deleteConsumer({ connectionId: connId, streamName: stream, name }),
-    onSettled: (_data, _err, vars) => qc.invalidateQueries({ queryKey: consumersKey(connId, vars.stream) }),
+    onSettled: (_data, _err, vars) => {
+      void qc.invalidateQueries({ queryKey: consumersKey(connId, vars.stream) });
+      void qc.invalidateQueries({ queryKey: streamsKey(connId) });
+    },
   });
 
   const confirm = useConfirm();
@@ -313,6 +316,7 @@ function CreateConsumerForm({
       setMaxDeliver("");
       setAckWaitSec("");
       void qc.invalidateQueries({ queryKey: consumersKey(connId, stream ?? "") });
+      void qc.invalidateQueries({ queryKey: streamsKey(connId) });
     },
   });
 

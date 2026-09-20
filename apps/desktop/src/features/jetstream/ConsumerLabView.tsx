@@ -94,6 +94,7 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
   const [messages, setMessages] = useState<FetchedMessageDto[]>([]);
   const [acted, setActed] = useState<Record<number, AckAction>>({});
   const [actErrors, setActErrors] = useState<Record<number, unknown>>({});
+  const [actingSeq, setActingSeq] = useState<number | null>(null);
   const [lastFetch, setLastFetch] = useState<{ requested: number; received: number } | null>(null);
 
   const pickStream = (v: string | null): void => {
@@ -150,6 +151,7 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
 
   const act = (msg: FetchedMessageDto, action: AckAction): void => {
     if (!msg.ackSubject) return;
+    setActingSeq(msg.streamSeq);
     setActErrors((e) => {
       if (!(msg.streamSeq in e)) return e;
       const next = { ...e };
@@ -165,6 +167,9 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
         },
         onError: (err) => {
           setActErrors((e) => ({ ...e, [msg.streamSeq]: err }));
+        },
+        onSettled: () => {
+          setActingSeq(null);
         },
       },
     );
@@ -324,6 +329,7 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
               key={`${m.streamSeq}-${i}`}
               msg={m}
               acted={acted[m.streamSeq]}
+              acting={actingSeq === m.streamSeq}
               error={actErrors[m.streamSeq]}
               onAct={act}
             />
@@ -344,11 +350,13 @@ const ACTED_TONE: Record<AckAction, "positive" | "warning" | "danger"> = {
 function MessageRow({
   msg,
   acted,
+  acting,
   error,
   onAct,
 }: {
   msg: FetchedMessageDto;
   acted: AckAction | undefined;
+  acting?: boolean;
   error: unknown;
   onAct: (msg: FetchedMessageDto, action: AckAction) => void;
 }): JSX.Element {
@@ -372,16 +380,17 @@ function MessageRow({
           <Badge tone="neutral">Ack not required</Badge>
         ) : (
           <div className="flex shrink-0 items-center gap-1.5">
-            <Button size="sm" icon="check" onClick={() => onAct(msg, "ack")}>
+            <Button size="sm" icon="check" onClick={() => onAct(msg, "ack")} disabled={acting}>
               Ack
             </Button>
-            <Button size="sm" variant="outline" icon="alert" onClick={() => onAct(msg, "nak")}>
+            <Button size="sm" variant="outline" icon="alert" onClick={() => onAct(msg, "nak")} disabled={acting}>
               Nak
             </Button>
             <Button
               size="sm"
               variant="danger"
               icon="x"
+              disabled={acting}
               onClick={() => {
                 void confirm({
                   title: `Terminate message #${msg.streamSeq}?`,
