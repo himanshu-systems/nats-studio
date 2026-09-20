@@ -100,10 +100,16 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
     setPickedStream(v);
     setPickedConsumer(null);
     setLastFetch(null);
+    setMessages([]);
+    setActed({});
+    setActErrors({});
   };
   const pickConsumer = (v: string | null): void => {
     setPickedConsumer(v);
     setLastFetch(null);
+    setMessages([]);
+    setActed({});
+    setActErrors({});
   };
 
   const fetch = useMutation({
@@ -143,6 +149,7 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
   });
 
   const act = (msg: FetchedMessageDto, action: AckAction): void => {
+    if (!msg.ackSubject) return;
     setActErrors((e) => {
       if (!(msg.streamSeq in e)) return e;
       const next = { ...e };
@@ -312,9 +319,9 @@ function ConsumerLab({ connId }: { connId: string }): JSX.Element {
         )
       ) : (
         <ul className="space-y-2.5">
-          {messages.map((m) => (
+          {messages.map((m, i) => (
             <MessageRow
-              key={m.streamSeq}
+              key={`${m.streamSeq}-${i}`}
               msg={m}
               acted={acted[m.streamSeq]}
               error={actErrors[m.streamSeq]}

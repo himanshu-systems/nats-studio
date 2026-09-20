@@ -592,10 +592,12 @@ function ConsumerCard({
           className="shrink-0"
         />
       </div>
-      <dl className="mt-3 grid grid-cols-3 gap-x-4 gap-y-1 border-t border-border/60 pt-3 text-xs">
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border/60 pt-3 text-xs sm:grid-cols-5">
         <Metric label="Pending" value={(info.numPending ?? 0).toLocaleString()} />
         <Metric label="Ack pending" value={(info.numAckPending ?? 0).toLocaleString()} />
         <Metric label="Redelivered" value={(info.numRedelivered ?? 0).toLocaleString()} />
+        <Metric label="Ack floor" value={`#${(info.ackFloorStreamSeq ?? 0).toLocaleString()}`} />
+        <Metric label="Last delivered" value={`#${(info.deliveredStreamSeq ?? 0).toLocaleString()}`} />
       </dl>
     </Panel>
   );
